@@ -65,7 +65,7 @@ Python 3.12 or newer, no runtime dependencies. The two judges shell out to the `
 
 ```yaml
 repos:
-  - repo: https://github.com/…/triviajudge
+  - repo: https://github.com/ohshitgorillas/triviajudge
     rev: v0.1.0
     hooks:
       - id: archaeology

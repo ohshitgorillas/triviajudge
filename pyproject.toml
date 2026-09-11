@@ -4,7 +4,13 @@ version = "0.1.0"
 description = "Gates that hold added markdown and comments to what holds now, not what happened"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
+readme = "README.md"
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ohshitgorillas/triviajudge"
+Source = "https://github.com/ohshitgorillas/triviajudge"
+Changelog = "https://github.com/ohshitgorillas/triviajudge/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["pytest"]
