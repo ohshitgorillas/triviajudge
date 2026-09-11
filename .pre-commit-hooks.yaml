@@ -1,0 +1,18 @@
+- id: md-trivia
+  name: markdown states what holds now (LLM judge)
+  description: Judge every markdown line a commit adds; flag text that narrates history.
+  entry: triviajudge-md
+  language: python
+  files: \.md$
+
+- id: comment-trivia
+  name: comments state what holds now (LLM judge)
+  description: Screen added comments and docstrings, then judge what the screen leaves.
+  entry: triviajudge-comments
+  language: python
+
+- id: archaeology
+  name: decision-archaeology gate
+  description: Refuse comments that narrate what the code was, by pattern. No model call.
+  entry: triviajudge-archaeology
+  language: python

@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# The clean-line cache is per-checkout state, not a fact about the code.
+.triviajudge/

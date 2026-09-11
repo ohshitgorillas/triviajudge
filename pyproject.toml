@@ -1,0 +1,36 @@
+[project]
+name = "triviajudge"
+version = "0.1.0"
+description = "Gates that hold added markdown and comments to what holds now, not what happened"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+triviajudge-md = "triviajudge.md_trivia:main"
+triviajudge-comments = "triviajudge.comment_trivia:main"
+triviajudge-archaeology = "triviajudge.archaeology:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["triviajudge"]
+
+# This repository judged by its own gates. The three gate modules spell the
+# trivia rules out in prose, which the judge reads as a restatement of its own
+# rules, so every edit to them would flag.
+[tool.triviajudge]
+comment_skip = [
+    "triviajudge/md_trivia.py",
+    "triviajudge/comment_trivia.py",
+    "triviajudge/archaeology.py",
+]
+excluded = ["tests/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
