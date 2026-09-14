@@ -30,7 +30,9 @@ Usage:
   ``stop_hook_active`` set has already been through this and passes without a
   call. A line the judge has passed is remembered by hash in the clean-line
   cache and never sent again, so a turn that adds no new markdown line makes no
-  call at all, and one that adds a few sends a few. The commit and HEAD modes
+  call at all, and one that adds a few sends a few. The sweep's own
+  ``sweep-clean.json`` is read beside that cache, so a line a whole-tree sweep
+  passed is a line this mode does not send either. The commit and HEAD modes
   take no cache; they are the gate.
 """
 
@@ -41,11 +43,11 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from triviajudge.config import cache_path, settings
+from triviajudge.config import SWEEP_CACHE, cache_path, settings
 from triviajudge.core import (
     Gate,
     Line,
-    NotARepository,
+    NotARepositoryError,
     added_lines,
     clean_cache,
     digest,
@@ -122,6 +124,13 @@ TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{2,}")
 CACHE_NAME = "md-trivia-clean.json"
 
 
+def wordless(line: Line, fenced: set[str]) -> bool:
+    """Whether a line carries no prose to judge: fenced code, blank, heading or table rule."""
+    if line.path in fenced or not line.text.strip():
+        return True
+    return bool(HEADING.match(line.text) or TABLE_RULE.match(line.text))
+
+
 def prose_only(lines: list[Line]) -> list[Line]:
     """Drop lines that carry no prose: blank, heading, table rule, fenced code, skipped files."""
     skip = settings().md_skip
@@ -133,11 +142,8 @@ def prose_only(lines: list[Line]) -> list[Line]:
         if FENCE.match(line.text):
             fenced ^= {line.path}
             continue
-        if line.path in fenced or not line.text.strip():
-            continue
-        if HEADING.match(line.text) or TABLE_RULE.match(line.text):
-            continue
-        out.append(line)
+        if not wordless(line, fenced):
+            out.append(line)
     return out
 
 
@@ -155,7 +161,7 @@ def collect(args: argparse.Namespace) -> tuple[list[Line], list[str]]:
     if args.stop:
         if stop_already_ran():
             return [], []
-        seen = set(clean_cache(cache_path(CACHE_NAME)))
+        seen = set(clean_cache(cache_path(CACHE_NAME))) | set(clean_cache(cache_path(SWEEP_CACHE)))
         return [line for line in prose_only(worktree_lines()) if digest(line) not in seen], []
     if args.lines:
         return prose_only(from_records(Path(args.lines))), []
@@ -166,9 +172,9 @@ def collect(args: argparse.Namespace) -> tuple[list[Line], list[str]]:
     return prose_only(added_lines(git_diff("--cached", "--", *args.files))), []
 
 
-def gate(cache: Path | None) -> Gate:
+def gate(cache: Path | None, *, judge_at_stop: bool = True) -> Gate:
     """The markdown gate, given where it may remember the lines the judge passed."""
-    return Gate(PROMPT, collect, "[ok] no markdown prose added", judge_at_stop=True, cache=cache)
+    return Gate(PROMPT, collect, "[ok] no markdown prose added", judge_at_stop=judge_at_stop, cache=cache)
 
 
 def main() -> int:
@@ -176,10 +182,11 @@ def main() -> int:
     args = parse_args(__doc__ or "", "markdown files")
     try:
         cache = cache_path(CACHE_NAME) if args.stop else None
-    except NotARepository as exc:
+        at_stop = settings().md_judge_at_stop
+    except NotARepositoryError as exc:
         print(f"trivia judge: {exc}", file=sys.stderr)
         return 2 if args.stop else 1
-    return run(args, gate(cache))
+    return run(args, gate(cache, judge_at_stop=at_stop))
 
 
 if __name__ == "__main__":

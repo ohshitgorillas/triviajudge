@@ -7,3 +7,7 @@ dist/
 
 # The clean-line cache is per-checkout state, not a fact about the code.
 .triviajudge/
+.coverage
+.coverage.json
+.ruff_cache/
+.mypy_cache/

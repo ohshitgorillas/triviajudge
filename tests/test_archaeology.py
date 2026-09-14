@@ -20,11 +20,13 @@ pins.
 The seam is ``check_file(path) -> list[str]``.
 """
 
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from triviajudge import archaeology as GATE
+from triviajudge.core import NotARepositoryError
 
 CHECK_FILE = GATE.check_file
 
@@ -230,3 +232,85 @@ def test_measurement_archaeology_carrying_a_history_ok_reason_is_allowed(tmp_pat
 def test_as_it_always_was_carrying_a_history_ok_reason_is_allowed(tmp_path: Path) -> None:
     comment = py_comment(f"the lane returns the staged model, as it always was  {A_REASON}")
     assert not refuses(tmp_path, "sample.py", comment)
+
+
+# --- added behavior: each suffix is read the way its comments are written -----
+
+
+DATED = "added 2025-11-04 for the resampler panel"
+
+MULTILINE_BLOCK = f"value = 1;\n/* the panel model,\n   {DATED}\n   and the lane result */\nvalue = 2;\n"
+
+LINE_COMMENT_AFTER_BLOCK = f"/* the panel model */ value = 1;  // {DATED}\n"
+
+
+def test_a_block_comment_spanning_lines_is_read_to_its_close(tmp_path: Path) -> None:
+    assert len(complaints_for(tmp_path, "sample.js", MULTILINE_BLOCK)) == 1
+
+
+def test_a_line_comment_after_a_closed_block_is_read_in_javascript(tmp_path: Path) -> None:
+    assert len(complaints_for(tmp_path, "sample.js", LINE_COMMENT_AFTER_BLOCK)) == 1
+
+
+def test_a_line_comment_is_not_a_comment_in_css(tmp_path: Path) -> None:
+    assert complaints_for(tmp_path, "sample.css", f"// {DATED}\n") == []
+
+
+def test_a_suffix_with_no_comment_syntax_is_read_whole(tmp_path: Path) -> None:
+    assert len(complaints_for(tmp_path, "notes.txt", f"the panel model\n{DATED}\n")) == 1
+
+
+# --- added behavior: the file list mode skips the modules holding the rules ----
+
+
+def test_a_named_file_outside_the_rule_holders_is_checked(tmp_path: Path) -> None:
+    path = tmp_path / "sample.py"
+    path.write_text(py_comment(DATED), encoding="utf-8")
+    assert len(GATE.checked([str(path)])) == 1
+
+
+def test_a_rule_holding_module_is_not_checked(tmp_path: Path) -> None:
+    path = tmp_path / "archaeology.py"
+    path.write_text(py_comment(DATED), encoding="utf-8")
+    assert GATE.checked([str(path)]) == []
+
+
+def test_a_name_that_is_no_file_is_checked_as_nothing(tmp_path: Path) -> None:
+    assert GATE.checked([str(tmp_path / "absent.py")]) == []
+
+
+def test_the_file_list_mode_refuses_a_dated_comment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "sample.py"
+    path.write_text(py_comment(DATED), encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["triviajudge-archaeology", str(path)])
+    assert GATE.main() == 1
+
+
+# --- added behavior: a file git cannot speak for is read whole ----------------
+
+
+def test_a_path_git_refuses_to_list_is_read_as_entirely_added(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*_args: str) -> str:
+        raise subprocess.CalledProcessError(1, "git")
+
+    monkeypatch.setattr("triviajudge.archaeology.git", refuse)
+    assert GATE.added("src/sample.py") is None
+
+
+def test_a_payload_naming_a_file_outside_the_work_tree_is_passed(monkeypatch: pytest.MonkeyPatch) -> None:
+    def outside() -> Path:
+        raise NotARepositoryError("no git work tree")
+
+    monkeypatch.setattr("triviajudge.archaeology.root", outside)
+    assert GATE.added_complaints({"tool_input": {"file_path": "src/sample.py"}}) == []
+
+
+def test_a_file_that_does_not_parse_is_named_and_passed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / "sample.py"
+    path.write_text("def broken(\n", encoding="utf-8")
+    monkeypatch.setattr("triviajudge.archaeology.root", lambda: tmp_path)
+    monkeypatch.setattr("triviajudge.archaeology.added", lambda _rel: None)
+    GATE.added_complaints({"tool_input": {"file_path": str(path)}})
+    assert "not read" in capsys.readouterr().err

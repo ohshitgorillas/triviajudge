@@ -23,13 +23,22 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from functools import cache
-from pathlib import Path
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from pathlib import Path
 
 #: Where a repository may state its table, in the order they are tried.
 SOURCES = ("pyproject.toml", ".triviajudge.toml")
 
 #: The table key inside ``pyproject.toml``; a ``.triviajudge.toml`` holds the keys at its top level.
 SECTION = ("tool", "triviajudge")
+
+#: The cache a ``triviajudge-sweep --baseline`` run writes, read by the markdown gate at
+#: ``Stop`` beside its own. It is named here rather than in ``sweep`` so the gate can read
+#: it without importing the sweep, which imports the gate.
+SWEEP_CACHE = "sweep-clean.json"
 
 
 @dataclass(frozen=True)
@@ -48,6 +57,20 @@ class Settings:
     cache_dir: str = ".triviajudge"
     #: The model the judge asks.
     model: str = "claude-haiku-4-5"
+    #: Lines per CLI call in a sweep. One call carries every line it is given, so the batch
+    #: size is what keeps a whole-tree run from riding on a single call.
+    sweep_batch: int = 150
+    #: Concurrent CLI calls in a sweep. One by default; a sweep caps whatever it is given at
+    #: half the cores of the host it runs on.
+    sweep_parallel: int = 1
+    #: The model a sweep asks. Separate from ``model`` because a sweep asks it thousands of
+    #: times over prose nobody is waiting on, and a gate asks it once on a commit.
+    sweep_model: str = "claude-haiku-4-5"
+    #: Whether the markdown judge runs at ``Stop``. False makes that hook a no-op: markdown
+    #: has no pattern screen, so the model call is the whole gate there. A repository that
+    #: will not spend a nested call on every turn that adds markdown turns it off, and keeps
+    #: the commit and HEAD modes, which judge the same lines on finished work.
+    md_judge_at_stop: bool = True
 
 
 def _table(start: Path) -> dict[str, object]:
@@ -82,9 +105,9 @@ def read(start: Path) -> Settings:
     for name, value in table.items():
         default = getattr(Settings(), name)
         if isinstance(default, frozenset):
-            given[name] = frozenset(value)  # type: ignore[call-overload]
+            given[name] = frozenset(cast("Iterable[str]", value))
         elif isinstance(default, tuple):
-            given[name] = tuple(value)  # type: ignore[call-overload]
+            given[name] = tuple(cast("Iterable[str]", value))
         else:
             given[name] = value
     return Settings(**given)  # type: ignore[arg-type]
@@ -93,13 +116,13 @@ def read(start: Path) -> Settings:
 @cache
 def settings() -> Settings:
     """The table for the repository the current directory sits in."""
-    from triviajudge.core import root
+    from triviajudge.core import root  # noqa: PLC0415 — core reads this table, so the import lands at call time
 
     return read(root())
 
 
 def cache_path(name: str) -> Path:
     """Absolute path of one clean-line cache file inside the judged repository."""
-    from triviajudge.core import root
+    from triviajudge.core import root  # noqa: PLC0415 — core reads this table, so the import lands at call time
 
     return root() / settings().cache_dir / name

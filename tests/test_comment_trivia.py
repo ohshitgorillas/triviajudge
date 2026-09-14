@@ -17,6 +17,7 @@ handed over, never by wording the gate composes: a block candidate carries all
 three of its block's markers, a per-line candidate carries one.
 """
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -25,8 +26,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import coverage_environment
 
 from triviajudge import comment_trivia as GATE
+from triviajudge.archaeology import PRAGMA
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -135,6 +138,7 @@ def child_environment(tmp_path: Path) -> dict[str, str]:
     home = tmp_path / "home"
     home.mkdir(exist_ok=True)
     return {
+        **coverage_environment(),
         "PATH": str(bin_dir),
         "HOME": str(home),
         "LC_ALL": "C",
@@ -242,3 +246,94 @@ def test_the_exit_code_over_a_staged_file_with_no_judge_binary_on_path(
     tmp_path: Path, source: str, flags: list[str], code: int
 ) -> None:
     assert gate_exit_code(tmp_path, source, flags) == code
+
+
+# --- behavior 4: a suffix that is not Python is read as block comments --------
+
+
+JS_SOURCE = "/* NOVEMBER the panel model */\nvalue = 1;  // OSCAR the lane result\n"
+
+BROKEN_PYTHON = "def helper(\n"
+
+BARE_PRAGMA_COMMENT = f"value = 1  # PAPA {PRAGMA}\n"
+
+MARKDOWN_DIFF = (
+    "diff --git a/notes.md b/notes.md\n--- a/notes.md\n+++ b/notes.md\n@@ -0,0 +1 @@\n+the panel holds the rate\n"
+)
+
+PYTHON_DIFF = (
+    "diff --git a/src/sample.py b/src/sample.py\n"
+    "--- a/src/sample.py\n"
+    "+++ b/src/sample.py\n"
+    "@@ -0,0 +1 @@\n"
+    "+value = 1  # QUEBEC the lane result\n"
+)
+
+
+def test_a_javascript_comment_arrives_as_a_candidate() -> None:
+    cands = CANDIDATES("src/sample.js", JS_SOURCE, every_line_of(JS_SOURCE))
+    assert [cand.number for cand in cands] == [1, 2]
+
+
+def test_a_file_that_does_not_parse_is_named_and_costs_the_run_nothing(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    GATE.parsed(SAMPLE_PATH, BROKEN_PYTHON, every_line_of(BROKEN_PYTHON))
+    assert "does not parse" in capsys.readouterr().err
+
+
+def test_a_pragma_with_no_reason_is_refused_by_the_screen() -> None:
+    _kept, complaints = SCREEN(list(CANDIDATES(SAMPLE_PATH, BARE_PRAGMA_COMMENT, every_line_of(BARE_PRAGMA_COMMENT))))
+    assert "needs a reason" in complaints[0]
+
+
+# --- behavior 5: only the files this gate reads reach the judge ---------------
+
+
+def test_a_path_outside_the_suffixes_is_not_read_out_of_a_diff() -> None:
+    assert GATE.added_by_path(MARKDOWN_DIFF) == {}
+
+
+def test_a_revision_that_does_not_carry_the_file_reads_as_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*_args: str) -> str:
+        raise subprocess.CalledProcessError(1, "git")
+
+    monkeypatch.setattr("triviajudge.comment_trivia.git", refuse)
+    assert GATE.blob("HEAD", SAMPLE_PATH) == ""
+
+
+# --- behavior 6: each input mode reads the lines it names --------------------
+
+
+def namespace(**overrides: object) -> Any:
+    """The arguments a gate run carries, with every mode the flags leave alone switched off."""
+    args: dict[str, object] = {"stop": False, "lines": None, "head": False, "files": []}
+    return argparse.Namespace(**{**args, **overrides})
+
+
+def test_the_records_mode_judges_the_lines_the_file_addresses(tmp_path: Path) -> None:
+    records = tmp_path / "lines.tsv"
+    records.write_text(f"{SAMPLE_PATH}:1\tROMEO the lane result\n", encoding="utf-8")
+    kept, _complaints = GATE.collect(namespace(lines=str(records)))
+    assert [cand.id for cand in kept] == [f"{SAMPLE_PATH}:1"]
+
+
+def test_the_head_mode_judges_what_the_last_commit_added(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triviajudge.comment_trivia.git_diff", lambda *_args: PYTHON_DIFF)
+    monkeypatch.setattr("triviajudge.comment_trivia.blob", lambda _rev, _path: "value = 1  # QUEBEC the lane result\n")
+    kept, _complaints = GATE.collect(namespace(head=True))
+    assert [cand.id for cand in kept] == [f"{SAMPLE_PATH}:1"]
+
+
+def test_a_commit_naming_only_files_this_gate_skips_judges_nothing() -> None:
+    assert GATE.collect(namespace(files=["notes.md"])) == ([], [])
+
+
+def test_the_working_tree_mode_reads_an_untracked_file_whole(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = tmp_path / SAMPLE_PATH
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("value = 1  # SIERRA the lane result\n", encoding="utf-8")
+    monkeypatch.setattr("triviajudge.comment_trivia.git_diff", lambda *_args: "")
+    monkeypatch.setattr("triviajudge.comment_trivia.git", lambda *_args: SAMPLE_PATH)
+    monkeypatch.setattr("triviajudge.comment_trivia.root", lambda: tmp_path)
+    assert [cand.id for cand in GATE.worktree_candidates()] == [f"{SAMPLE_PATH}:1"]

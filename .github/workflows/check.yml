@@ -1,0 +1,39 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor `requires-python` admits, and the version the development
+        # host runs. Both are checked, because a package that claims 3.12 and is
+        # only ever run on 3.14 claims something nobody has tested.
+        python-version: ["3.12", "3.14"]
+    steps:
+      # Full history, not a shallow clone: the Makefile enumerates the
+      # archaeology gate's inputs with `git ls-files`.
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # The Makefile hardcodes .venv/bin, so CI builds the same venv layout a
+      # dev host has rather than reaching for a system interpreter.
+      - name: install
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -e ".[dev]"
+
+      # `make check` is the offline half: the two LLM judges live in `make
+      # trivia`, which needs a logged-in claude CLI that CI does not have.
+      - name: make check
+        run: make check

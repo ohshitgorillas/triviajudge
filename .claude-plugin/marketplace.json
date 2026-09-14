@@ -1,0 +1,17 @@
+{
+  "name": "triviajudge",
+  "owner": {
+    "name": "Atom"
+  },
+  "metadata": {
+    "description": "The Trivia Judge gates, as a Claude Code plugin.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "triviajudge",
+      "source": "./",
+      "description": "Hold added markdown and comments to what holds now, rather than what happened."
+    }
+  ]
+}

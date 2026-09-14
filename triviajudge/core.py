@@ -38,10 +38,16 @@ if TYPE_CHECKING:
 
 CACHE_CAP = 20000
 
+#: Set in the environment of the judge's own ``claude`` call, and read by any gate the
+#: inner session's hooks start. The inner session runs in the same working directory as
+#: the outer one, so without it a hook mode that shells out to the CLI re-enters itself.
+#: ``stop_hook_active`` cannot serve here: it marks the outer turn, not the inner process.
+INNER = "TRIVIAJUDGE_INNER"
+
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
-class NotARepository(RuntimeError):
+class NotARepositoryError(RuntimeError):
     """Raised when the working directory is in no git work tree."""
 
 
@@ -59,6 +65,11 @@ class Line:
         return f"{self.path}:{self.number}"
 
 
+def inner_session() -> bool:
+    """Whether this process runs under a judge's own ``claude`` call, where a hook mode does nothing."""
+    return bool(os.environ.get(INNER))
+
+
 def binary(name: str) -> str:
     """Absolute path of a tool on PATH, or a RuntimeError naming what is missing."""
     path = shutil.which(name)
@@ -69,11 +80,11 @@ def binary(name: str) -> str:
 
 @cache
 def root() -> Path:
-    """The work tree the current directory sits in, or a NotARepository naming that it does not."""
+    """The work tree the current directory sits in, or a NotARepositoryError naming that it does not."""
     cmd = [binary("git"), "rev-parse", "--show-toplevel"]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
     if proc.returncode != 0:
-        raise NotARepository(f"{Path.cwd()} is in no git work tree; every input mode reads git objects")
+        raise NotARepositoryError(f"{Path.cwd()} is in no git work tree; every input mode reads git objects")
     return Path(proc.stdout.strip())
 
 
@@ -116,15 +127,42 @@ def from_records(path: Path) -> list[Line]:
     return out
 
 
-def ask(lines: list[Line], prompt: str) -> list[dict[str, str]]:
-    """One CLI call for every line; the parsed JSON array it answers with."""
+def ask(lines: list[Line], prompt: str, model: str | None = None, timeout: float | None = None) -> list[dict[str, str]]:
+    """One CLI call for every line; the parsed JSON array it answers with.
+
+    ``model`` overrides the configured one, for a caller that asks a different
+    judge than the gates do. ``timeout`` kills a call that never answers and
+    reports it as a failure, for a caller that makes many calls and must not
+    wait on one of them forever.
+    """
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+    env[INNER] = "1"
     body = prompt + "\n\nLINES:\n" + "\n".join(f"{line.id}\t{line.text}" for line in lines)
-    cmd = [
+    try:
+        proc = subprocess.run(  # noqa: S603
+            judge_argv(model),
+            input=body,
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=root(),
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"claude did not answer within {timeout}s") from exc
+    if proc.returncode != 0:
+        raise RuntimeError(f"claude exited {proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}")
+    return parsed(proc.stdout)
+
+
+def judge_argv(model: str | None) -> list[str]:
+    """The CLI call the judge is asked with: one turn, no tools, no settings, JSON out."""
+    return [
         binary("claude"),
         "-p",
         "--model",
-        settings().model,
+        model or settings().model,
         "--tools",
         "",
         "--setting-sources",
@@ -133,14 +171,14 @@ def ask(lines: list[Line], prompt: str) -> list[dict[str, str]]:
         "--output-format",
         "json",
     ]
-    proc = subprocess.run(cmd, input=body, capture_output=True, text=True, env=env, cwd=root(), check=False)  # noqa: S603
-    if proc.returncode != 0:
-        raise RuntimeError(f"claude exited {proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}")
-    envelope = json.loads(proc.stdout)
+
+
+def parsed(stdout: str) -> list[dict[str, str]]:
+    """The flags inside the CLI's JSON envelope, or a RuntimeError naming what came back instead."""
+    envelope = json.loads(stdout)
     if envelope.get("is_error"):
         raise RuntimeError(f"claude reported an error: {envelope.get('result')}")
-    answer = str(envelope.get("result", "")).strip()
-    answer = re.sub(r"^```(?:json)?\s*|\s*```$", "", answer)
+    answer = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(envelope.get("result", "")).strip())
     flags = json.loads(answer)
     if not isinstance(flags, list):
         raise RuntimeError(f"judge answered with {type(flags).__name__}, not a list")
@@ -228,11 +266,18 @@ def parse_args(doc: str, noun: str) -> argparse.Namespace:
 def run(args: argparse.Namespace, gate: Gate) -> int:
     """Print what the screen refused, judge what it left, and answer with the exit code."""
     out = sys.stderr if args.stop else sys.stdout
+    if args.stop and inner_session():
+        return 0
     try:
         lines, complaints = gate.collect(args)
-    except NotARepository as exc:
+    except NotARepositoryError as exc:
         print(f"trivia judge: {exc}", file=sys.stderr)
         return 2 if args.stop else 1
+    return screened(args, gate, lines, complaints, out)
+
+
+def screened(args: argparse.Namespace, gate: Gate, lines: list[Line], complaints: list[str], out: TextIO) -> int:
+    """Print what the pattern screen refused, then judge whatever it left."""
     for complaint in complaints:
         print(complaint, file=out)
     if args.stop and not gate.judge_at_stop:

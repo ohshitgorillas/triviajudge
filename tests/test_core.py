@@ -19,12 +19,14 @@ cannot read its cache should judge, not fail.
 not judge at ``Stop`` carry none at all.
 
 ``root()`` answers with the work tree the current directory sits in, and raises
-``NotARepository`` outside one rather than inferring a tree.
+``NotARepositoryError`` outside one rather than inferring a tree.
 """
 
+import io
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -171,8 +173,95 @@ def test_a_directory_in_no_work_tree_is_refused_rather_than_inferred(tmp_path: P
     cwd = Path.cwd()
     try:
         os.chdir(outside)
-        with pytest.raises(core.NotARepository):
+        with pytest.raises(core.NotARepositoryError):
             core.root()
     finally:
         os.chdir(cwd)
         core.root.cache_clear()
+
+
+# --- behavior 7: a calibration record is one line, addressed as the judge sees it ---
+
+
+def test_a_record_carries_the_path_the_number_and_the_text(tmp_path: Path) -> None:
+    records = tmp_path / "lines.tsv"
+    records.write_text("docs/plan.md:12\tthe panel holds the staged rate\n", encoding="utf-8")
+    assert core.from_records(records) == [core.Line("docs/plan.md", 12, "the panel holds the staged rate")]
+
+
+# --- behavior 8: a call that does not answer is a refusal, never a pass ------
+
+
+def refusing_run(**answer: object) -> object:
+    """A ``subprocess.run`` stand-in answering with one fixed result."""
+
+    class Finished:
+        returncode = int(str(answer.get("returncode", 0)))
+        stdout = str(answer.get("stdout", ""))
+        stderr = str(answer.get("stderr", ""))
+
+    def run(*_args: object, **_kwargs: object) -> Finished:
+        return Finished()
+
+    return run
+
+
+def test_a_call_that_never_answers_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    def expire(*_args: object, **_kwargs: object) -> None:
+        raise subprocess.TimeoutExpired(cmd="claude", timeout=600)
+
+    monkeypatch.setattr("triviajudge.core.binary", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("triviajudge.core.root", Path.cwd)
+    monkeypatch.setattr("triviajudge.core.subprocess.run", expire)
+    with pytest.raises(RuntimeError, match="did not answer within 600s"):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt", timeout=600)
+
+
+def test_a_call_that_exits_nonzero_is_a_refusal_naming_what_it_said(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triviajudge.core.binary", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("triviajudge.core.root", Path.cwd)
+    monkeypatch.setattr("triviajudge.core.subprocess.run", refusing_run(returncode=1, stderr="no credit"))
+    with pytest.raises(RuntimeError, match="claude exited 1: no credit"):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+
+
+# --- behavior 9: the envelope is read, and anything but a flag list is refused ---
+
+
+def test_a_fenced_answer_is_read_as_the_flag_list_it_wraps() -> None:
+    envelope = json.dumps({"result": '```json\n[{"id": "doc.md:1", "reason": "narrates a decision"}]\n```'})
+    assert core.parsed(envelope) == [{"id": "doc.md:1", "reason": "narrates a decision"}]
+
+
+def test_an_error_envelope_is_a_refusal() -> None:
+    with pytest.raises(RuntimeError, match="claude reported an error: over quota"):
+        core.parsed(json.dumps({"is_error": True, "result": "over quota"}))
+
+
+def test_an_answer_that_is_not_a_list_is_a_refusal() -> None:
+    with pytest.raises(RuntimeError, match="judge answered with dict, not a list"):
+        core.parsed(json.dumps({"result": '{"id": "doc.md:1"}'}))
+
+
+# --- behavior 10: a flag naming no line is still printed -----------------------
+
+
+def test_a_flag_naming_no_line_is_printed_against_its_id(capsys: pytest.CaptureFixture[str]) -> None:
+    core.report([core.Line("doc.md", 1, "a line")], [{"id": "gone.md:9", "reason": "narrates"}], sys.stdout)
+    assert "?:gone.md:9: narrates" in capsys.readouterr().out
+
+
+def test_nothing_flagged_says_how_many_lines_hold_now(capsys: pytest.CaptureFixture[str]) -> None:
+    core.report([core.Line("doc.md", 1, "a line")], [], sys.stdout)
+    assert "[ok] 1 line(s) state what holds now" in capsys.readouterr().out
+
+
+# --- behavior 11: a Stop payload that is not JSON is not a second run ---------
+
+
+@pytest.mark.parametrize(("stdin", "already"), [("", False), ("{}", False), ('{"stop_hook_active": true}', True)])
+def test_the_stop_payload_decides_whether_this_hook_already_blocked(
+    stdin: str, already: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "stdin", io.StringIO(stdin))
+    assert core.stop_already_ran() is already

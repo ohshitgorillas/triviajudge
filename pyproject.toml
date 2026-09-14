@@ -13,12 +13,24 @@ Source = "https://github.com/ohshitgorillas/triviajudge"
 Changelog = "https://github.com/ohshitgorillas/triviajudge/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+# The gates themselves are pure standard library; everything here belongs to
+# `make check`, which is the only thing that needs it.
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pre-commit",
+    "ruff",
+    "black",
+    "mypy",
+    "vulture",
+    "xenon",
+]
 
 [project.scripts]
 triviajudge-md = "triviajudge.md_trivia:main"
 triviajudge-comments = "triviajudge.comment_trivia:main"
 triviajudge-archaeology = "triviajudge.archaeology:main"
+triviajudge-sweep = "triviajudge.sweep:main"
 
 [build-system]
 requires = ["setuptools>=61"]
@@ -40,3 +52,97 @@ excluded = ["tests/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",      # pycodestyle, pyflakes
+    "I",                # isort
+    "B",                # bugbear
+    "UP",               # pyupgrade
+    "SIM",              # simplify
+    "RET",              # return discipline
+    "ARG",              # unused arguments
+    "S",                # bandit security
+    "N",                # naming
+    "C90",              # mccabe complexity
+    "ERA",              # commented-out code
+    "PL",               # pylint
+    "SLF",              # private-member access
+    "A",                # builtin shadowing
+    "C4",               # comprehensions
+    "PIE",              # misc redundancy
+    "PERF",             # performance anti-patterns
+    "FBT",              # boolean-trap arguments
+    "TID",              # absolute imports only
+    "TC",               # typing-only imports belong in a TYPE_CHECKING block
+    "FURB",             # refurb modernizations
+    "ISC",              # implicit string concatenation
+    "PTH",              # pathlib over os.path
+    "DTZ",              # timezone-naive datetime
+    "PGH",              # blanket noqa / type-ignore
+    "BLE",              # blind except: name the exception set or say why not
+    "RUF",
+    "D",                # docstrings, pep257
+]
+ignore = [
+    # A docstring here names what the thing IS — "The work tree the current
+    # directory sits in" — and that is one voice across every module. D401 asks
+    # for the imperative instead, which splits the voice rather than sharpens it.
+    "D401",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",     # asserts are the point of a test
+    "S603",     # the suite spawns the gate modules and git with argv it writes itself
+    "PLR2004",  # the literal a test asserts against IS the expectation
+    "PLR0913",  # a behavior test takes one parameter per input it varies
+    "N812",     # the module under test is aliased GATE, so every call site says which module it is
+    "FBT001",   # a parametrized expectation is a bool the case carries, not a flag a caller passes
+    "D",        # a test name states its behavior; a docstring would restate it
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["triviajudge", "tests", "scripts"]
+# The suite's own helpers are imported by bare name, the way pytest puts the
+# conftest directory on the path.
+mypy_path = ["tests"]
+
+# Dead-code gate. min_confidence 60 is vulture's floor for unused module-level
+# definitions; pytest fixtures are called by the framework, never by name.
+[tool.vulture]
+paths = ["triviajudge", "tests", "scripts"]
+min_confidence = 60
+ignore_decorators = ["@pytest.fixture"]
+# `pytest_configure` is a hook pytest calls by name, and `Iterable` is named inside
+# a string annotation in a `cast`. Neither reads as a use to a static sweep.
+ignore_names = ["Iterable", "pytest_configure"]
+
+[tool.coverage.run]
+branch = true
+source = ["triviajudge"]
+# A gate the suite runs as a process writes its own data file beside the
+# parent's; combining them is what makes those runs count.
+parallel = true
+# A test hands the gate a throwaway checkout carrying its own copy of a module.
+# That copy is a fixture, not this package.
+omit = ["*/pytest-of-*/*"]

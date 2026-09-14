@@ -1,0 +1,131 @@
+# This repository runs its own gates over itself. The three trivia hooks below
+# are the ones this package ships in .pre-commit-hooks.yaml, wired as local
+# hooks against the checkout's venv so a commit here judges the working tree
+# rather than an installed release.
+default_install_hook_types: [pre-commit, commit-msg]
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: .venv/bin/ruff check
+        language: system
+        types: [python]
+      - id: black
+        name: black
+        entry: .venv/bin/black
+        language: system
+        types: [python]
+      - id: xenon
+        name: xenon complexity gate
+        entry: .venv/bin/xenon --max-absolute B --max-average A --max-modules A triviajudge
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: vulture
+        name: vulture dead-code gate
+        entry: .venv/bin/vulture
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: mypy
+        name: mypy (strict)
+        entry: .venv/bin/mypy
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: pytest
+        name: pytest
+        entry: .venv/bin/pytest -q --cov=triviajudge --cov-branch --cov-report=term-missing --cov-report=json:.coverage.json
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Reads the report the hook above writes, so it runs after it. No
+      # fail_fast here, so it also runs when that hook reds — hence the gate
+      # refusing a missing report rather than passing.
+      - id: coverage-floor
+        name: per-file coverage floor
+        entry: .venv/bin/python scripts/gates/check_coverage_floor.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: file-length
+        name: max 500 source / 800 test lines, watched files only shrink
+        entry: .venv/bin/python scripts/gates/check_file_length.py
+        language: system
+        types: [python]
+
+      - id: changelog-style
+        name: changelog entry style ([Unreleased] only)
+        entry: .venv/bin/python scripts/gates/check_changelog.py
+        language: system
+        files: ^CHANGELOG\.md$
+
+      # Cross-cutting: a citation names a heading, so the gate has to run when
+      # either the citing source or the cited document moves.
+      - id: doc-refs
+        name: doc citation gate
+        entry: .venv/bin/python scripts/gates/check_doc_refs.py
+        language: system
+        types_or: [python, markdown]
+
+      # Cross-cutting: one gate is named in pyproject.toml, .pre-commit-hooks.yaml
+      # and hooks.json, so this runs when any of the three moves.
+      - id: control-catalog
+        name: gate catalog cross-check
+        entry: .venv/bin/python scripts/gates/check_control_catalog.py
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|\.pre-commit-hooks\.yaml|hooks/hooks\.json)$
+
+      # The settings surface and the prose describing it sit in two files, so
+      # either one moving is what has to trigger the pairing check.
+      - id: settings-docs
+        name: settings documented both ways
+        entry: .venv/bin/python scripts/gates/check_settings_docs.py
+        language: system
+        pass_filenames: false
+        files: ^(triviajudge/config\.py|README\.md)$
+
+      # Wiring drifts when either config moves, and neither is a source file any
+      # types: selector matches, so this one always runs.
+      - id: gates-wired
+        name: gate wiring gate
+        entry: .venv/bin/python scripts/gates/check_gates_wired.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Runs at the commit-msg stage, so it gets the message file, not the staged
+      # paths; `default_install_hook_types` at the top is what makes `pre-commit
+      # install` wire that stage alongside pre-commit.
+      - id: commit-msg-archaeology
+        name: commit-message archaeology gate
+        entry: .venv/bin/python scripts/gates/check_commit_msg.py
+        language: system
+        stages: [commit-msg]
+
+      - id: archaeology
+        name: decision-archaeology gate
+        entry: .venv/bin/triviajudge-archaeology
+        language: system
+        types: [python]
+        exclude: ^tests/
+
+      - id: comment-trivia
+        name: comments state what holds now (LLM judge)
+        entry: .venv/bin/triviajudge-comments
+        language: system
+        types: [python]
+        exclude: ^tests/
+
+      - id: md-trivia
+        name: markdown states what holds now (LLM judge)
+        entry: .venv/bin/triviajudge-md
+        language: system
+        files: \.md$
+        exclude: ^CHANGELOG\.md$

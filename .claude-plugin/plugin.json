@@ -1,0 +1,19 @@
+{
+  "name": "triviajudge",
+  "description": "Gates that hold the prose a change adds to what holds now, rather than what happened.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Atom"
+  },
+  "homepage": "https://github.com/ohshitgorillas/triviajudge",
+  "repository": "https://github.com/ohshitgorillas/triviajudge",
+  "license": "MIT",
+  "keywords": [
+    "documentation",
+    "comments",
+    "markdown",
+    "hooks",
+    "lint"
+  ],
+  "hooks": "./hooks/hooks.json"
+}
