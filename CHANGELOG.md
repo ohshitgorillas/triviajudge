@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`hooks/run-gate.sh` states which Python it needs.** A `python3` older than 3.12, or none on `PATH`, ends the hook with `triviajudge: needs Python 3.12 or newer on PATH as python3; found: <version>` on stderr rather than an import-time `SyntaxError` that reads as a broken plugin.
+
+### Changed
+
+- **The plugin section states what a turn costs and what it writes.** One `claude -p` call against `model` per turn that adds uncached markdown lines, none for a turn that adds none, and a `.triviajudge/` cache directory in the consumer's working directory that belongs in their `.gitignore`.
+
+### Fixed
+
+- **The plugin loads.** `plugin.json` named `./hooks/hooks.json` in its `hooks` field, and Claude Code loads that standard path itself, so installing 0.1.0 failed with `Duplicate hooks file detected` and no gate ran. The field is gone; the manifest field is for additional hook files only.
+
+### Internal
+
+- **CI validates the plugin manifests.** `claude plugin validate --strict` runs over `plugin.json` and `marketplace.json` in `.github/workflows/check.yml`, because the manifests are not Python and `make check` says nothing about them.
+
 ## [0.1.0] - 2026-09-14
 
 ### Added

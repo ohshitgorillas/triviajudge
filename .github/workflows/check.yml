@@ -37,3 +37,12 @@ jobs:
       # trivia`, which needs a logged-in claude CLI that CI does not have.
       - name: make check
         run: make check
+
+      # The manifests are not Python, so `make check` says nothing about them.
+      # `--strict` fails on what the runtime tolerates, because a plugin that
+      # loads with warnings is one a consumer sees the warnings for.
+      - name: claude plugin validate
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude plugin validate --strict .claude-plugin/plugin.json
+          claude plugin validate --strict .claude-plugin/marketplace.json

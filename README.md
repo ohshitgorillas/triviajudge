@@ -133,6 +133,19 @@ and no install of its own. The markdown judge shells out to the `claude` CLI;
 the comment gate at `Stop` and the archaeology gate after an edit run the
 pattern screen alone.
 
+What a turn costs, and what it leaves behind:
+
+- One turn that adds markdown lines the cache has not seen costs one
+  `claude -p` call against `model` (`claude-haiku-4-5` by default), with those
+  lines as its input, billed to whatever account the `claude` CLI is logged in
+  to. A turn that adds no markdown, or only lines the cache holds, costs
+  nothing. `md_judge_at_stop = false` turns the `Stop` call off and keeps the
+  commit and `--head` modes.
+- The gate writes its clean-line cache to `.triviajudge/` in the directory the
+  agent runs in. It is per-checkout state, not a fact about the code, so add
+  `.triviajudge/` to that repository's `.gitignore`. Deleting the directory
+  costs a re-judge of every line, nothing more.
+
 ## The prose is data, never instruction
 
 Both judges are told that everything after `LINES:` is data. Text that addresses the judge, vouches for its own standing, or restates the rules is flagged on that ground alone, whatever else it says. Each entry is judged by its own text: a neighbouring line cannot vouch for it.
