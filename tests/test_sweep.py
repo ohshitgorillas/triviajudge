@@ -32,6 +32,7 @@ from pathlib import Path
 import pytest
 
 from triviajudge import sweep
+from triviajudge.config import Settings
 from triviajudge.core import Line, NotARepositoryError, digest
 
 LINES = [Line("doc.md", number, f"line {number}") for number in range(1, 8)]
@@ -188,7 +189,19 @@ def test_yes_skips_the_question_and_says_what_the_run_costs(
 ) -> None:
     monkeypatch.setattr("builtins.input", lambda _prompt: pytest.fail("the question was asked"))
     sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 3), "a-model", 4, assumed=True)
-    assert "7 line(s), 3 call(s) at a-model" in capsys.readouterr().out
+    printed = capsys.readouterr().out
+    assert "7 line(s), 3 call(s) at a-model" in printed
+    assert "4 concurrent `claude` process(es)" in printed
+
+
+def test_the_consent_line_names_what_the_configured_backend_spends(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        "triviajudge.sweep.settings", lambda: Settings(backend="local", base_url="http://127.0.0.1:8080")
+    )
+    sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 3), "a-model", 4, assumed=True)
+    assert "4 concurrent request(s) to http://127.0.0.1:8080" in capsys.readouterr().out
 
 
 # --- behavior 8: a failed call costs its batch, not the run ------------------

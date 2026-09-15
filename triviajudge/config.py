@@ -57,6 +57,23 @@ class Settings:
     cache_dir: str = ".triviajudge"
     #: The model the judge asks.
     model: str = "claude-haiku-4-5"
+    #: Which transport carries the judge's question: ``claude`` for the CLI in print mode,
+    #: ``local`` for an OpenAI-compatible server named by ``base_url``. The default keeps a
+    #: repository that says nothing on the CLI.
+    backend: str = "claude"
+    #: Root of the OpenAI-compatible server the ``local`` backend posts to, without a trailing
+    #: slash — ``http://127.0.0.1:8080``. Empty under the ``claude`` backend, which reads it not
+    #: at all.
+    base_url: str = ""
+    #: Name of the environment variable holding the bearer token for ``base_url``. Empty sends
+    #: no ``Authorization`` header, which is what a local server on the loopback wants. The
+    #: token itself is never written here.
+    api_key_env: str = ""
+    #: Path appended to ``base_url`` for the chat-completions call. The OpenAI default is what
+    #: llama.cpp and vLLM serve. A hosted endpoint that serves the same API under a prefix of
+    #: its own names its path here, so reaching one is a line in this table rather than a change
+    #: to the transport.
+    chat_path: str = "/v1/chat/completions"
     #: Lines per CLI call in a sweep. One call carries every line it is given, so the batch
     #: size is what keeps a whole-tree run from riding on a single call.
     sweep_batch: int = 150

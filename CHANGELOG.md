@@ -8,19 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **`hooks/run-gate.sh` states which Python it needs.** A `python3` older than 3.12, or none on `PATH`, ends the hook with `triviajudge: needs Python 3.12 or newer on PATH as python3; found: <version>` on stderr rather than an import-time `SyntaxError` that reads as a broken plugin.
-
-### Changed
-
-- **The plugin section states what a turn costs and what it writes.** One `claude -p` call against `model` per turn that adds uncached markdown lines, none for a turn that adds none, and a `.triviajudge/` cache directory in the consumer's working directory that belongs in their `.gitignore`.
+- **An OpenAI-compatible server can run the judge.** `backend = "local"` sends the gates' question to `base_url`, and `api_key_env` names the variable holding the bearer token. `backend` defaults to `claude`, the CLI transport. A failed call or a malformed answer fails the gate.
+- **A too-old Python is named as such.** A `python3` older than 3.12, or none on `PATH`, ends the hook with `triviajudge: needs Python 3.12 or newer on PATH as python3` rather than an import-time `SyntaxError` that reads as a broken plugin.
 
 ### Fixed
 
-- **The plugin loads.** `plugin.json` named `./hooks/hooks.json` in its `hooks` field, and Claude Code loads that standard path itself, so installing 0.1.0 failed with `Duplicate hooks file detected` and no gate ran. The field is gone; the manifest field is for additional hook files only.
+- **The plugin loads.** Installing 0.1.0 failed with `Duplicate hooks file detected` and no gate ran.
 
 ### Internal
 
-- **CI validates the plugin manifests.** `claude plugin validate --strict` runs over `plugin.json` and `marketplace.json` in `.github/workflows/check.yml`, because the manifests are not Python and `make check` says nothing about them.
+- **The README states what a plugin turn costs and writes.** One `claude -p` call per turn that adds uncached markdown lines, and a `.triviajudge/` cache directory in the consumer's working directory that belongs in their `.gitignore`.
+- **CI validates the plugin manifests.** `claude plugin validate --strict` runs over `plugin.json` and `marketplace.json` in `.github/workflows/check.yml`.
 
 ## [0.1.0] - 2026-09-14
 

@@ -5,11 +5,14 @@ whether the judge runs at ``Stop``. Everything else — reading what a change
 added, calling the model, remembering what it passed, printing the verdict and
 choosing the exit code — is the same for every gate and lives here.
 
-Transport is the ``claude`` CLI in print mode, one call per run carrying every
-candidate. The model is small because the question is small and the answer is a
-short list. A CLI that fails, or an answer that is not the JSON asked for,
-fails the gate rather than passing it: a judge that cannot speak is not a judge
-that approves.
+Transport is one call per run carrying every candidate, over whichever backend
+the judged repository names. ``claude`` is the default and runs the CLI in
+print mode; ``local`` posts to an OpenAI-compatible server and asks it for a
+schema-constrained answer. The model is small because the question is small
+and the answer is a short list. Both backends reach the same validation, and a
+transport that fails, or an answer that is not the JSON asked for, fails the
+gate rather than passing it: a judge that cannot speak is not a judge that
+approves.
 
 The repository under judgment is found from the current working directory, not
 from this file's own location, so an installed package judges the tree it is
@@ -26,6 +29,8 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -37,6 +42,26 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 CACHE_CAP = 20000
+
+#: The two transports ``settings().backend`` names. Where under ``base_url`` the ``local``
+#: one posts is ``chat_path`` in the same table, because the endpoint is a property of the
+#: server rather than of the gate.
+CLAUDE_BACKEND = "claude"
+LOCAL_BACKEND = "local"
+
+#: The answer's shape, sent as ``response_format`` so the server constrains decoding to it. A
+#: small local model asked in prose alone answers with a preamble or a wrapper object often
+#: enough to be unusable as a gate, and ``strict`` is what stops it inventing a third key.
+FLAGS_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "reason": {"type": "string"}},
+        "required": ["id", "reason"],
+        "additionalProperties": False,
+    },
+}
+FLAGS_FORMAT = {"type": "json_schema", "json_schema": {"name": "flags", "strict": True, "schema": FLAGS_SCHEMA}}
 
 #: Set in the environment of the judge's own ``claude`` call, and read by any gate the
 #: inner session's hooks start. The inner session runs in the same working directory as
@@ -128,16 +153,30 @@ def from_records(path: Path) -> list[Line]:
 
 
 def ask(lines: list[Line], prompt: str, model: str | None = None, timeout: float | None = None) -> list[dict[str, str]]:
-    """One CLI call for every line; the parsed JSON array it answers with.
+    """One call for every line; the parsed JSON array it answers with.
 
     ``model`` overrides the configured one, for a caller that asks a different
     judge than the gates do. ``timeout`` kills a call that never answers and
     reports it as a failure, for a caller that makes many calls and must not
     wait on one of them forever.
+
+    The configured ``backend`` chooses the transport. An unknown one is a
+    refusal rather than a fallback to the CLI: a judge nobody asked for is not
+    the judge the repository asked for.
     """
+    body = prompt + "\n\nLINES:\n" + "\n".join(f"{line.id}\t{line.text}" for line in lines)
+    backend = settings().backend
+    if backend == CLAUDE_BACKEND:
+        return _ask_cli(body, model, timeout)
+    if backend == LOCAL_BACKEND:
+        return _ask_http(body, model, timeout)
+    raise RuntimeError(f"unknown backend {backend!r}; it is {CLAUDE_BACKEND!r} or {LOCAL_BACKEND!r}")
+
+
+def _ask_cli(body: str, model: str | None, timeout: float | None) -> list[dict[str, str]]:
+    """Ask the ``claude`` CLI in print mode and parse the envelope it prints."""
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     env[INNER] = "1"
-    body = prompt + "\n\nLINES:\n" + "\n".join(f"{line.id}\t{line.text}" for line in lines)
     try:
         proc = subprocess.run(  # noqa: S603
             judge_argv(model),
@@ -154,6 +193,53 @@ def ask(lines: list[Line], prompt: str, model: str | None = None, timeout: float
     if proc.returncode != 0:
         raise RuntimeError(f"claude exited {proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}")
     return parsed(proc.stdout)
+
+
+def _headers(api_key_env: str) -> dict[str, str]:
+    """The request headers, carrying a bearer token when the table names a variable holding one."""
+    headers = {"Content-Type": "application/json"}
+    if api_key_env:
+        token = os.environ.get(api_key_env, "")
+        if not token:
+            raise RuntimeError(f"api_key_env names {api_key_env}, which is unset")
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def _ask_http(body: str, model: str | None, timeout: float | None) -> list[dict[str, str]]:
+    """Ask an OpenAI-compatible server for a schema-constrained answer and parse what it sends."""
+    conf = settings()
+    if not conf.base_url:
+        raise RuntimeError(f"backend {LOCAL_BACKEND!r} needs base_url, and the table names none")
+    url = conf.base_url.rstrip("/") + "/" + conf.chat_path.lstrip("/")
+    payload = {
+        "model": model or conf.model,
+        "messages": [{"role": "user", "content": body}],
+        "temperature": 0,
+        "response_format": FLAGS_FORMAT,
+    }
+    request = urllib.request.Request(  # noqa: S310 — base_url is the judged repository's own table, not input
+        url, data=json.dumps(payload).encode("utf-8"), headers=_headers(conf.api_key_env), method="POST"
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 — as above
+            envelope = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"{url} answered {exc.code}: {exc.read().decode('utf-8', 'replace').strip()[:200]}") from exc
+    except OSError as exc:
+        raise RuntimeError(f"{url} did not answer: {exc}") from exc
+    return flags_from(_answer(envelope))
+
+
+def _answer(envelope: dict[str, object]) -> str:
+    """The assistant text inside a chat-completions envelope, or a RuntimeError naming what came."""
+    if error := envelope.get("error"):
+        raise RuntimeError(f"the server reported an error: {error}")
+    choices = envelope.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise RuntimeError("the server answered with no choices")
+    message = choices[0].get("message", {}) if isinstance(choices[0], dict) else {}
+    return str(message.get("content", ""))
 
 
 def judge_argv(model: str | None) -> list[str]:
@@ -178,7 +264,16 @@ def parsed(stdout: str) -> list[dict[str, str]]:
     envelope = json.loads(stdout)
     if envelope.get("is_error"):
         raise RuntimeError(f"claude reported an error: {envelope.get('result')}")
-    answer = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(envelope.get("result", "")).strip())
+    return flags_from(str(envelope.get("result", "")))
+
+
+def flags_from(text: str) -> list[dict[str, str]]:
+    """The flags one backend's answer text carries, fence and all.
+
+    The envelope differs per backend and the judge's own text does not, so the
+    fence strip and the list check are shared and the unwrap is not.
+    """
+    answer = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
     flags = json.loads(answer)
     if not isinstance(flags, list):
         raise RuntimeError(f"judge answered with {type(flags).__name__}, not a list")

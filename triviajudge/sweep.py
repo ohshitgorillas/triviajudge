@@ -12,8 +12,9 @@ comment readers for source. The archaeology patterns screen the comment
 candidates first, as they do at commit. Their complaints are free — no model
 call carries them — and they never reach the judge.
 
-Cost is the thing to hold. ``core.ask`` sends one CLI call for every line it is
-given, so a whole tree in one call is a call nobody can afford to lose. Sweep
+Cost is the thing to hold. ``core.ask`` sends one call for every line it is
+given, whichever backend carries it, so a whole tree in one call is a call
+nobody can afford to lose. Sweep
 splits the candidates into batches of ``sweep_batch`` and asks once per batch.
 A batch that fails is reported with the files it covers and the run continues:
 a commit gate fails closed because a commit is one decision, and a sweep is
@@ -48,7 +49,7 @@ from pathlib import Path
 
 from triviajudge import comment_trivia, md_trivia
 from triviajudge.config import SWEEP_CACHE, cache_path, settings
-from triviajudge.core import Line, NotARepositoryError, ask, clean_cache, digest, git, root
+from triviajudge.core import CLAUDE_BACKEND, Line, NotARepositoryError, ask, clean_cache, digest, git, root
 
 #: The cache a ``--baseline`` run writes, read by the markdown gate at ``Stop``.
 CACHE_NAME = SWEEP_CACHE
@@ -132,12 +133,24 @@ def workers(asked: int) -> int:
     return max(1, min(asked, (os.cpu_count() or 2) // 2))
 
 
+def transport() -> str:
+    """What one concurrent call spends, in the words of the configured backend.
+
+    A consent line that names a `claude` process under a backend that starts no
+    process tells the owner the wrong thing about what the run costs.
+    """
+    conf = settings()
+    if conf.backend == CLAUDE_BACKEND:
+        return "`claude` process(es)"
+    return f"request(s) to {conf.base_url}"
+
+
 def consent(batches: list[Batch], model: str, parallel: int, *, assumed: bool) -> bool:
     """Print what the run will spend and read the answer; ``--yes`` assumes it."""
     lines = sum(len(batch.lines) for batch in batches)
     print(f"{lines} line(s), {len(batches)} call(s) at {model}")
     if parallel > 1:
-        print(f"{parallel} concurrent `claude` process(es), {CALL_TIMEOUT}s timeout each")
+        print(f"{parallel} concurrent {transport()}, {CALL_TIMEOUT}s timeout each")
     if assumed:
         return True
     try:

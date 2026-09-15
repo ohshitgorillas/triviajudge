@@ -85,6 +85,10 @@ suffixes = [".py", ".js", ".css"]   # what the comment gate reads
 excluded = ["tests/"]               # prefixes it stays out of
 cache_dir = ".triviajudge"
 model = "claude-haiku-4-5"
+backend = "claude"                  # "claude" for the CLI, "local" for an OpenAI-compatible server
+base_url = ""                       # root of that server, e.g. "http://127.0.0.1:8080"
+api_key_env = ""                    # variable holding its bearer token, if it wants one
+chat_path = "/v1/chat/completions"  # where under base_url the question is posted
 md_judge_at_stop = true             # whether the markdown judge runs at Stop
 sweep_batch = 150                   # lines per call in a sweep
 sweep_parallel = 1                  # concurrent calls, capped at half the cores
@@ -95,13 +99,25 @@ sweep_model = "claude-haiku-4-5"    # the model a sweep asks
 
 Three readings at the edges. No file, no table, or a missing key gives the defaults above and the gate runs. A file that is present but unparseable fails the gate rather than falling back, because a silent default over a corrupt table judges a different file set than the one you asked for. A key present but empty is honoured: an empty `excluded` is the widest scope and an empty `suffixes` the narrowest, and neither is reachable by leaving a key out.
 
+## A local model can carry the judge
+
+`backend = "local"` sends the same question to an OpenAI-compatible server instead of the `claude` CLI: a POST to `base_url` + `/v1/chat/completions`, over `urllib` alone, so the package keeps its empty dependency list. `model` and `sweep_model` name whatever that server serves. `api_key_env` names the variable holding a bearer token; leave it empty for a server on the loopback that wants none.
+
+The request carries `response_format: {"type": "json_schema", ...}` pinning the answer to an array of `{id, reason}` objects, which llama.cpp and vLLM both honour by constraining decoding. A small model asked in prose alone answers with a preamble or a wrapper object often enough to be useless as a gate; asked under the schema it answers with the array. A non-200, a dead socket or an answer that is still not a JSON array fails the gate, exactly as a failed CLI call does.
+
+`chat_path` is where under `base_url` the question is posted. The OpenAI default is what llama.cpp and vLLM serve, so a loopback server names neither key. A hosted endpoint that speaks the same API under a prefix of its own is reached by naming both — Gemini's OpenAI-compatible endpoint takes `base_url = "https://generativelanguage.googleapis.com/v1beta/openai"` with `chat_path = "/chat/completions"`, and its key in the variable `api_key_env` names. The backend is still called `local` because it is one transport; a `base_url` that is not on the loopback sends the prose it judges to whoever runs that host.
+
+Calibrate before trusting it, whichever server `base_url` names. `--lines` takes `path:line<TAB>text` records and `--out` writes the raw answer, so the same few hundred real lines go to both backends and the two flag sets diff against each other. A judge that flags a different set is a different gate, whatever it costs.
+
+A schema constrains the shape of an answer, not its content. A small quantized model answers inside the schema every time and still marks ordinary prose as trivia, so a backend that never malforms a reply can still disagree with the model it replaces on most lines. Parameter count predicts neither: agreement is measured on your own tree.
+
 ## Install
 
 ```
 pip install triviajudge
 ```
 
-Python 3.12 or newer, no runtime dependencies. The two judges shell out to the `claude` CLI in print mode and need it on PATH and logged in; a CLI that fails, or an answer that is not the JSON asked for, fails the gate rather than passing it. A judge that cannot speak is not a judge that approves.
+Python 3.12 or newer, no runtime dependencies. Under the default backend the two judges shell out to the `claude` CLI in print mode and need it on PATH and logged in; a CLI that fails, or an answer that is not the JSON asked for, fails the gate rather than passing it. A judge that cannot speak is not a judge that approves.
 
 ## pre-commit
 

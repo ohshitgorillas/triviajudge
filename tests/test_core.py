@@ -27,11 +27,15 @@ import json
 import os
 import subprocess
 import sys
+import urllib.error
+from email.message import Message
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from triviajudge import core
+from triviajudge.config import Settings
 
 EMPTY_DIFF = ""
 
@@ -265,3 +269,163 @@ def test_the_stop_payload_decides_whether_this_hook_already_blocked(
 ) -> None:
     monkeypatch.setattr(sys, "stdin", io.StringIO(stdin))
     assert core.stop_already_ran() is already
+
+
+# --- behavior 12: the configured backend chooses the transport ----------------
+
+
+def local_settings(**over: object) -> object:
+    """A settings stand-in on the ``local`` backend, overridable per field."""
+    fields: dict[str, object] = {"backend": "local", "base_url": "http://127.0.0.1:8080", "api_key_env": ""}
+    fields.update(over)
+    return lambda: Settings(**fields)  # type: ignore[arg-type]
+
+
+class Answer:
+    """A ``urlopen`` answer carrying one raw body."""
+
+    def __init__(self, body: str) -> None:
+        self.body = body
+
+    def __enter__(self) -> "Answer":
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self.body.encode("utf-8")
+
+
+def raw_post(body: str) -> object:
+    """A ``urlopen`` stand-in answering with one body verbatim, envelope and all."""
+    return lambda *_args, **_kwargs: Answer(body)
+
+
+def answering_post(body: str, sent: dict[str, object] | None = None) -> object:
+    """A ``urlopen`` stand-in answering with one chat-completions envelope, keeping the request."""
+    envelope = json.dumps({"choices": [{"message": {"content": body}}]})
+
+    def urlopen(request: object, timeout: float | None = None) -> Answer:
+        if sent is not None:
+            sent["url"] = request.full_url  # type: ignore[attr-defined]
+            sent["headers"] = dict(request.headers)  # type: ignore[attr-defined]
+            sent["payload"] = json.loads(request.data.decode("utf-8"))  # type: ignore[attr-defined]
+            sent["timeout"] = timeout
+        return Answer(envelope)
+
+    return urlopen
+
+
+def test_the_local_backend_posts_the_question_and_reads_the_array_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: dict[str, object] = {}
+    monkeypatch.setattr("triviajudge.core.settings", local_settings())
+    monkeypatch.setattr(
+        "triviajudge.core.urllib.request.urlopen",
+        answering_post('[{"id": "doc.md:1", "reason": "narrates a decision"}]', sent),
+    )
+    flags = core.ask([core.Line("doc.md", 1, "a line")], "prompt", model="qwen3-4b", timeout=30)
+    assert flags == [{"id": "doc.md:1", "reason": "narrates a decision"}]
+    assert sent["url"] == "http://127.0.0.1:8080/v1/chat/completions"
+    assert sent["timeout"] == 30
+    payload = cast("dict[str, object]", sent["payload"])
+    assert payload["model"] == "qwen3-4b"
+    assert payload["response_format"]["type"] == "json_schema"  # type: ignore[index]
+    assert "doc.md:1\ta line" in payload["messages"][0]["content"]  # type: ignore[index]
+
+
+def test_the_table_names_where_under_base_url_the_question_is_posted(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: dict[str, object] = {}
+    monkeypatch.setattr(
+        "triviajudge.core.settings",
+        local_settings(base_url="https://example.invalid/v1beta/openai", chat_path="chat/completions"),
+    )
+    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post("[]", sent))
+    assert core.ask([core.Line("doc.md", 1, "a line")], "prompt") == []
+    assert sent["url"] == "https://example.invalid/v1beta/openai/chat/completions"
+
+
+def test_a_fenced_local_answer_is_read_as_the_flag_list_it_wraps(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triviajudge.core.settings", local_settings())
+    monkeypatch.setattr(
+        "triviajudge.core.urllib.request.urlopen",
+        answering_post('```json\n[{"id": "doc.md:1", "reason": "narrates"}]\n```'),
+    )
+    assert core.ask([core.Line("doc.md", 1, "a line")], "prompt") == [{"id": "doc.md:1", "reason": "narrates"}]
+
+
+def test_a_local_answer_that_is_not_a_list_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triviajudge.core.settings", local_settings())
+    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post('{"id": "doc.md:1"}'))
+    with pytest.raises(RuntimeError, match="judge answered with dict, not a list"):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+
+
+def test_a_non_200_is_a_refusal_naming_the_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise urllib.error.HTTPError(
+            "http://127.0.0.1:8080/v1/chat/completions",
+            503,
+            "Service Unavailable",
+            Message(),
+            io.BytesIO(b"no model loaded"),
+        )
+
+    monkeypatch.setattr("triviajudge.core.settings", local_settings())
+    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", refuse)
+    with pytest.raises(RuntimeError, match="answered 503: no model loaded"):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+
+
+def test_a_dead_socket_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise urllib.error.URLError("connection refused")
+
+    monkeypatch.setattr("triviajudge.core.settings", local_settings())
+    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", refuse)
+    with pytest.raises(RuntimeError, match="did not answer: "):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+
+
+def test_an_envelope_carrying_an_error_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triviajudge.core.settings", local_settings())
+    monkeypatch.setattr(
+        "triviajudge.core.urllib.request.urlopen", raw_post(json.dumps({"error": {"message": "context length"}}))
+    )
+    with pytest.raises(RuntimeError, match="the server reported an error"):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+
+
+def test_an_envelope_carrying_no_choices_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triviajudge.core.settings", local_settings())
+    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", raw_post(json.dumps({})))
+    with pytest.raises(RuntimeError, match="answered with no choices"):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+
+
+def test_the_token_variable_is_sent_as_a_bearer_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: dict[str, object] = {}
+    monkeypatch.setenv("JUDGE_TOKEN", "sk-local")
+    monkeypatch.setattr("triviajudge.core.settings", local_settings(api_key_env="JUDGE_TOKEN"))
+    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post("[]", sent))
+    core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+    assert cast("dict[str, str]", sent["headers"])["Authorization"] == "Bearer sk-local"
+
+
+def test_a_token_variable_that_is_unset_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("JUDGE_TOKEN", raising=False)
+    monkeypatch.setattr("triviajudge.core.settings", local_settings(api_key_env="JUDGE_TOKEN"))
+    with pytest.raises(RuntimeError, match="api_key_env names JUDGE_TOKEN, which is unset"):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+
+
+def test_the_local_backend_without_a_base_url_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triviajudge.core.settings", local_settings(base_url=""))
+    with pytest.raises(RuntimeError, match="needs base_url"):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+
+
+def test_an_unknown_backend_is_a_refusal_rather_than_the_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triviajudge.core.settings", lambda: Settings(backend="ollama"))
+    with pytest.raises(RuntimeError, match="unknown backend 'ollama'"):
+        core.ask([core.Line("doc.md", 1, "a line")], "prompt")
