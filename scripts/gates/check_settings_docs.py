@@ -10,9 +10,12 @@ since an unknown key fails the gate rather than being ignored. The second is the
 worse of the two — the README tells the reader to write a line that stops their
 commits.
 
-So the pairing is enforced both ways. The README block is read with the same
-TOML parser the gate itself uses, so a key is what the reader would actually be
-writing, and a comment beside it costs nothing.
+So the pairing is enforced both ways. The README block is also handed to
+``config.read`` itself, as a ``pyproject.toml`` in a directory of its own, so the
+block is judged by the function the reader's own table meets: a block that does
+not parse, a key ``config.read`` refuses, or a value it cannot coerce is a
+refusal printed here rather than a traceback, and the reader's first
+encounter with it is this gate rather than a stopped commit of their own.
 
 Usage: ``python scripts/gates/check_settings_docs.py [README.md]``
 """
@@ -20,10 +23,11 @@ Usage: ``python scripts/gates/check_settings_docs.py [README.md]``
 from __future__ import annotations
 
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 
-from triviajudge.config import Settings
+from triviajudge.config import Settings, read
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 README = ROOT / "README.md"
@@ -46,6 +50,18 @@ def documented_block(text: str) -> str | None:
             continue
         if inside:
             block.append(line)
+    return None
+
+
+def refused(body: str) -> str | None:
+    """What ``config.read`` says when it refuses the documented block, or None when it accepts it."""
+    with tempfile.TemporaryDirectory() as held:
+        home = Path(held)
+        (home / "pyproject.toml").write_text(body, encoding="utf-8")
+        try:
+            read(home)
+        except (RuntimeError, TypeError, ValueError) as exc:
+            return str(exc)
     return None
 
 
@@ -72,6 +88,11 @@ def check(path: Path) -> int:
     body = documented_block(path.read_text(encoding="utf-8"))
     if body is None:
         print(f"{path}: no fenced block carrying {TABLE} — the settings are undocumented")
+        return 1
+
+    complaint = refused(body)
+    if complaint is not None:
+        print(f"{path}: the documented block is one config.read refuses: {complaint}")
         return 1
 
     shown = documented(path)

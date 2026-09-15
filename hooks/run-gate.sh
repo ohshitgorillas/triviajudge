@@ -5,15 +5,15 @@
 set -eu
 
 if [ "$#" -ne 1 ]; then
-    echo "usage: run-gate.sh <md_trivia|comment_trivia|archaeology>" >&2
+    echo "usage: run-gate.sh <md_trivia|comment_trivia|changelog_trivia|archaeology>" >&2
     exit 1
 fi
 
 case "$1" in
-    md_trivia | comment_trivia) mode="--stop" ;;
+    md_trivia | comment_trivia | changelog_trivia) mode="--stop" ;;
     archaeology) mode="--post-tool-use" ;;
     *)
-        echo "usage: run-gate.sh <md_trivia|comment_trivia|archaeology>" >&2
+        echo "usage: run-gate.sh <md_trivia|comment_trivia|changelog_trivia|archaeology>" >&2
         exit 1
         ;;
 esac

@@ -11,6 +11,13 @@
   entry: triviajudge-comments
   language: python
 
+- id: changelog-trivia
+  name: changelog entries read as release notes (LLM judge)
+  description: Screen the bullets a commit adds under [Unreleased], then judge what the screen leaves.
+  entry: triviajudge-changelog
+  language: python
+  files: ^CHANGELOG\.md$
+
 - id: archaeology
   name: decision-archaeology gate
   description: Refuse comments that narrate what the code was, by pattern. No model call.

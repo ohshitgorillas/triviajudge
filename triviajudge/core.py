@@ -43,6 +43,11 @@ if TYPE_CHECKING:
 
 CACHE_CAP = 20000
 
+#: Seconds a local ``git`` call may take. It reads objects on this machine, so anything past
+#: this is a wedged process rather than a slow one, and a hook that captures output has no way
+#: to say it is waiting.
+GIT_TIMEOUT = 30
+
 #: The two transports ``settings().backend`` names. Where under ``base_url`` the ``local``
 #: one posts is ``chat_path`` in the same table, because the endpoint is a property of the
 #: server rather than of the gate.
@@ -107,7 +112,7 @@ def binary(name: str) -> str:
 def root() -> Path:
     """The work tree the current directory sits in, or a NotARepositoryError naming that it does not."""
     cmd = [binary("git"), "rev-parse", "--show-toplevel"]
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=GIT_TIMEOUT)  # noqa: S603
     if proc.returncode != 0:
         raise NotARepositoryError(f"{Path.cwd()} is in no git work tree; every input mode reads git objects")
     return Path(proc.stdout.strip())
@@ -116,7 +121,10 @@ def root() -> Path:
 def git(*args: str) -> str:
     """Stdout of a read-only git command run at the repository root."""
     cmd = [binary("git"), *args]
-    return subprocess.run(cmd, check=True, capture_output=True, text=True, cwd=root()).stdout  # noqa: S603
+    finished = subprocess.run(  # noqa: S603
+        cmd, check=True, capture_output=True, text=True, cwd=root(), timeout=GIT_TIMEOUT
+    )
+    return finished.stdout
 
 
 def git_diff(*args: str) -> str:

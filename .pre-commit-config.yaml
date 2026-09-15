@@ -102,9 +102,28 @@ repos:
         types: [python]
         exclude: ^tests/
 
+      # The empty dependency list is a property of the shipped package, so the
+      # sweep reads it and leaves the gates, which run on the dev extra, alone.
+      - id: stdlib-only
+        name: the package imports the standard library alone
+        entry: .venv/bin/python scripts/gates/check_stdlib_only.py
+        language: system
+        types: [python]
+        files: ^triviajudge/.*\.py$
+
+      - id: call-timeouts
+        name: every call that waits states a timeout
+        entry: .venv/bin/python scripts/gates/check_call_timeouts.py
+        language: system
+        types: [python]
+        exclude: ^tests/
+
+      # Screens the bullets the commit adds under [Unreleased], then asks the
+      # judge about the ones the screen leaves, so it needs the `claude` CLI and
+      # the network as the other two judges do.
       - id: changelog-style
-        name: changelog entry style ([Unreleased] only)
-        entry: .venv/bin/python scripts/gates/check_changelog.py
+        name: changelog entries read as release notes (LLM judge)
+        entry: .venv/bin/triviajudge-changelog
         language: system
         files: ^CHANGELOG\.md$
 

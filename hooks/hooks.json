@@ -24,6 +24,11 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-gate.sh\" comment_trivia",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-gate.sh\" changelog_trivia",
+            "timeout": 120
           }
         ]
       }
@@ -40,6 +45,11 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-gate.sh\" comment_trivia",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-gate.sh\" changelog_trivia",
+            "timeout": 120
           }
         ]
       }

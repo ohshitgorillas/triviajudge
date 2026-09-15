@@ -52,14 +52,21 @@ The shape is one line, a bold lead first:
 - **What it does now.** What went wrong before, and anything the reader has to know to recognize it.
 ```
 
-`scripts/gates/check_changelog.py` enforces the mechanical half of that on
-`[Unreleased]` — released sections are history and are never rewritten. It
+`triviajudge-changelog` enforces that on `[Unreleased]` — released sections are
+history and are never rewritten. Its pattern screen holds the mechanical half: it
 refuses an entry over 75 words, an entry running to a second paragraph, an entry
 not opening with a bold lead, second person (`you`, `your`), marketing register
 (`simply`, `seamless`, `finally`, `quietly`, `significantly`, …), narration by
 negation (`is unchanged`, `unaffected`, `untouched`, `nothing else changes`, …),
 and a duplicate or out-of-order `###` heading. The order is Keep a Changelog's,
 plus `Internal` for changes with no user-visible face.
+
+What the screen leaves goes to the judge, which reads an entry for the shape a
+pattern cannot name: a flag name or a file path as the subject, the order a gate
+runs its steps in, cause narration, mechanism where the reader needs the effect,
+and what the code did in an earlier release. It runs per commit through the
+`changelog-style` hook and over `HEAD` in `make trivia`, so it needs the `claude`
+CLI and the network and stays out of `make check`.
 
 Narration by negation is the one an author reaches for while trying to be
 helpful. A changelog says what changed, and a reader already assumes anything it
@@ -68,7 +75,8 @@ load-bearing it is a scope boundary, and a scope boundary reads positively:
 "only markdown the sweep collected is judged", not "the comment candidates are
 untouched".
 
-What the gate cannot check is tone. Three rules it will never catch:
+What no pattern reaches is tone, which is the judge's half. Three rules it
+holds you to:
 
 - **No implementation archaeology.** Flag names, file paths, the order a gate
   does things in, the two things you had to work out to fix it — none of that
@@ -159,6 +167,33 @@ in the test file outside an assertion, is handed to a plain function on the
 assert line, sits inside a longer seeded string, is composed of seeded pieces, or
 matches an f-string a fake wrote.
 
+## The standard library alone
+
+`scripts/gates/check_stdlib_only.py` walks the AST of every file under
+`triviajudge/` and refuses an import naming anything outside
+`sys.stdlib_module_names` and the package itself. The empty `dependencies` list
+in `pyproject.toml` is what lets a consumer install this package with no
+resolver, and nothing else holds the code to it: import-linter reads the layers
+inside the package, and a third-party import installs cleanly on the machine
+that adds it.
+
+Imports inside a function body and inside a `TYPE_CHECKING` block count the
+same as one at module scope. The `dev` extra is where a third-party tool
+belongs; `scripts/` runs on that extra and is outside this gate's scope.
+
+## Calls that wait
+
+`scripts/gates/check_call_timeouts.py` requires a `timeout=` keyword on every
+`subprocess.run` and `urlopen` in `triviajudge/` and `scripts/gates/`. Both wait
+forever by default, and a hook captures its output, so a wedged `git` or a
+server that answers nothing hangs a commit with no line saying which call is
+waiting.
+
+The value belongs to the caller — a local `git` needs seconds, a model call
+needs minutes — and `timeout=None` is the way to say a call may wait forever,
+which puts that decision at the call site. The match is on the call's spelling,
+so a call reached through an alias is outside what the gate sees.
+
 ## Suite time
 
 `scripts/gates/check_suite_time.py` reads the junit report `make test` writes and
@@ -200,19 +235,48 @@ running. Scope and pytest arguments live in `[tool.mutmut]` in `pyproject.toml`.
 
 ## Cutting a release
 
-`scripts/gates/check_release.py` holds three statements of the version together:
-`version` in `pyproject.toml`, the newest released `## [x.y.z]` heading in
-`CHANGELOG.md`, and the `vx.y.z` tags in git.
+`scripts/gates/check_release.py` holds five statements of the version together:
+`version` in `pyproject.toml`, `version` in `.claude-plugin/plugin.json`,
+`metadata.version` in `.claude-plugin/marketplace.json`, the newest released
+`## [x.y.z]` heading in `CHANGELOG.md`, and the `vx.y.z` tags in git.
 
 - `version` equals the newest released heading. `[Unreleased]` is not a release
   and never satisfies it.
+- Each plugin manifest states that same version. `claude plugin validate
+  --strict` in CI reads their shape, not their agreement with the package, so a
+  release that bumps four of the five ships a plugin whose version is a
+  different release's.
 - A tag pointing at `HEAD` is exactly `v<version>`.
 - Every released heading other than the newest carries a `v` tag. The newest is
   the one exemption, because the commit that cuts a release exists before the tag
   that names it does; the next release brings it under the rule.
 
 So a release is one commit that renames `[Unreleased]` to the new version, sets
-`version` to match, and is then tagged `v<version>`.
+`version` and both manifests to match, and is then tagged `v<version>`.
+
+`make release` is the pass before that commit. It sends every bullet under
+`[Unreleased]` to the judge in one call and names the bullets that must not ship
+beside each other — two bullets describing one change, a bullet a later one
+supersedes, a bullet under the wrong kind — and then runs the version gate. It
+rewrites nothing and it needs the network, so it sits outside `check`.
+
+## Calibrating the judge
+
+The gates hold the tree; `make calibrate` holds the judge. It asks the
+configured model about two record files in the `path:line<TAB>text` form
+`--lines` reads — one of lines a judge is expected to flag, one of lines it is
+expected to pass — and prints how many of each it got, then every line the two
+disagree about:
+
+```sh
+make calibrate TRIVIA=corpus/trivia.txt CLEAN=corpus/clean.txt
+make calibrate TRIVIA=corpus/trivia.txt CLEAN=corpus/clean.txt CALIBRATE='--gate comments'
+```
+
+`--gate` chooses whose prompt is asked, `md` or `comments`, and `--model` asks a
+model other than the configured one, which is how a prompt or a model change is
+measured before it lands. It spends one call per 50 lines and needs the network,
+so it sits beside `make trivia`, outside `check`.
 
 ## Citing the documentation
 

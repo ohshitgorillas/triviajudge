@@ -34,6 +34,7 @@ dev = [
 [project.scripts]
 triviajudge-md = "triviajudge.md_trivia:main"
 triviajudge-comments = "triviajudge.comment_trivia:main"
+triviajudge-changelog = "triviajudge.changelog_trivia:main"
 triviajudge-archaeology = "triviajudge.archaeology:main"
 triviajudge-sweep = "triviajudge.sweep:main"
 
@@ -44,13 +45,14 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["triviajudge"]
 
-# This repository judged by its own gates. The three gate modules spell the
+# This repository judged by its own gates. The four gate modules spell the
 # trivia rules out in prose, which the judge reads as a restatement of its own
 # rules, so every edit to them would flag.
 [tool.triviajudge]
 comment_skip = [
     "triviajudge/md_trivia.py",
     "triviajudge/comment_trivia.py",
+    "triviajudge/changelog_trivia.py",
     "triviajudge/archaeology.py",
 ]
 excluded = ["tests/"]
@@ -163,10 +165,11 @@ parallel = true
 # That copy is a fixture, not this package.
 omit = ["*/pytest-of-*/*"]
 
-# The package is one flat layer per module. sweep drives both judges, each judge
-# reads the archaeology patterns, and everything below is shared. The two judges
-# sit in one layer because neither imports the other, and import-linter refuses
-# a sibling import inside a layer, which is the part worth pinning.
+# The package is one flat layer per module. sweep drives the markdown and comment
+# judges, each of those reads the archaeology patterns, and everything below is
+# shared. The judges sit in one layer because none of them imports another, and
+# import-linter refuses a sibling import inside a layer, which is the part worth
+# pinning.
 [tool.importlinter]
 root_package = "triviajudge"
 exclude_type_checking_imports = true
@@ -181,7 +184,7 @@ type = "layers"
 containers = ["triviajudge"]
 layers = [
     "sweep",
-    "md_trivia | comment_trivia",
+    "md_trivia | comment_trivia | changelog_trivia",
     "archaeology",
     "core",
     "config",

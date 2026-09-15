@@ -2,9 +2,9 @@
 
 A huge pet peeve of mine is that agents cannot reliably distinguish between "a useful fact for the next agent" and "a useless fact I know". Without specific attention to such, documentation and comments collect a type of rot: dated approvals, hand-back receipts, refactor records, relitigation of rules already in every agent's primary instructions file, round and phase numbers used as positions in history, and prose whose only content is that something did not change.
 
-The Trivia Judge package is three gates designed to prevent this rot by forcing agents to clean up docstrings, comments, and markdown files to state what holds now rather than what happened.
+The Trivia Judge package is four gates designed to prevent this rot by forcing agents to clean up docstrings, comments, and markdown files to state what holds now rather than what happened.
 
-## The three gates
+## The four gates
 
 Some of that rot has a shape a regex can name. The rest is a judgment call, so a model makes it.
 
@@ -13,9 +13,12 @@ Some of that rot has a shape a regex can name. The rest is a judgment call, so a
 | Archaeology | `triviajudge-archaeology` | comments in `.py`, `.js`, `.mjs`, `.css` | no |
 | Markdown trivia | `triviajudge-md` | lines a change adds to `.md` | yes |
 | Comment trivia | `triviajudge-comments` | comments and docstrings a change adds | yes |
+| Changelog trivia | `triviajudge-changelog` | bullets a change adds under `## [Unreleased]` | yes |
 **Archaeology** is a fixed pattern list: ISO dates in prose, `used to`, `earlier draft`, refactor verbs followed by `of` or `from`, replacement narration, commit citations, and a past-tense verb sharing a sentence with a literal length. It needs no network and no model. A line that must keep its history takes `history-ok: <reason>` — the reason is required, because an excuse with no reason excuses nothing.
 
-**The two judges** send what the patterns did not answer for to a model, and ask one question: would this text lose nothing by being deleted or rewritten in present tense? They prefer silence.
+**The markdown and comment judges** send what the patterns did not answer for to a model, and ask one question: would this text lose nothing by being deleted or rewritten in present tense? They prefer silence.
+
+**The changelog judge** holds a release note to the reader's need rather than the author's. Its screen is the mechanical half — one bullet, one line, a bold lead, a word cap, no second person, no marketing register, no narration by negation, one heading per kind in Keep a Changelog order — and its judge reads what the screen leaves for the shape a screen cannot name: a flag name or a file path as the subject, the order a gate runs its steps in, cause narration, mechanism where the reader needs effect, what the code did in an earlier release. `--release` asks it a second question over the whole `[Unreleased]` section before a cut: which bullets double each other, which one a later bullet supersedes, and which sits under the wrong kind. It rewrites nothing.
 
 The order matters. The patterns screen first, and what they refuse never reaches the judge — a flagged candidate is already refused, so sending it buys nothing but tokens.
 
@@ -59,6 +62,14 @@ triviajudge-md --stop               # a Stop payload on stdin, over the working 
 `--stop` is the agent-harness mode: exit 2 holds the turn open until the prose is fixed, once. A line the judge has passed is remembered by hash and never sent again, so a turn that adds no new prose makes no call at all.
 
 The comment gate takes the same five modes, with one difference: under `--stop` it runs the pattern screen alone and makes no model call, so an added comment naming a date is caught in the turn that typed it without waiting on a CLI. Its judge runs at commit and over HEAD, on finished work. It keeps no cache — the modes that judge are the gate.
+
+The changelog gate takes the same five modes over the bullets a change adds, and one scope of its own:
+
+```
+triviajudge-changelog --release     # every bullet under [Unreleased], in one call, before a cut
+```
+
+`--release` refuses the other modes rather than folding into them, keeps no cache, and exits 1 on any flag. Its screen's own complaints fail every mode: nothing else holds them.
 
 The archaeology gate takes a file list, and one mode of its own:
 

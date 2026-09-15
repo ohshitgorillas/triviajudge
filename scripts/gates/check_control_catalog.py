@@ -56,6 +56,7 @@ class Gate:
 CATALOG: dict[str, Gate] = {
     "md_trivia": Gate(script="triviajudge-md", hook_id="md-trivia", plugin=True),
     "comment_trivia": Gate(script="triviajudge-comments", hook_id="comment-trivia", plugin=True),
+    "changelog_trivia": Gate(script="triviajudge-changelog", hook_id="changelog-trivia", plugin=True),
     "archaeology": Gate(script="triviajudge-archaeology", hook_id="archaeology", plugin=True),
     "sweep": Gate(script="triviajudge-sweep", hook_id=None, plugin=False),
 }

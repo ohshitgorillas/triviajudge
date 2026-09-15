@@ -10,11 +10,15 @@ SOURCES := $(shell git ls-files 'triviajudge/*.py' 'scripts/*.py')
 ALL_PY := $(shell git ls-files '*.py')
 DOCS := $(shell git ls-files '*.md')
 
+# The stdlib gate reads the shipped package alone: the dev extra is what the gates
+# themselves run on, and the empty dependency list is a property of the package.
+PACKAGE := $(shell git ls-files 'triviajudge/*.py')
+
 # The two assertion gates read tests and nothing else: shape is a property of the
 # suite, not of what it covers.
 TESTS := $(shell git ls-files 'tests/*.py')
 
-.PHONY: lint duplication test check mutate trivia
+.PHONY: lint duplication test check mutate trivia release calibrate
 
 lint:
 	$(VENV)/ruff check triviajudge tests scripts
@@ -27,10 +31,11 @@ lint:
 	$(VENV)/python scripts/gates/check_file_length.py $(ALL_PY)
 	$(VENV)/python scripts/gates/check_nesting.py $(ALL_PY)
 	$(VENV)/python scripts/gates/check_no_barrels.py $(SOURCES)
+	$(VENV)/python scripts/gates/check_stdlib_only.py $(PACKAGE)
+	$(VENV)/python scripts/gates/check_call_timeouts.py $(SOURCES)
 	$(VENV)/python scripts/gates/check_test_assertions.py $(TESTS)
 	$(VENV)/python scripts/gates/check_no_copy_assertions.py $(TESTS)
 	$(VENV)/python scripts/gates/check_doc_refs.py $(ALL_PY) $(DOCS)
-	$(VENV)/python scripts/gates/check_changelog.py CHANGELOG.md
 	git log -1 --format=%B | $(VENV)/python scripts/gates/check_commit_msg.py -
 	$(VENV)/python scripts/gates/check_control_catalog.py
 	$(VENV)/python scripts/gates/check_settings_docs.py
@@ -81,3 +86,24 @@ mutate:
 trivia:
 	$(VENV)/triviajudge-md --head
 	$(VENV)/triviajudge-comments --head
+	$(VENV)/triviajudge-changelog --head
+
+# The pre-cut pass over the changelog. The judge reads every bullet under
+# [Unreleased] in one call and names the ones that must not ship beside each
+# other — duplicates, a bullet a later one supersedes, a bullet under the wrong
+# kind — and the version gate then holds the version, the changelog and the tags
+# to one release. The judge needs the model and the network, so this sits beside
+# `trivia` and outside `check`.
+release:
+	$(VENV)/triviajudge-changelog --release
+	$(VENV)/python scripts/gates/check_release.py
+
+# Measures the judge rather than the tree: it asks the configured model about a
+# held corpus whose verdict is already known and reports where the two disagree.
+# Two record files, one per label, in the `path:line<TAB>text` form
+# `triviajudge-md --lines` reads. It needs the model and the network, so it sits
+# beside `trivia` and outside `check`.
+#
+#     make calibrate TRIVIA=corpus/trivia.txt CLEAN=corpus/clean.txt
+calibrate:
+	$(VENV)/python scripts/calibrate.py --trivia $(TRIVIA) --clean $(CLEAN) $(CALIBRATE)
