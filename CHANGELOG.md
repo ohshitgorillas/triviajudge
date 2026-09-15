@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-15
+
 ### Added
 
 - **A weak changelog entry fails the commit that adds it.** `triviajudge-changelog` refuses a bullet under `[Unreleased]` that runs past 75 words, opens without a bold lead, addresses the reader, sells the change, or reads as the fix's autobiography. `--release` refuses a section carrying duplicate, superseded or miskinded bullets.
