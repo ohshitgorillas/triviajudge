@@ -1,12 +1,12 @@
 # Trivia Judge
 
-Three gates that hold the prose a change adds to what holds now, rather than what happened.
+A huge pet peeve of mine is that agents cannot reliably distinguish between "a useful fact for the next agent" and "a useless fact I know". Without specific attention to such, documentation and comments collect a type of rot: dated approvals, hand-back receipts, refactor records, relitigation of rules already in every agent's primary instructions file, round and phase numbers used as positions in history, and prose whose only content is that something did not change.
 
-Documentation and comments collect a particular kind of rot: dated approvals, hand-back receipts, refactor records, round and phase numbers used as positions in history, corrections that narrate the mistake they fix, and prose whose only content is that something did not change. None of it helps the next reader make the next change, and each piece invites the next.
-
-Some of that has a shape a regex can name. The rest is a judgment call, so a model makes it.
+The Trivia Judge package is three gates designed to prevent this rot by forcing agents to clean up docstrings, comments, and markdown files to state what holds now rather than what happened.
 
 ## The three gates
+
+Some of that rot has a shape a regex can name. The rest is a judgment call, so a model makes it.
 
 | Gate | Entry point | What it reads | Model call |
 |---|---|---|---|
