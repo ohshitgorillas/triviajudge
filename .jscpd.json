@@ -1,0 +1,9 @@
+{
+  "path": ["triviajudge", "scripts", "tests"],
+  "format": ["python"],
+  "ignore": ["**/node_modules/**", "**/__pycache__/**"],
+  "minTokens": 50,
+  "threshold": 1,
+  "reporters": ["console"],
+  "absolute": true
+}

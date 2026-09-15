@@ -313,4 +313,4 @@ def test_a_file_that_does_not_parse_is_named_and_passed(
     monkeypatch.setattr("triviajudge.archaeology.root", lambda: tmp_path)
     monkeypatch.setattr("triviajudge.archaeology.added", lambda _rel: None)
     GATE.added_complaints({"tool_input": {"file_path": str(path)}})
-    assert "not read" in capsys.readouterr().err
+    assert "sample.py" in capsys.readouterr().err

@@ -108,5 +108,4 @@ def test_a_directory_in_no_work_tree_is_refused(
 
     monkeypatch.setattr("triviajudge.md_trivia.settings", outside)
     monkeypatch.setattr("sys.argv", ["triviajudge-md"])
-    assert md_trivia.main() == 1
-    assert "trivia judge: no git work tree" in capsys.readouterr().err
+    assert (md_trivia.main(), "no git work tree" in capsys.readouterr().err) == (1, True)

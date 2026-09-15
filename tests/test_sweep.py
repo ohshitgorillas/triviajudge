@@ -84,19 +84,26 @@ def test_concurrency_is_at_least_one_and_at_most_half_the_cores(monkeypatch: pyt
 # --- behavior 4: a failed batch is reported and the run continues ------------
 
 
-def test_a_failed_batch_is_named_for_rerun_and_costs_the_run_nothing_else(capsys: pytest.CaptureFixture[str]) -> None:
+def reported(capsys: pytest.CaptureFixture[str]) -> tuple[list[dict[str, str]], list[Line], str]:
+    """One ``report`` over a batch that answered beside a batch whose call failed."""
     lines = [Line("a.md", 1, "first"), Line("a.md", 2, "second"), Line("b.md", 1, "third")]
     good, bad = sweep.batched(sweep.MD, "prompt", lines, 2)
-    results = [
+    results: list[sweep.Result] = [
         (good, [{"id": "a.md:2", "reason": "dated event"}], ""),
         (bad, None, "claude exited 1"),
     ]
     flags, passed = sweep.report(results)
-    captured = capsys.readouterr()
-    assert [flag["id"] for flag in flags] == ["a.md:2"]
-    assert [line.id for line in passed] == ["a.md:1"]
-    assert "batch md#2 failed" in captured.err
-    assert "--paths b.md" in captured.err
+    return flags, passed, capsys.readouterr().err
+
+
+def test_a_failed_batch_costs_the_run_its_own_lines_and_nothing_else(capsys: pytest.CaptureFixture[str]) -> None:
+    flags, passed, _err = reported(capsys)
+    assert ([flag["id"] for flag in flags], [line.id for line in passed]) == (["a.md:2"], ["a.md:1"])
+
+
+def test_a_failed_batch_is_named_for_rerun_with_the_files_it_covers(capsys: pytest.CaptureFixture[str]) -> None:
+    _flags, _passed, err = reported(capsys)
+    assert "--paths b.md" in err
 
 
 # --- behavior 5: --baseline writes the digests the markdown gate reads -------
@@ -155,7 +162,7 @@ def test_a_dated_comment_is_screened_out_of_the_candidates_and_complained_about(
 ) -> None:
     tracked(monkeypatch, tmp_path, {"src/sample.py": DATED_COMMENT})
     _lines, complaints = sweep.comment_candidates(())
-    assert "dated narration" in complaints[0]
+    assert "2025-11-04" in complaints[0]
 
 
 def test_a_file_the_sweep_cannot_read_is_named_and_the_run_goes_on(
@@ -164,7 +171,7 @@ def test_a_file_the_sweep_cannot_read_is_named_and_the_run_goes_on(
     tracked(monkeypatch, tmp_path, {"src/sample.py": CLEAN_COMMENT})
     (tmp_path / "src/sample.py").write_bytes(b"value = 1  # \xff\xfe\n")
     sweep.comment_candidates(())
-    assert "src/sample.py: not read" in capsys.readouterr().err
+    assert "src/sample.py" in capsys.readouterr().err
 
 
 # --- behavior 7: the run is asked for, and an unanswered question is a no -----
@@ -184,14 +191,23 @@ def test_a_closed_stdin_is_a_no(monkeypatch: pytest.MonkeyPatch) -> None:
     assert sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 50), "a-model", 1, assumed=False) is False
 
 
+def assumed_consent(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> str:
+    """What ``consent`` prints when the answer is assumed, with the question left unasked."""
+    monkeypatch.setattr("builtins.input", lambda _prompt: pytest.fail("the question was asked"))
+    sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 3), "a-model", 4, assumed=True)
+    return capsys.readouterr().out
+
+
 def test_yes_skips_the_question_and_says_what_the_run_costs(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr("builtins.input", lambda _prompt: pytest.fail("the question was asked"))
-    sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 3), "a-model", 4, assumed=True)
-    printed = capsys.readouterr().out
-    assert "7 line(s), 3 call(s) at a-model" in printed
-    assert "4 concurrent `claude` process(es)" in printed
+    assert "7 line(s), 3 call(s) at a-model" in assumed_consent(monkeypatch, capsys)
+
+
+def test_the_consent_line_names_the_concurrency_the_run_will_spend(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert "4 concurrent `claude` process(es)" in assumed_consent(monkeypatch, capsys)
 
 
 def test_the_consent_line_names_what_the_configured_backend_spends(
@@ -201,7 +217,7 @@ def test_the_consent_line_names_what_the_configured_backend_spends(
         "triviajudge.sweep.settings", lambda: Settings(backend="local", base_url="http://127.0.0.1:8080")
     )
     sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 3), "a-model", 4, assumed=True)
-    assert "4 concurrent request(s) to http://127.0.0.1:8080" in capsys.readouterr().out
+    assert "http://127.0.0.1:8080" in capsys.readouterr().out
 
 
 # --- behavior 8: a failed call costs its batch, not the run ------------------
@@ -263,22 +279,17 @@ def sweep_run(monkeypatch: pytest.MonkeyPatch, flags: list[str]) -> int:
     return sweep.main()
 
 
-def test_a_tree_with_nothing_to_judge_asks_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_a_tree_with_nothing_to_judge_asks_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tracked(monkeypatch, tmp_path, {})
-    sweep_run(monkeypatch, ["--md", "--yes"])
-    assert "[ok] nothing to judge" in capsys.readouterr().out
+    monkeypatch.setattr("triviajudge.sweep.ask", lambda *_args, **_kwargs: pytest.fail("a call was made"))
+    assert sweep_run(monkeypatch, ["--md", "--yes"]) == 0
 
 
-def test_a_declined_question_asks_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_a_declined_question_asks_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     monkeypatch.setattr("builtins.input", lambda _prompt: "n")
     monkeypatch.setattr("triviajudge.sweep.ask", lambda *_args, **_kwargs: pytest.fail("a call was made"))
-    sweep_run(monkeypatch, ["--md"])
-    assert "nothing asked" in capsys.readouterr().err
+    assert sweep_run(monkeypatch, ["--md"]) == 0
 
 
 def test_a_flagged_line_fails_the_run_under_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -320,7 +331,7 @@ def test_a_failed_batch_is_named_on_the_way_out(
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     monkeypatch.setattr("triviajudge.sweep.ask", refuse)
     sweep_run(monkeypatch, ["--md", "--yes"])
-    assert "1 batch(es) failed and were not judged: md#1" in capsys.readouterr().err
+    assert "md#1" in capsys.readouterr().err
 
 
 def test_a_directory_in_no_work_tree_is_refused_rather_than_swept(
@@ -331,4 +342,4 @@ def test_a_directory_in_no_work_tree_is_refused_rather_than_swept(
 
     monkeypatch.setattr("triviajudge.sweep.git", outside)
     sweep_run(monkeypatch, ["--md", "--yes"])
-    assert "trivia judge: no git work tree" in capsys.readouterr().err
+    assert "no git work tree" in capsys.readouterr().err

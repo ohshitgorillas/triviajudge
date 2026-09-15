@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Internal
+
+- **A release states one version in three places.** `check_release.py` holds `version` in `pyproject.toml`, the newest released `CHANGELOG.md` heading and the `v` tags in git to the same release, and refuses a released section older than the newest that carries no tag.
+- **Duplication is measured.** `make duplication` runs jscpd over the package, the gates and the suite, holding the tree under 1% duplicated tokens at a 50-token clone. It needs `npm install`, the one node dependency, and `make check` runs it.
+- **Mutation testing has a target.** `make mutate` breaks the code one edit at a time and reports the mutants the suite let through. It runs by hand, outside `check` and outside the commit path.
+- **Three gates hold the shape of the suite.** `check_test_assertions.py` holds a test to one assertion and reports a loop, a skip or an existence-only check, `check_no_copy_assertions.py` refuses an asserted sentence the test did not seed, and `check_suite_time.py` holds the suite's wall time to the last green run's.
+- **Three structural gates run over this repository.** `check_nesting.py` caps a function at four nested blocks, `check_no_barrels.py` refuses a re-export module or a trivial forwarder, and `lint-imports` holds the package to the layer contract in `pyproject.toml`.
+
 ## [0.2.0] - 2026-09-14
 
 ### Added

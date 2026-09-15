@@ -11,3 +11,14 @@ dist/
 .coverage.json
 .ruff_cache/
 .mypy_cache/
+
+# The junit report a run writes, and the wall time of the last green run the
+# suite-time gate compares against. Both are per-checkout measurements.
+.pytest-junit.xml
+.suite-time.json
+
+# jscpd and nothing else. package-lock.json is tracked, the tree it installs is not.
+node_modules/
+
+# The working copies `make mutate` writes, rebuilt from scratch every run.
+mutants/

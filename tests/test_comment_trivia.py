@@ -279,7 +279,7 @@ def test_a_file_that_does_not_parse_is_named_and_costs_the_run_nothing(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     GATE.parsed(SAMPLE_PATH, BROKEN_PYTHON, every_line_of(BROKEN_PYTHON))
-    assert "does not parse" in capsys.readouterr().err
+    assert SAMPLE_PATH in capsys.readouterr().err
 
 
 def test_a_pragma_with_no_reason_is_refused_by_the_screen() -> None:

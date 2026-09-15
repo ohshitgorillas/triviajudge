@@ -1,0 +1,8 @@
+{
+  "name": "triviajudge-tooling",
+  "private": true,
+  "description": "The one node tool this Python package's gates need: jscpd, the duplication gate.",
+  "devDependencies": {
+    "jscpd": "^5.2.0"
+  }
+}

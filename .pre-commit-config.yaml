@@ -36,9 +36,30 @@ repos:
         pass_filenames: false
         types: [python]
 
+      - id: import-linter
+        name: import layering gate
+        entry: .venv/bin/lint-imports
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: single-assertion
+        name: one assertion per test
+        entry: .venv/bin/python scripts/gates/check_test_assertions.py
+        language: system
+        types: [python]
+        files: ^tests/
+
+      - id: no-copy-assertions
+        name: no copy in assertions
+        entry: .venv/bin/python scripts/gates/check_no_copy_assertions.py
+        language: system
+        types: [python]
+        files: ^tests/
+
       - id: pytest
         name: pytest
-        entry: .venv/bin/pytest -q --cov=triviajudge --cov-branch --cov-report=term-missing --cov-report=json:.coverage.json
+        entry: .venv/bin/pytest -q --cov=triviajudge --cov-branch --cov-report=term-missing --cov-report=json:.coverage.json --junitxml=.pytest-junit.xml
         language: system
         pass_filenames: false
         always_run: true
@@ -53,11 +74,33 @@ repos:
         pass_filenames: false
         always_run: true
 
+      # Reads the junit report the pytest hook writes; a red suite is not judged,
+      # so this reports the red rather than a time.
+      - id: suite-time
+        name: suite wall time against the last green run
+        entry: .venv/bin/python scripts/gates/check_suite_time.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: file-length
         name: max 500 source / 800 test lines, watched files only shrink
         entry: .venv/bin/python scripts/gates/check_file_length.py
         language: system
         types: [python]
+
+      - id: nesting
+        name: no function nests more than 4 blocks deep
+        entry: .venv/bin/python scripts/gates/check_nesting.py
+        language: system
+        types: [python]
+
+      - id: no-barrels
+        name: no re-export modules or trivial forwarders
+        entry: .venv/bin/python scripts/gates/check_no_barrels.py
+        language: system
+        types: [python]
+        exclude: ^tests/
 
       - id: changelog-style
         name: changelog entry style ([Unreleased] only)
@@ -72,6 +115,16 @@ repos:
         entry: .venv/bin/python scripts/gates/check_doc_refs.py
         language: system
         types_or: [python, markdown]
+
+      # Cross-cutting: a clone has two ends and either one can move, and the
+      # threshold is a whole-tree percentage, so the gate reads the entire source
+      # set from .jscpd.json rather than the staged filenames.
+      - id: jscpd
+        name: copy-paste duplication gate
+        entry: npx jscpd
+        language: system
+        pass_filenames: false
+        files: ^(triviajudge|scripts|tests)/.*\.py$
 
       # Cross-cutting: one gate is named in pyproject.toml, .pre-commit-hooks.yaml
       # and hooks.json, so this runs when any of the three moves.
@@ -90,6 +143,16 @@ repos:
         language: system
         pass_filenames: false
         files: ^(triviajudge/config\.py|README\.md)$
+
+      # Cross-cutting: the version, the changelog and the tags are three places,
+      # so either file moving is what has to trigger the comparison. The tags it
+      # reads come from git, not from the staged paths.
+      - id: release
+        name: version, changelog and tags name one release
+        entry: .venv/bin/python scripts/gates/check_release.py
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|CHANGELOG\.md)$
 
       # Wiring drifts when either config moves, and neither is a source file any
       # types: selector matches, so this one always runs.

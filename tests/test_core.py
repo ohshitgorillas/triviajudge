@@ -20,6 +20,10 @@ not judge at ``Stop`` carry none at all.
 
 ``root()`` answers with the work tree the current directory sits in, and raises
 ``NotARepositoryError`` outside one rather than inferring a tree.
+
+A refusal is matched on the value the test put in — the timeout it asked for,
+the stderr its fake wrote, the variable name it named — never on the sentence
+the gate wraps around it.
 """
 
 import io
@@ -217,7 +221,7 @@ def test_a_call_that_never_answers_is_a_refusal(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr("triviajudge.core.binary", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr("triviajudge.core.root", Path.cwd)
     monkeypatch.setattr("triviajudge.core.subprocess.run", expire)
-    with pytest.raises(RuntimeError, match="did not answer within 600s"):
+    with pytest.raises(RuntimeError, match="600s"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt", timeout=600)
 
 
@@ -225,7 +229,7 @@ def test_a_call_that_exits_nonzero_is_a_refusal_naming_what_it_said(monkeypatch:
     monkeypatch.setattr("triviajudge.core.binary", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr("triviajudge.core.root", Path.cwd)
     monkeypatch.setattr("triviajudge.core.subprocess.run", refusing_run(returncode=1, stderr="no credit"))
-    with pytest.raises(RuntimeError, match="claude exited 1: no credit"):
+    with pytest.raises(RuntimeError, match="no credit"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
@@ -238,12 +242,12 @@ def test_a_fenced_answer_is_read_as_the_flag_list_it_wraps() -> None:
 
 
 def test_an_error_envelope_is_a_refusal() -> None:
-    with pytest.raises(RuntimeError, match="claude reported an error: over quota"):
+    with pytest.raises(RuntimeError, match="over quota"):
         core.parsed(json.dumps({"is_error": True, "result": "over quota"}))
 
 
 def test_an_answer_that_is_not_a_list_is_a_refusal() -> None:
-    with pytest.raises(RuntimeError, match="judge answered with dict, not a list"):
+    with pytest.raises(RuntimeError, match="dict"):
         core.parsed(json.dumps({"result": '{"id": "doc.md:1"}'}))
 
 
@@ -257,7 +261,7 @@ def test_a_flag_naming_no_line_is_printed_against_its_id(capsys: pytest.CaptureF
 
 def test_nothing_flagged_says_how_many_lines_hold_now(capsys: pytest.CaptureFixture[str]) -> None:
     core.report([core.Line("doc.md", 1, "a line")], [], sys.stdout)
-    assert "[ok] 1 line(s) state what holds now" in capsys.readouterr().out
+    assert "[ok] 1 line(s)" in capsys.readouterr().out
 
 
 # --- behavior 11: a Stop payload that is not JSON is not a second run ---------
@@ -317,21 +321,53 @@ def answering_post(body: str, sent: dict[str, object] | None = None) -> object:
     return urlopen
 
 
-def test_the_local_backend_posts_the_question_and_reads_the_array_back(monkeypatch: pytest.MonkeyPatch) -> None:
-    sent: dict[str, object] = {}
+ONE_FLAG = '[{"id": "doc.md:1", "reason": "narrates a decision"}]'
+
+
+def local_call(monkeypatch: pytest.MonkeyPatch, body: str, sent: dict[str, object]) -> list[dict[str, str]]:
+    """One ``ask`` over the local backend, keeping what the request carried in ``sent``."""
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
-    monkeypatch.setattr(
-        "triviajudge.core.urllib.request.urlopen",
-        answering_post('[{"id": "doc.md:1", "reason": "narrates a decision"}]', sent),
-    )
-    flags = core.ask([core.Line("doc.md", 1, "a line")], "prompt", model="qwen3-4b", timeout=30)
-    assert flags == [{"id": "doc.md:1", "reason": "narrates a decision"}]
+    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post(body, sent))
+    return core.ask([core.Line("doc.md", 1, "a line")], "prompt", model="qwen3-4b", timeout=30)
+
+
+def sent_payload(sent: dict[str, object]) -> dict[str, object]:
+    """The JSON body of the request the local backend posted."""
+    return cast("dict[str, object]", sent["payload"])
+
+
+def test_the_local_backend_reads_the_array_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert local_call(monkeypatch, ONE_FLAG, {}) == [{"id": "doc.md:1", "reason": "narrates a decision"}]
+
+
+def test_the_local_backend_posts_to_the_chat_completions_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: dict[str, object] = {}
+    local_call(monkeypatch, ONE_FLAG, sent)
     assert sent["url"] == "http://127.0.0.1:8080/v1/chat/completions"
+
+
+def test_the_timeout_the_caller_asked_for_reaches_the_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: dict[str, object] = {}
+    local_call(monkeypatch, ONE_FLAG, sent)
     assert sent["timeout"] == 30
-    payload = cast("dict[str, object]", sent["payload"])
-    assert payload["model"] == "qwen3-4b"
-    assert payload["response_format"]["type"] == "json_schema"  # type: ignore[index]
-    assert "doc.md:1\ta line" in payload["messages"][0]["content"]  # type: ignore[index]
+
+
+def test_the_payload_names_the_model_the_caller_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: dict[str, object] = {}
+    local_call(monkeypatch, ONE_FLAG, sent)
+    assert sent_payload(sent)["model"] == "qwen3-4b"
+
+
+def test_the_payload_asks_the_server_for_a_schema_shaped_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: dict[str, object] = {}
+    local_call(monkeypatch, ONE_FLAG, sent)
+    assert sent_payload(sent)["response_format"]["type"] == "json_schema"  # type: ignore[index]
+
+
+def test_the_payload_carries_the_lines_to_judge(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: dict[str, object] = {}
+    local_call(monkeypatch, ONE_FLAG, sent)
+    assert "doc.md:1\ta line" in sent_payload(sent)["messages"][0]["content"]  # type: ignore[index]
 
 
 def test_the_table_names_where_under_base_url_the_question_is_posted(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -341,7 +377,7 @@ def test_the_table_names_where_under_base_url_the_question_is_posted(monkeypatch
         local_settings(base_url="https://example.invalid/v1beta/openai", chat_path="chat/completions"),
     )
     monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post("[]", sent))
-    assert core.ask([core.Line("doc.md", 1, "a line")], "prompt") == []
+    core.ask([core.Line("doc.md", 1, "a line")], "prompt")
     assert sent["url"] == "https://example.invalid/v1beta/openai/chat/completions"
 
 
@@ -357,7 +393,7 @@ def test_a_fenced_local_answer_is_read_as_the_flag_list_it_wraps(monkeypatch: py
 def test_a_local_answer_that_is_not_a_list_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
     monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post('{"id": "doc.md:1"}'))
-    with pytest.raises(RuntimeError, match="judge answered with dict, not a list"):
+    with pytest.raises(RuntimeError, match="dict"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
@@ -373,7 +409,7 @@ def test_a_non_200_is_a_refusal_naming_the_code(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
     monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", refuse)
-    with pytest.raises(RuntimeError, match="answered 503: no model loaded"):
+    with pytest.raises(RuntimeError, match="503"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
@@ -383,7 +419,7 @@ def test_a_dead_socket_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
     monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", refuse)
-    with pytest.raises(RuntimeError, match="did not answer: "):
+    with pytest.raises(RuntimeError, match="connection refused"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
@@ -392,40 +428,41 @@ def test_an_envelope_carrying_an_error_is_a_refusal(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(
         "triviajudge.core.urllib.request.urlopen", raw_post(json.dumps({"error": {"message": "context length"}}))
     )
-    with pytest.raises(RuntimeError, match="the server reported an error"):
+    with pytest.raises(RuntimeError, match="context length"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
 def test_an_envelope_carrying_no_choices_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
     monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", raw_post(json.dumps({})))
-    with pytest.raises(RuntimeError, match="answered with no choices"):
+    with pytest.raises(RuntimeError, match="choices"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
 def test_the_token_variable_is_sent_as_a_bearer_header(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: dict[str, object] = {}
-    monkeypatch.setenv("JUDGE_TOKEN", "sk-local")
+    credential = "sk-local"
+    monkeypatch.setenv("JUDGE_TOKEN", credential)
     monkeypatch.setattr("triviajudge.core.settings", local_settings(api_key_env="JUDGE_TOKEN"))
     monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post("[]", sent))
     core.ask([core.Line("doc.md", 1, "a line")], "prompt")
-    assert cast("dict[str, str]", sent["headers"])["Authorization"] == "Bearer sk-local"
+    assert cast("dict[str, str]", sent["headers"])["Authorization"] == f"Bearer {credential}"
 
 
 def test_a_token_variable_that_is_unset_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("JUDGE_TOKEN", raising=False)
     monkeypatch.setattr("triviajudge.core.settings", local_settings(api_key_env="JUDGE_TOKEN"))
-    with pytest.raises(RuntimeError, match="api_key_env names JUDGE_TOKEN, which is unset"):
+    with pytest.raises(RuntimeError, match="JUDGE_TOKEN"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
 def test_the_local_backend_without_a_base_url_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("triviajudge.core.settings", local_settings(base_url=""))
-    with pytest.raises(RuntimeError, match="needs base_url"):
+    with pytest.raises(RuntimeError, match="base_url"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
 def test_an_unknown_backend_is_a_refusal_rather_than_the_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("triviajudge.core.settings", lambda: Settings(backend="ollama"))
-    with pytest.raises(RuntimeError, match="unknown backend 'ollama'"):
+    with pytest.raises(RuntimeError, match="ollama"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")

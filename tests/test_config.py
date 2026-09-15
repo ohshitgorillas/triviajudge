@@ -59,10 +59,10 @@ def test_a_list_becomes_the_type_the_field_holds(tmp_path: Path) -> None:
 
 
 def test_a_table_that_does_not_parse_refuses_to_judge_on_defaults(tmp_path: Path) -> None:
-    with pytest.raises(RuntimeError, match="present but unreadable"):
+    with pytest.raises(RuntimeError, match=r"pyproject\.toml"):
         config.read(written(tmp_path, "pyproject.toml", "[tool.triviajudge\nmodel =\n"))
 
 
 def test_a_key_nobody_knows_fails_rather_than_passing_in_silence(tmp_path: Path) -> None:
-    with pytest.raises(RuntimeError, match="unknown triviajudge settings: mdel"):
+    with pytest.raises(RuntimeError, match="mdel"):
         config.read(written(tmp_path, "pyproject.toml", '[tool.triviajudge]\nmdel = "a-model"\n'))

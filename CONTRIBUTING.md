@@ -15,6 +15,7 @@ To report a bug, please give:
 python -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 .venv/bin/pre-commit install
+npm install
 ```
 
 `pre-commit install` wires both the pre-commit and the commit-msg stage, because
@@ -22,12 +23,16 @@ python -m venv .venv
 install the commit-message gate never runs on a commit.
 
 The package itself is the standard library alone. Everything in the `dev` extra
-belongs to `make check`.
+belongs to `make check`, except `mutmut`, which `make mutate` runs by hand.
+`npm install` puts one tool in `node_modules`: jscpd, the duplication gate that
+`make duplication` runs. It is the only node dependency, and installing it is
+what keeps that gate offline.
 
 ## Before you open a PR
 
 `make check` must be green. `make lint` is the offline half — ruff, black,
-xenon, vulture, mypy in strict mode, and the gates under `scripts/gates/`.
+xenon, vulture, mypy in strict mode, import-linter, and the gates under
+`scripts/gates/`.
 `make test` runs the suite and then the per-file coverage floor, which is 90%
 for every file, not an average.
 
@@ -98,6 +103,116 @@ number to match, so headroom cannot be banked in one commit and spent in the
 next. Nothing raises an allowance. A file that needs more room needs a split.
 The ratchet does not reach under `tests/`, where one assertion per test inflates
 line count without adding coupling.
+
+## Shape
+
+Three gates hold the tree's shape where line count says nothing.
+
+`scripts/gates/check_nesting.py` caps a function at four nested blocks. xenon and
+ruff `C901` count branches, so a branch-cheap function that indents five deep
+passes both and still asks the reader to hold five conditions at once. A site
+that must stand carries its reason in `EXEMPT`, keyed `path::qualified.name`.
+
+`scripts/gates/check_no_barrels.py` refuses the two shapes that shorten a file
+without simplifying the tree: a module of imports and nothing else, and a method
+whose whole body forwards its own arguments somewhere else. Both read as a
+finished split to anything counting lines, and neither moved a caller.
+
+`lint-imports` reads the layer contract in `pyproject.toml`. The package is one
+layer per module — `sweep` over the two judges, the judges over `archaeology`,
+then `core`, then `config` — and the two judges share a layer, so an import
+between them fails. The one edge that runs upward is `config` reaching `core`
+for the work tree, deferred to call time and named in `ignore_imports`.
+
+## One assertion per test
+
+`scripts/gates/check_test_assertions.py` holds a `test_` function to exactly one
+assertion — an `assert` statement or a `pytest.raises` context, counting one per
+operand of a conjunction at the root. A test that pins six things reports the
+first one that breaks and hides the rest, and its name can only describe one of
+them. Where two facts are one behavior, compare them as a tuple:
+`assert (finished.returncode, finished.stderr) == (0, "")`.
+
+The same gate refuses four more shapes: an assertion inside a loop or under
+`all()`/`any()`, which is an unparametrized case sweep; an `assert` in a
+module-level helper, since a helper returns evidence and a fixture that must
+refuse raises; an assertion whose whole condition is `x is not None` or
+`len(x) > 0`, which pins presence where a value was owed; and a
+`skip`/`skipif`/`xfail` decorator. A reach for a single-underscore attribute on
+anything but `self` is reported too. A site that must stand carries its reason in
+`EXEMPT`, keyed `<path>::<test name>`, and only the existence and skip categories
+may be exempted.
+
+## No copy in assertions
+
+`scripts/gates/check_no_copy_assertions.py` refuses a literal of two or more
+words asserted, or matched by `pytest.raises(match=...)`, unless the test itself
+put those words there. A sentence the gate wraps around a value is prose the
+author rewords at will: a test pinning it goes red on a rewording and green on a
+broken behavior.
+
+So a refusal is matched on what the test seeded — the timeout it asked for, the
+stderr its fake wrote, the key it named — rather than on the sentence carrying
+it: `match="no credit"` where the fake wrote `no credit`, not
+`match="claude exited 1: no credit"`. A literal counts as seeded when it appears
+in the test file outside an assertion, is handed to a plain function on the
+assert line, sits inside a longer seeded string, is composed of seeded pieces, or
+matches an f-string a fake wrote.
+
+## Suite time
+
+`scripts/gates/check_suite_time.py` reads the junit report `make test` writes and
+compares the suite's wall time with the last green run's, kept in the gitignored
+`.suite-time.json`. A run within five seconds of the baseline passes and becomes
+the baseline. A run past that needs `--accept`; a run ten seconds or more over is
+refused either way, and the way past it is a faster suite. A red report is not
+judged and not recorded, because an aborted run looks fast. A fresh checkout has
+no baseline and seeds one from its first run.
+
+## Duplication
+
+`make duplication` runs jscpd over `triviajudge/`, `scripts/` and `tests/`. A
+clone of 50 tokens or more counts, and the tree is held under 1% duplicated
+tokens. The whole configuration — paths, format, threshold — is in
+`.jscpd.json`, so both the Makefile recipe and the pre-commit hook are a bare
+invocation, and the gate reads the entire source set rather than the staged
+filenames: a clone has two ends and either one can move.
+
+It sits in its own target rather than in `lint`, which is the venv-only half and
+stays runnable with no `node_modules` installed. `check` runs both.
+
+## Mutation testing
+
+`make mutate` breaks the code one edit at a time and reports how many of those
+breakages the suite noticed. A surviving mutant is a line no test constrains — the
+one question the assertion gates cannot ask. It runs by hand and is in neither
+`check` nor pre-commit, because the whole package takes far longer than a commit
+path allows. Scope it while working:
+
+```sh
+make mutate                              # everything under triviajudge/
+make mutate MUTATE='triviajudge.core.*'  # one module
+```
+
+`MUTATE` is an fnmatch pattern over mutant names, so the trailing `.*` is
+load-bearing: a bare module name matches no mutant and mutmut asserts rather than
+running. Scope and pytest arguments live in `[tool.mutmut]` in `pyproject.toml`.
+
+## Cutting a release
+
+`scripts/gates/check_release.py` holds three statements of the version together:
+`version` in `pyproject.toml`, the newest released `## [x.y.z]` heading in
+`CHANGELOG.md`, and the `vx.y.z` tags in git.
+
+- `version` equals the newest released heading. `[Unreleased]` is not a release
+  and never satisfies it.
+- A tag pointing at `HEAD` is exactly `v<version>`.
+- Every released heading other than the newest carries a `v` tag. The newest is
+  the one exemption, because the commit that cuts a release exists before the tag
+  that names it does; the next release brings it under the rule.
+
+So a release is one commit that renames `[Unreleased]` to the new version, sets
+`version` to match, and is then tagged `v<version>`.
 
 ## Citing the documentation
 

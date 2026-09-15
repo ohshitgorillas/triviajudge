@@ -24,6 +24,11 @@ dev = [
     "mypy",
     "vulture",
     "xenon",
+    # the layering contract in [tool.importlinter] below is only enforced if the
+    # gate that reads it is installed
+    "import-linter",
+    # `make mutate` only; it is not part of `check`
+    "mutmut",
 ]
 
 [project.scripts]
@@ -49,6 +54,17 @@ comment_skip = [
     "triviajudge/archaeology.py",
 ]
 excluded = ["tests/"]
+
+# Mutation testing, run by hand via `make mutate` — never in `make check` or
+# pre-commit. It asks the one question the assertion gates cannot: would this
+# test have failed if the code were wrong. The whole package takes far longer
+# than a commit path allows, which is why it has no hook.
+[tool.mutmut]
+source_paths = ["triviajudge"]
+# The same suite `check` runs, minus coverage: a mutant run measures nothing.
+# `-x` stops each mutant at its first failure, which is all the run needs to
+# call it killed.
+pytest_add_cli_args = ["-q", "-x", "--no-cov"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -146,3 +162,27 @@ parallel = true
 # A test hands the gate a throwaway checkout carrying its own copy of a module.
 # That copy is a fixture, not this package.
 omit = ["*/pytest-of-*/*"]
+
+# The package is one flat layer per module. sweep drives both judges, each judge
+# reads the archaeology patterns, and everything below is shared. The two judges
+# sit in one layer because neither imports the other, and import-linter refuses
+# a sibling import inside a layer, which is the part worth pinning.
+[tool.importlinter]
+root_package = "triviajudge"
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture"
+# The one edge that runs the other way: settings() and cache_path() need the work
+# tree, which core finds, so both import it inside the function body rather than
+# at module scope. A stale entry here is an error, not a pass.
+ignore_imports = ["triviajudge.config -> triviajudge.core"]
+type = "layers"
+containers = ["triviajudge"]
+layers = [
+    "sweep",
+    "md_trivia | comment_trivia",
+    "archaeology",
+    "core",
+    "config",
+]
