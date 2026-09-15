@@ -124,7 +124,7 @@ Python 3.12 or newer, no runtime dependencies. Under the default backend the two
 ```yaml
 repos:
   - repo: https://github.com/ohshitgorillas/triviajudge
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: archaeology
       - id: md-trivia

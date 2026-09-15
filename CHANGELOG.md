@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-14
+
 ### Added
 
 - **An OpenAI-compatible server can run the judge.** `backend = "local"` sends the gates' question to `base_url`, and `api_key_env` names the variable holding the bearer token. `backend` defaults to `claude`, the CLI transport. A failed call or a malformed answer fails the gate.

@@ -1,6 +1,6 @@
 [project]
 name = "triviajudge"
-version = "0.1.0"
+version = "0.2.0"
 description = "Gates that hold added markdown and comments to what holds now, not what happened"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
