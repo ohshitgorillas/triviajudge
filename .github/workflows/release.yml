@@ -1,0 +1,32 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  # The same offline gate a push to main runs. A tag that cannot pass it is a
+  # tag that does not reach PyPI.
+  check:
+    uses: ./.github/workflows/check.yml
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+    # PyPI Trusted Publishing mints a short-lived token from this OIDC claim,
+    # so the repository stores no PyPI credential.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: build
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

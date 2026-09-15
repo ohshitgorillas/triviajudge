@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-14
+
 ### Added
 
 - **`triviajudge-archaeology` refuses a comment that narrates what the code was.** A pattern gate over comments in `.py`, `.js` and `.css`: ISO dates in prose, past-behavior narration, refactor archaeology, replacement narration, commit citations, process archaeology, and a past-tense verb sharing a sentence with a literal length. No network, no model. A line that must keep its history takes `history-ok: <reason>`, reason required.
@@ -33,3 +35,4 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Seven gates hold this repository to its own standard.** `check_changelog.py`, `check_commit_msg.py`, `check_file_length.py`, `check_doc_refs.py`, `check_control_catalog.py`, `check_settings_docs.py` and `check_gates_wired.py` join the coverage floor under `scripts/gates/`, each wired into the `lint` target and into `.pre-commit-config.yaml`.
 - **`CONTRIBUTING.md` states what the gates enforce and what they cannot.** Setup, the changelog shape, the length cap and its ratchet, the citation form, and the three cross-checks.
+- **A tag publishes the package.** `.github/workflows/release.yml` runs `make check` on a `v*` tag, builds the sdist and wheel, and uploads to PyPI through Trusted Publishing, so no PyPI credential is stored in the repository.
