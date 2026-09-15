@@ -17,9 +17,13 @@ jobs:
         # only ever run on 3.14 claims something nobody has tested.
         python-version: ["3.12", "3.14"]
     steps:
-      # Full history, not a shallow clone: the Makefile enumerates the
-      # archaeology gate's inputs with `git ls-files`.
+      # Full history and tags, not a shallow clone: the Makefile enumerates the
+      # archaeology gate's inputs with `git ls-files`, and the release gate's
+      # rule 4 reads `git tag --list` to pair every released CHANGELOG entry
+      # with its tag. A shallow clone sees only the tag being pushed.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v6
         with:
