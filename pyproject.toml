@@ -123,6 +123,13 @@ max-complexity = 10
 ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
+# The metrics scripts read the network and shell out to gh. Both the URLs and
+# the argv are built from constants in the module itself, and the one helper
+# that opens a URL rejects every scheme but https before it does.
+"scripts/metrics/*.py" = [
+    "S310",  # urlopen, over URLs this module builds
+    "S603",  # gh, with argv this module writes
+]
 "tests/**/*.py" = [
     "S101",     # asserts are the point of a test
     "S603",     # the suite spawns the gate modules and git with argv it writes itself
