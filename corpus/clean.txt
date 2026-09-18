@@ -1,0 +1,18 @@
+docs/junk-filter-autopilot-resource.md:27	| 084537Z to 183927Z | 314 | 41 FAKE, 273 REAL, by album via Roon history in `tracks.tsv` and `labels.tsv`; one album labelled by track | 4 transition bursts |
+docs/junk-filter-autopilot-resource.md:28	| 200248Z to 204148Z | 103 | 21 FAKE albums and 5 carried over, by album in `labels.tsv` | 12 transition bursts, 30 low-confidence track matches |
+docs/junk-filter-autopilot-resource.md:59	Per-bin minimum over about 30 s, spur peak against its baseline. The labelled corpus counts spurs as real and cannot grade it.
+docs/junk-filter-autopilot-resource.md:65	Beaten approaches, kept so they are not repeated.
+docs/junk-filter-autopilot-resource.md:67	- **30 s per-bin minimum for the 20k wall.** A minimum keeps each bin's quietest frame, so quiet passages erase the wall and a loud frame cannot restore it: detection misses, release takes tens of seconds. On the same 1550 blocks it scores 77 wrong to the p90 block's 56, and its release is the folded window's length.
+docs/junk-filter-autopilot-resource.md:68	- **Presence share above 22 or 24 kHz** (fraction of frames in the block with content above the cut). No threshold beats calling every block real: fakes carry images, dither or a noise shelf above the wall, so presence does not separate them.
+docs/junk-filter-autopilot-resource.md:69	- **Steepest 1 kHz fall at 20, 25 or 30 dB, and a two-row release rule**, both on the folded minimum. The fall rule flips its verdict inside an album and misses walled albums outright; the release rule never releases.
+docs/junk-filter-autopilot-resource.md:70	- **Self-labelled corpus** (label from a rule on the same spectrum). Grading a detector against a rule on the same spectrum measures the distance between two definitions, and every candidate reads a negative gap against it.
+docs/junk-filter-autopilot-resource.md:71	- **Per-burst labels on per-block readings.** A quiet block inside a real burst reads as a miss; labels must be per block.
+docs/alternatives.md:12	The tree-walking parser reaches 0.71 F1 on the 1550-block set; the shipped detector reaches 0.93 on the same set.
+docs/alternatives.md:19	A bloom filter costs 1.2 MB at this cardinality and answers no query the hash set cannot, so it is not used.
+docs/alternatives.md:24	Batching above 150 lines truncates the model's answer, which is why the batch stays at 150.
+docs/alternatives.md:31	Polling the socket busy-waits a whole core; the notify path costs nothing while idle.
+docs/design.md:8	The gate reads only the lines a commit adds, never the whole file.
+docs/design.md:14	`ask` returns list indices, verified.
+docs/design.md:21	RFC 9110 section 9.3.1 defines the method as safe.
+docs/design.md:27	Retries are no longer required: the client is idempotent.
+docs/design.md:33	TODO: the sweep has no resume, so an interrupted run starts over.

@@ -273,7 +273,7 @@ make calibrate TRIVIA=corpus/trivia.txt CLEAN=corpus/clean.txt
 make calibrate TRIVIA=corpus/trivia.txt CLEAN=corpus/clean.txt CALIBRATE='--gate comments'
 ```
 
-`--gate` chooses whose prompt is asked, `md` or `comments`, and `--model` asks a
+`--gate` chooses whose prompt is asked — `md`, `comments` or `changelog` — and `--model` asks a
 model other than the configured one, which is how a prompt or a model change is
 measured before it lands. It spends one call per 50 lines and needs the network,
 so it sits beside `make trivia`, outside `check`.

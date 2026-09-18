@@ -82,6 +82,8 @@ Flag a line when it is, or carries, one of:
   "round-2's recv loop", "probe round 3", "Phase 0.2 targets", "Phase 0.2 deliverable",
   "step-7 hand-back", "earlier drafts"
 - a statement of what code or docs once said or did
+- the run behind a result rather than the result: when it was collected, which
+  round or session produced it, who re-checked it, that a re-check happened
 - narration by negation: text that exists only to say something did not change or still
   behaves as before ("Y still works the same as before", "unchanged from round 2",
   "continues to work the same way it always has")
@@ -91,6 +93,11 @@ Do NOT flag:
 - a measurement or verified wire fact stated as current, with no date on it ("returns list
   indices, verified"; "state unchanged, HTTP 200" as an observed result)
 - a statement that something is no longer required, when that is the current rule
+- what a rejected, beaten or alternative approach does, stated as a property of that
+  approach: the score it reaches, the corpus it is scored on, the input shape it fails
+  on, the regression it causes. A comparison's losing side is measurable now and
+  constrains what is built next, so it is current, not history. The run that produced
+  it is history and is flagged by the rule above
 - a citation of an external source, paper, manual section or upstream version, including
   its date or revision id
 - a provenance or attribution table row whose date is the row's content (a source revision,

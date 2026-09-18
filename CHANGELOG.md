@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A beaten approach's score is not history.** A doc that compares approaches keeps its regressions section. What a rejected approach scores, and where it fails, is a fact about that approach.
+- **A release note about a gate's behavior reaches the changelog.** In a repository whose changes are mostly changes to gates, that is most of the section.
+
+### Internal
+
+- **The calibration corpus ships.** `corpus/trivia.txt` and `corpus/clean.txt` hold 38 lines whose verdicts are settled, so `make calibrate TRIVIA=corpus/trivia.txt CLEAN=corpus/clean.txt` runs with no corpus to assemble first.
+
 ## [0.3.0] - 2026-09-15
 
 ### Added

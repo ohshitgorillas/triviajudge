@@ -1,0 +1,20 @@
+docs/alternatives.md:41	Corpus round 3 was collected 2026-09-14 and holds 214 bursts.
+docs/alternatives.md:44	Re-checked after the fix; still 77 wrong.
+docs/alternatives.md:47	The tree-walking parser was evaluated in round 2 and rejected.
+docs/alternatives.md:50	Scoring run completed: all 1550 blocks graded.
+docs/alternatives.md:53	Benchmarked 2026-08-02 against the then-current detector.
+docs/alternatives.md:56	The regressions list was reviewed and approved 2026-07-30.
+docs/alternatives.md:59	Capture ran twice because the first round dropped frames.
+docs/alternatives.md:62	Three candidates were tried before this one.
+docs/plan.md:5	Delivery order.
+docs/plan.md:9	Phase 0.2 deliverable: the burst capture script.
+docs/plan.md:13	Round 1 filed against the upstream tracker.
+docs/plan.md:17	Hand-back PASS 2026-07-21.
+docs/plan.md:21	Not shipped until the step-7 hand-back passes.
+docs/plan.md:25	Standing hand-back requirements (every phase from 3 on).
+docs/notes.md:6	The threshold is 56 (verified 2026-07-18).
+docs/notes.md:10	Previously documented as `junkcal.py`.
+docs/notes.md:14	This supersedes an estimate made here earlier.
+docs/notes.md:18	~~Resolved: whether the release rule needs two rows.~~
+docs/notes.md:22	The release path still works the same as before.
+docs/notes.md:26	Unchanged from round 2.

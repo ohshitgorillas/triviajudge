@@ -19,7 +19,7 @@ disagreement is read rather than counted.
 It spends one call per batch of lines and needs the network, which is why it
 lives beside ``make trivia`` rather than inside ``make check``.
 
-Usage: ``python scripts/calibrate.py --trivia FILE --clean FILE [--gate md|comments]``
+Usage: ``python scripts/calibrate.py --trivia FILE --clean FILE [--gate md|comments|changelog]``
 """
 
 from __future__ import annotations
@@ -29,14 +29,18 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from triviajudge import comment_trivia, md_trivia
+from triviajudge import changelog_trivia, comment_trivia, md_trivia
 from triviajudge.core import ask, from_records
 
 if TYPE_CHECKING:
     from triviajudge.core import Line
 
 #: The prompt each gate asks, by the name ``--gate`` takes.
-PROMPTS = {"md": md_trivia.PROMPT, "comments": comment_trivia.PROMPT}
+PROMPTS = {
+    "md": md_trivia.PROMPT,
+    "comments": comment_trivia.PROMPT,
+    "changelog": changelog_trivia.PROMPT,
+}
 
 #: Lines per call. A corpus arrives in one file and the judge answers per call, so the
 #: batch is what keeps a whole run off a single answer.
