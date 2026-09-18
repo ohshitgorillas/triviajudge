@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-17
+
 ### Fixed
 
 - **A beaten approach's score is not history.** A doc that compares approaches keeps its regressions section. What a rejected approach scores, and where it fails, is a fact about that approach.

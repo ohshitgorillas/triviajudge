@@ -1,7 +1,7 @@
 {
   "name": "triviajudge",
   "description": "Gates that hold the prose a change adds to what holds now, rather than what happened.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": {
     "name": "Atom"
   },
