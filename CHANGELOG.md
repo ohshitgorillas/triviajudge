@@ -13,7 +13,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Internal
 
-- **The calibration corpus ships.** `corpus/trivia.txt` and `corpus/clean.txt` hold 38 lines whose verdicts are settled, so `make calibrate TRIVIA=corpus/trivia.txt CLEAN=corpus/clean.txt` runs with no corpus to assemble first.
+- **The calibration corpus ships.** `make calibrate` measures the markdown and changelog judges against settled verdicts, with no corpus to assemble first.
 
 ## [0.3.0] - 2026-09-15
 
