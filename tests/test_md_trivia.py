@@ -30,11 +30,7 @@ FENCED = [
 ]
 
 ONE_ADDED_LINE = (
-    "diff --git a/doc.md b/doc.md\n"
-    "--- a/doc.md\n"
-    "+++ b/doc.md\n"
-    "@@ -0,0 +1 @@\n"
-    "+the panel holds the staged rate\n"
+    "diff --git a/doc.md b/doc.md\n--- a/doc.md\n+++ b/doc.md\n@@ -0,0 +1 @@\n+the panel holds the staged rate\n"
 )
 
 

@@ -18,6 +18,8 @@ case "$1" in
         ;;
 esac
 
+# CDPATH= is a deliberate empty assignment scoped to this cd, so a set CDPATH cannot redirect it.
+# shellcheck disable=SC1007
 root="${CLAUDE_PLUGIN_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
 
 if [ -n "${PYTHONPATH:-}" ]; then

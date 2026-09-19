@@ -20,7 +20,6 @@ dev = [
     "pytest-cov",
     "pre-commit",
     "ruff",
-    "black",
     "mypy",
     "vulture",
     "xenon",
@@ -119,6 +118,10 @@ select = [
     "TRY004",           # a type check raises TypeError
     "PLW1514",          # text I/O states its encoding
     "PLR6201",          # membership over a set literal
+    "ANN401",           # a parameter says what it takes, never Any
+    "FLY",              # an f-string over a static join
+    "PYI",              # stub and annotation idiom
+    "ASYNC",            # blocking calls in async code
 ]
 ignore = [
     # A docstring here names what the thing IS — "The work tree the current
@@ -154,10 +157,6 @@ ban-relative-imports = "all"
     "D",        # a test name states its behavior; a docstring would restate it
 ]
 
-[tool.black]
-line-length = 120
-target-version = ["py312"]
-
 [tool.mypy]
 python_version = "3.12"
 strict = true
@@ -165,6 +164,10 @@ files = ["triviajudge", "tests", "scripts"]
 # The suite's own helpers are imported by bare name, the way pytest puts the
 # conftest directory on the path.
 mypy_path = ["tests"]
+# A branch the types say cannot run is a bug in one or the other, and a bare
+# `type: ignore` hides the next one, so both are errors here.
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined"]
 
 # Dead-code gate. min_confidence 60 is vulture's floor for unused module-level
 # definitions; pytest fixtures are called by the framework, never by name.

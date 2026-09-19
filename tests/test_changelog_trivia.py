@@ -16,7 +16,6 @@ handed over, or by line number, never by wording the gate composes.
 import argparse
 import subprocess
 from pathlib import Path
-from typing import Any
 
 import pytest
 from test_hook_modes import child_environment, committed_repo, gate_run, git_run, write
@@ -73,11 +72,7 @@ STAGED_REFUSED = "## [Unreleased]\n\n### Fixed\n\n" + NO_BOLD_LEAD
 ALREADY_RAN = '{"stop_hook_active": true}'
 
 ONE_ADDED_BULLET = (
-    "diff --git a/CHANGELOG.md b/CHANGELOG.md\n"
-    "--- a/CHANGELOG.md\n"
-    "+++ b/CHANGELOG.md\n"
-    "@@ -0,0 +5 @@\n"
-    f"+{CLEAN_ENTRY}"
+    f"diff --git a/CHANGELOG.md b/CHANGELOG.md\n--- a/CHANGELOG.md\n+++ b/CHANGELOG.md\n@@ -0,0 +5 @@\n+{CLEAN_ENTRY}"
 )
 
 
@@ -86,7 +81,7 @@ def markers_in(text: str) -> tuple[str, ...]:
     return tuple(marker for marker in MARKERS if marker in text)
 
 
-def namespace(**overrides: object) -> Any:
+def namespace(**overrides: object) -> argparse.Namespace:
     """The arguments a gate run carries, with every mode the flags leave alone switched off."""
     args: dict[str, object] = {"stop": False, "lines": None, "head": False, "files": [], "release": False}
     return argparse.Namespace(**{**args, **overrides})

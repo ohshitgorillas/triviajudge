@@ -60,7 +60,7 @@ def git(*args: str) -> list[str]:
     binary = shutil.which("git")
     if binary is None:
         return []
-    finished = subprocess.run(  # noqa: S603
+    finished = subprocess.run(  # noqa: S603 — argv is the git on PATH and this module's own flags
         [binary, *args], cwd=ROOT, capture_output=True, text=True, check=False, timeout=GIT_TIMEOUT
     )
     if finished.returncode != 0:

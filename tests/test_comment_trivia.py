@@ -305,7 +305,7 @@ def test_a_revision_that_does_not_carry_the_file_reads_as_empty(monkeypatch: pyt
 # --- behavior 6: each input mode reads the lines it names --------------------
 
 
-def namespace(**overrides: object) -> Any:
+def namespace(**overrides: object) -> argparse.Namespace:
     """The arguments a gate run carries, with every mode the flags leave alone switched off."""
     args: dict[str, object] = {"stop": False, "lines": None, "head": False, "files": []}
     return argparse.Namespace(**{**args, **overrides})

@@ -34,7 +34,7 @@ import sys
 import urllib.error
 from email.message import Message
 from pathlib import Path
-from typing import cast
+from typing import Self, cast
 
 import pytest
 
@@ -291,7 +291,7 @@ class Answer:
     def __init__(self, body: str) -> None:
         self.body = body
 
-    def __enter__(self) -> "Answer":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_exc: object) -> None:

@@ -31,7 +31,7 @@ import urllib.error
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import IO, Any, cast
 
 REPO = "ohshitgorillas/triviajudge"
 PACKAGE = "triviajudge"
@@ -42,6 +42,10 @@ GH = shutil.which("gh")
 TIMEOUT = 30
 
 Row = dict[str, Any]
+
+#: What one `gh api` or pypistats call answers with: a JSON object, or an array of them.
+JsonObject = dict[str, Any]
+JsonArray = list[JsonObject]
 
 
 def today() -> str:
@@ -54,18 +58,18 @@ def warn(message: str) -> None:
     print(f"warn: {message}", file=sys.stderr)
 
 
-def _open(url: str) -> Any:
+def _open(url: str) -> IO[bytes]:
     """The response for an https URL built from this module's constants."""
     if not url.startswith("https://"):
         raise ValueError(f"refusing a non-https URL: {url}")
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    return urllib.request.urlopen(request, timeout=TIMEOUT)
+    return cast("IO[bytes]", urllib.request.urlopen(request, timeout=TIMEOUT))
 
 
-def fetch_json(url: str) -> Any:
+def fetch_json(url: str) -> JsonObject:
     """The decoded JSON body at url."""
     with _open(url) as response:
-        return json.load(response)
+        return cast("JsonObject", json.load(response))
 
 
 def fetch_text(url: str) -> str:
@@ -75,7 +79,7 @@ def fetch_text(url: str) -> str:
     return body.decode("utf-8", "replace")
 
 
-def gh_api(path: str) -> Any:
+def gh_api(path: str) -> JsonObject | JsonArray:
     """The decoded JSON body of a `gh api` call, which carries the stored token."""
     if GH is None:
         raise RuntimeError("gh is not on PATH")
@@ -89,7 +93,7 @@ def gh_api(path: str) -> Any:
     if result.returncode != 0:
         detail = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "gh api failed"
         raise RuntimeError(detail)
-    return json.loads(result.stdout)
+    return cast("JsonObject | JsonArray", json.loads(result.stdout))
 
 
 def upsert(name: str, fields: list[str], rows: list[Row], key: tuple[str, ...]) -> None:
@@ -114,7 +118,7 @@ def github_traffic() -> None:
     """Fourteen days of clone and view counts, one row per day."""
     by_day: dict[str, Row] = {}
     for kind in ("clones", "views"):
-        payload = gh_api(f"repos/{REPO}/traffic/{kind}")
+        payload = cast("JsonObject", gh_api(f"repos/{REPO}/traffic/{kind}"))
         for entry in payload.get(kind, []):
             day = entry["timestamp"][:10]
             row = by_day.setdefault(
@@ -148,7 +152,7 @@ def pypi_daily() -> None:
 
 def releases() -> None:
     """Cumulative download counts for every asset attached to a release."""
-    payload = gh_api(f"repos/{REPO}/releases?per_page=100")
+    payload = cast("JsonArray", gh_api(f"repos/{REPO}/releases?per_page=100"))
     stamp = today()
     rows: list[Row] = [
         {

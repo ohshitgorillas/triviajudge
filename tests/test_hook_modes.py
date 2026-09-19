@@ -46,8 +46,8 @@ DATED_COMMENT = "value = 1  # approved 2026-07-04\n"
 CLEAN_COMMENT = "other = 2  # the lane returns the staged model\n"
 DATED_MARKDOWN = "the hand-back passed on 2026-07-04\n"
 
-#: The root-level settings file, named here so no test spells a dotfile inline.
-SETTINGS_FILE = ".".join(("", "triviajudge", "toml"))
+#: The root-level settings file, named once so every mode reads the same name.
+SETTINGS_FILE = ".triviajudge.toml"
 
 
 def child_environment(tmp_path: Path) -> dict[str, str]:

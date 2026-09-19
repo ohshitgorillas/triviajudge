@@ -43,9 +43,8 @@ if TYPE_CHECKING:
 
 CACHE_CAP = 20000
 
-#: Seconds a local ``git`` call may take. It reads objects on this machine, so anything past
-#: this is a wedged process rather than a slow one, and a hook that captures output has no way
-#: to say it is waiting.
+#: Seconds a local ``git`` call may take. It reads objects on this machine, so anything past this is a
+#: wedged process rather than a slow one, and a hook that captures output has no way to say it is waiting.
 GIT_TIMEOUT = 30
 
 #: The two transports ``settings().backend`` names. Where under ``base_url`` the ``local``
@@ -102,8 +101,7 @@ def inner_session() -> bool:
 
 def binary(name: str) -> str:
     """Absolute path of a tool on PATH, or a RuntimeError naming what is missing."""
-    path = shutil.which(name)
-    if path is None:
+    if (path := shutil.which(name)) is None:
         raise RuntimeError(f"`{name}` not on PATH")
     return path
 
@@ -112,7 +110,9 @@ def binary(name: str) -> str:
 def root() -> Path:
     """The work tree the current directory sits in, or a NotARepositoryError naming that it does not."""
     cmd = [binary("git"), "rev-parse", "--show-toplevel"]
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=GIT_TIMEOUT)  # noqa: S603
+    proc = subprocess.run(  # noqa: S603 — argv is git's own path and two read-only flags, written here
+        cmd, capture_output=True, text=True, check=False, timeout=GIT_TIMEOUT
+    )
     if proc.returncode != 0:
         raise NotARepositoryError(f"{Path.cwd()} is in no git work tree; every input mode reads git objects")
     return Path(proc.stdout.strip())
@@ -121,7 +121,7 @@ def root() -> Path:
 def git(*args: str) -> str:
     """Stdout of a read-only git command run at the repository root."""
     cmd = [binary("git"), *args]
-    finished = subprocess.run(  # noqa: S603
+    finished = subprocess.run(  # noqa: S603 — argv is git's own path and the caller's read-only flags
         cmd, check=True, capture_output=True, text=True, cwd=root(), timeout=GIT_TIMEOUT
     )
     return finished.stdout
@@ -185,7 +185,7 @@ def _ask_cli(body: str, model: str | None, timeout: float | None) -> list[dict[s
     """Ask the ``claude`` CLI in print mode and parse the envelope it prints."""
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {INNER: "1"}
     try:
-        proc = subprocess.run(  # noqa: S603
+        proc = subprocess.run(  # noqa: S603 — argv is judge_argv(), built from the configured model alone
             judge_argv(model),
             input=body,
             capture_output=True,

@@ -30,8 +30,8 @@ what keeps that gate offline.
 
 ## Before you open a PR
 
-`make check` must be green. `make lint` is the offline half — ruff, black,
-xenon, vulture, mypy in strict mode, import-linter, and the gates under
+`make check` must be green. `make lint` is the offline half — ruff check, ruff
+format, xenon, vulture, mypy in strict mode, import-linter, and the gates under
 `scripts/gates/`.
 `make test` runs the suite and then the per-file coverage floor, which is 90%
 for every file, not an average.
@@ -316,7 +316,7 @@ Three gates hold tables in step that nothing else compares:
 
 A new gate is wired into both the `lint` target and `.pre-commit-config.yaml` in
 the change that adds it, and holds to the standard it polices: mypy strict, the
-ruff set in `pyproject.toml`, and black at 120 columns. `scripts/` is inside
+ruff set in `pyproject.toml`, and `ruff format` at 120 columns. `scripts/` is inside
 mypy's and vulture's paths and outside `--cov=triviajudge`, so a gate carries no
 coverage obligation.
 

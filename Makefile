@@ -22,7 +22,8 @@ TESTS := $(shell git ls-files 'tests/*.py')
 
 lint:
 	$(VENV)/ruff check triviajudge tests scripts
-	$(VENV)/black --check triviajudge tests scripts
+	$(VENV)/ruff format --check triviajudge tests scripts
+	shellcheck hooks/run-gate.sh
 	$(VENV)/xenon --max-absolute B --max-average A --max-modules A triviajudge
 	$(VENV)/vulture
 	$(VENV)/mypy
