@@ -183,8 +183,7 @@ def ask(lines: list[Line], prompt: str, model: str | None = None, timeout: float
 
 def _ask_cli(body: str, model: str | None, timeout: float | None) -> list[dict[str, str]]:
     """Ask the ``claude`` CLI in print mode and parse the envelope it prints."""
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
-    env[INNER] = "1"
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {INNER: "1"}
     try:
         proc = subprocess.run(  # noqa: S603
             judge_argv(model),
@@ -233,7 +232,8 @@ def _ask_http(body: str, model: str | None, timeout: float | None) -> list[dict[
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 — as above
             envelope = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"{url} answered {exc.code}: {exc.read().decode('utf-8', 'replace').strip()[:200]}") from exc
+        with exc:  # the error is itself the response, so reading its body also closes the handle
+            raise RuntimeError(f"{url} answered {exc.code}: {exc.read().decode(errors='replace')[:200]}") from exc
     except OSError as exc:
         raise RuntimeError(f"{url} did not answer: {exc}") from exc
     return flags_from(_answer(envelope))

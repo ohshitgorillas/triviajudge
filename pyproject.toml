@@ -70,6 +70,12 @@ pytest_add_cli_args = ["-q", "-x", "--no-cov"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# A warning the suite provokes is a finding, not a note: an unclosed handle or a
+# deprecation reaches the report as a failure.
+filterwarnings = ["error"]
+# An xfail that passes is a stale expectation, so it reds rather than reporting
+# xpass.
+xfail_strict = true
 
 [tool.ruff]
 line-length = 120
