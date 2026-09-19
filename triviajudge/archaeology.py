@@ -177,7 +177,7 @@ def comment_lines(path: Path) -> list[tuple[int, str]]:
     text = path.read_text(encoding="utf-8")
     if path.suffix == ".py":
         return python_comment_lines(text)
-    if path.suffix in (".js", ".mjs"):
+    if path.suffix in {".js", ".mjs"}:
         return block_comment_lines(text, line_comments=True)
     if path.suffix == ".css":
         return block_comment_lines(text, line_comments=False)

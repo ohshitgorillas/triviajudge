@@ -173,7 +173,7 @@ def _file_pool(tree: ast.Module, seen: set[int], handed: list[str], shared: Pool
 
 def check_file(path: Path) -> list[tuple[str, str]]:
     """Return (category, location) for each prose literal asserted but never seeded by the tests."""
-    tree = ast.parse(path.read_text(), filename=str(path))
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     asserted, seen, handed = _asserted(tree)
     pool = _file_pool(tree, seen, handed, _shared_pool(_tests_root(path)))
     return [

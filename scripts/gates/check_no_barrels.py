@@ -153,7 +153,7 @@ def is_forwarder(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
 def parsed(name: str) -> ast.Module | None:
     """Return a file's syntax tree, or None when there is no such file."""
     path = Path(name)
-    return ast.parse(path.read_text()) if path.is_file() else None
+    return ast.parse(path.read_text(encoding="utf-8")) if path.is_file() else None
 
 
 def forwarders(name: str, tree: ast.Module) -> list[str]:
@@ -168,7 +168,7 @@ def forwarders(name: str, tree: ast.Module) -> list[str]:
 
 def faults(name: str, exempt: dict[str, str], module_exempt: dict[str, str]) -> list[str]:
     """Return one file's problems."""
-    tree = ast.parse(Path(name).read_text())
+    tree = ast.parse(Path(name).read_text(encoding="utf-8"))
     problems = []
     if is_reexport(name, tree) and name not in module_exempt:
         problems.append(f"{name}: imports and defines nothing — a re-export module is not a split")

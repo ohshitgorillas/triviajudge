@@ -110,7 +110,7 @@ def faults(name: str, exempt: dict[str, str]) -> list[str]:
     """Return one line per function in a file that nests past the limit without an exemption."""
     return [
         f"{name}:{line}: {func}() nests {depth} deep (max {MAX_DEPTH})"
-        for func, line, depth in depths(Path(name).read_text())
+        for func, line, depth in depths(Path(name).read_text(encoding="utf-8"))
         if depth > MAX_DEPTH and f"{name}::{func}" not in exempt
     ]
 
@@ -121,7 +121,7 @@ def _entry_fault(key: str) -> str | None:
     path = Path(name)
     if not path.is_file():
         return f"EXEMPT[{key!r}]: names no file"
-    measured = {found: depth for found, _, depth in depths(path.read_text())}
+    measured = {found: depth for found, _, depth in depths(path.read_text(encoding="utf-8"))}
     if func not in measured:
         return f"EXEMPT[{key!r}]: names no function in {name} — drop it"
     if measured[func] <= MAX_DEPTH:

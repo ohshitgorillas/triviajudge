@@ -63,7 +63,7 @@ def main_checkout(root: Path) -> Path:
 
 def suite_attrs(report: Path) -> dict[str, str]:
     """Return the ``<testsuite>`` element's attributes from a junit report."""
-    match = _SUITE.search(report.read_text())
+    match = _SUITE.search(report.read_text(encoding="utf-8"))
     if match is None:
         return {}
     return dict(_ATTR.findall(match.group(0)))
@@ -73,12 +73,12 @@ def read_baseline(baseline: Path) -> float | None:
     """Return the recorded wall time, or None when nothing has been recorded."""
     if not baseline.is_file():
         return None
-    return float(json.loads(baseline.read_text())["seconds"])
+    return float(json.loads(baseline.read_text(encoding="utf-8"))["seconds"])
 
 
 def record(baseline: Path, seconds: float) -> None:
     """Make ``seconds`` the baseline."""
-    baseline.write_text(json.dumps({"seconds": seconds}) + "\n")
+    baseline.write_text(json.dumps({"seconds": seconds}) + "\n", encoding="utf-8")
 
 
 def judge(seconds: float, last: float, *, accept: bool) -> tuple[bool, str]:

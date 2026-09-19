@@ -197,7 +197,7 @@ def check_file(path: Path, exempt: dict[str, str] | None = None) -> list[Finding
     """
     if exempt is None:
         exempt = EXEMPT
-    tree = ast.parse(path.read_text(), filename=str(path))
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     findings: list[Finding] = []
     for node in ast.walk(tree):
         if isinstance(node, _FUNCS) and node.name.startswith("test_"):
