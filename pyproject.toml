@@ -112,6 +112,7 @@ select = [
     "RUF",
     "D",                # docstrings, pep257
     "EXE",              # a shebang and the executable bit agree
+    "TRY004",           # a type check raises TypeError
 ]
 ignore = [
     # A docstring here names what the thing IS — "The work tree the current

@@ -164,7 +164,7 @@ def judge(batch: Batch, model: str) -> tuple[Batch, list[dict[str, str]] | None,
     """Ask one batch; a failure answers with None and the shortest message that says why."""
     try:
         return batch, ask(batch.lines, batch.prompt, model=model, timeout=CALL_TIMEOUT), ""
-    except (RuntimeError, ValueError, OSError) as exc:
+    except (RuntimeError, TypeError, ValueError, OSError) as exc:
         return batch, None, str(exc)
 
 

@@ -284,7 +284,7 @@ def flags_from(text: str) -> list[dict[str, str]]:
     answer = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
     flags = json.loads(answer)
     if not isinstance(flags, list):
-        raise RuntimeError(f"judge answered with {type(flags).__name__}, not a list")
+        raise TypeError(f"judge answered with {type(flags).__name__}, not a list")
     return [dict(item) for item in flags]
 
 
@@ -397,7 +397,7 @@ def judged(args: argparse.Namespace, gate: Gate, lines: list[Line], out: TextIO)
     fail = 2 if args.stop else 1
     try:
         flags = ask(lines, gate.prompt)
-    except (RuntimeError, ValueError, OSError) as exc:
+    except (RuntimeError, TypeError, ValueError, OSError) as exc:
         print(f"trivia judge unavailable, refusing to pass: {exc}", file=sys.stderr)
         return fail
     if args.out:

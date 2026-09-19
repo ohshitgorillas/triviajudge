@@ -247,7 +247,7 @@ def test_an_error_envelope_is_a_refusal() -> None:
 
 
 def test_an_answer_that_is_not_a_list_is_a_refusal() -> None:
-    with pytest.raises(RuntimeError, match="dict"):
+    with pytest.raises(TypeError, match="dict"):
         core.parsed(json.dumps({"result": '{"id": "doc.md:1"}'}))
 
 
@@ -393,7 +393,7 @@ def test_a_fenced_local_answer_is_read_as_the_flag_list_it_wraps(monkeypatch: py
 def test_a_local_answer_that_is_not_a_list_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
     monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post('{"id": "doc.md:1"}'))
-    with pytest.raises(RuntimeError, match="dict"):
+    with pytest.raises(TypeError, match="dict"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
