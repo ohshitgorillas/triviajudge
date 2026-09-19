@@ -37,10 +37,32 @@ jobs:
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -e ".[dev]"
 
+      # No package named `actionlint` on npm is the upstream project — the
+      # Makefile's workflow lint line needs the real binary on PATH, pinned and
+      # checksummed like any other release download.
+      - name: install actionlint
+        run: |
+          curl -fsSL -o actionlint.tgz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint.tgz" | sha256sum -c -
+          tar xzf actionlint.tgz actionlint
+          rm actionlint.tgz
+          sudo mv actionlint /usr/local/bin/actionlint
+
       # `make check` is the offline half: the two LLM judges live in `make
       # trivia`, which needs a logged-in claude CLI that CI does not have.
       - name: make check
         run: make check
+
+      # `make check` is the venv-only, non-git half; the hooks below add the
+      # duplication gate, the manifest and workflow linters, and the file-level
+      # checks that only run at commit time. The three network judges are the
+      # only hooks this skips — everything else that runs on a commit runs here.
+      - name: pre-commit run --all-files
+        run: .venv/bin/pre-commit run --all-files
+        env:
+          # The local ids, as .pre-commit-config.yaml spells them; the third
+          # judge is wired here as `changelog-style`, not `changelog-trivia`.
+          SKIP: md-trivia,comment-trivia,changelog-style
 
       # The manifests are not Python, so `make check` says nothing about them.
       # `--strict` fails on what the runtime tolerates, because a plugin that

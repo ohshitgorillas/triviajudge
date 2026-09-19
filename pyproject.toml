@@ -26,6 +26,9 @@ dev = [
     # the layering contract in [tool.importlinter] below is only enforced if the
     # gate that reads it is installed
     "import-linter",
+    # the manifest gate below: workflows against the github-workflows schema,
+    # .pre-commit-hooks.yaml against the pre-commit-hooks schema
+    "check-jsonschema",
     # `make mutate` only; it is not part of `check`
     "mutmut",
 ]

@@ -49,6 +49,27 @@ repos:
         pass_filenames: false
         types: [python]
 
+      - id: check-jsonschema-workflows
+        name: github workflows against the github-workflows schema
+        entry: .venv/bin/check-jsonschema --builtin-schema vendor.github-workflows
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+
+      # No builtin pre-commit-hooks schema ships in check-jsonschema; the vendored
+      # copy at scripts/schemas/pre-commit-hooks.json (source: SchemaStore) is
+      # what keeps this offline.
+      - id: check-jsonschema-hooks-manifest
+        name: .pre-commit-hooks.yaml against the pre-commit-hooks schema
+        entry: .venv/bin/check-jsonschema --schemafile scripts/schemas/pre-commit-hooks.json
+        language: system
+        files: ^\.pre-commit-hooks\.yaml$
+
+      - id: actionlint
+        name: actionlint
+        entry: actionlint
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+
       - id: single-assertion
         name: one assertion per test
         entry: .venv/bin/python scripts/gates/check_test_assertions.py

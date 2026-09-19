@@ -42,6 +42,10 @@ lint:
 	$(VENV)/python scripts/gates/check_settings_docs.py
 	$(VENV)/python scripts/gates/check_release.py
 	$(VENV)/python scripts/gates/check_gates_wired.py
+	$(VENV)/check-jsonschema --builtin-schema vendor.github-workflows .github/workflows/*.yml
+	$(VENV)/check-jsonschema --schemafile scripts/schemas/pre-commit-hooks.json .pre-commit-hooks.yaml
+	@command -v actionlint >/dev/null || { echo "actionlint not found; install it: https://github.com/rhysd/actionlint/releases (or 'go install github.com/rhysd/actionlint/cmd/actionlint@latest')" >&2; exit 1; }
+	actionlint .github/workflows/*.yml
 
 # jscpd is an npx tool, and `lint` is the venv-only half that stays runnable
 # with no node_modules installed, so the duplication gate has its own target.
