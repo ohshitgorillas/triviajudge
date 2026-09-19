@@ -60,7 +60,7 @@ duplication:
 # The junit report carries the suite's wall time; the third line holds it to the
 # last green run's (scripts/gates/check_suite_time.py).
 test:
-	$(VENV)/pytest -q --cov=triviajudge --cov-branch --cov-report=term-missing --cov-report=json:.coverage.json --junitxml=.pytest-junit.xml
+	$(VENV)/pytest -q --cov=triviajudge --cov=scripts --cov-branch --cov-report=term-missing --cov-report=json:.coverage.json --junitxml=.pytest-junit.xml
 	$(VENV)/python scripts/gates/check_coverage_floor.py
 	$(VENV)/python scripts/gates/check_suite_time.py
 

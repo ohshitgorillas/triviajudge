@@ -165,8 +165,9 @@ python_version = "3.12"
 strict = true
 files = ["triviajudge", "tests", "scripts"]
 # The suite's own helpers are imported by bare name, the way pytest puts the
-# conftest directory on the path.
-mypy_path = ["tests"]
+# conftest directory on the path. A gate script is a module by filename, imported
+# the same way, so the directory holding them is a path root too.
+mypy_path = ["tests", "scripts/gates"]
 # A branch the types say cannot run is a bug in one or the other, and a bare
 # `type: ignore` hides the next one, so both are errors here.
 warn_unreachable = true
@@ -184,13 +185,20 @@ ignore_names = ["Iterable", "pytest_configure"]
 
 [tool.coverage.run]
 branch = true
-source = ["triviajudge"]
+# The gates under scripts/gates/ are measured beside the package: each one is
+# behavior a suite can drive, and the floor below holds them to the same 90%.
+source = ["triviajudge", "scripts"]
 # A gate the suite runs as a process writes its own data file beside the
 # parent's; combining them is what makes those runs count.
 parallel = true
 # A test hands the gate a throwaway checkout carrying its own copy of a module.
 # That copy is a fixture, not this package.
-omit = ["*/pytest-of-*/*"]
+#
+# The two hand-run tools are out of the offline suite's reach: `calibrate` asks
+# the model about a held corpus and the metrics scripts read the network and
+# shell out to `gh`, so neither runs in `make test` and neither is what the floor
+# is about.
+omit = ["*/pytest-of-*/*", "scripts/calibrate.py", "scripts/metrics/*.py"]
 
 # The package is one flat layer per module. sweep drives the markdown and comment
 # judges, each of those reads the archaeology patterns, and everything below is

@@ -10,6 +10,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **CI validates its own manifests.** `check-jsonschema` runs the workflow files against the github-workflows schema and `.pre-commit-hooks.yaml` against the pre-commit-hooks schema; `actionlint` runs the workflow files. `check.yml` runs `pre-commit run --all-files` after `make check`, skipping only the three judges that need the network.
 
+### Internal
+
+- **A gate is held to the same coverage floor as the package.** Every script in `scripts/gates/` has behavior tests under `tests/gates/`, driving its pass path, each failure category it names and each rule its exemption table carries, and `--cov=scripts` puts all of them under the 90% per-file floor.
+
 ## [0.4.0] - 2026-09-17
 
 ### Fixed

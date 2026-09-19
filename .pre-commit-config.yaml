@@ -86,7 +86,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: .venv/bin/pytest -q --cov=triviajudge --cov-branch --cov-report=term-missing --cov-report=json:.coverage.json --junitxml=.pytest-junit.xml
+        entry: .venv/bin/pytest -q --cov=triviajudge --cov=scripts --cov-branch --cov-report=term-missing --cov-report=json:.coverage.json --junitxml=.pytest-junit.xml
         language: system
         pass_filenames: false
         always_run: true
