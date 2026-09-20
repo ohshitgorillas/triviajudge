@@ -1,0 +1,11 @@
+{
+  "tests_dir": "tests",
+  "gauntlet_dir": "gauntlet",
+  "docs_dir": "docs",
+  "target_branch": "main",
+  "gate_command": "make check",
+  "pytest_command": ".venv/bin/pytest",
+  "node_command": "node --test",
+  "unwrapped_commands": {},
+  "extra_binds": []
+}
