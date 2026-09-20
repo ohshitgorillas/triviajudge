@@ -1,0 +1,50 @@
+slug: strike-sweep
+motion: strike
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_release.py::test_the_cli_judges_the_repository_it_ships_in
+   rule: docs/testing.md rule 10
+   assertion: assert GATE.main() == 0
+
+2. strike tests/gates/test_changelog_gate.py::test_this_repository_holds_its_own_changelog_in_shape
+   rule: docs/testing.md rule 10
+   assertion: assert (GATE.check(path), capsys.readouterr().out) == (0, ok_line(path))
+
+3. strike tests/gates/test_check_control_catalog.py::test_this_repository_agrees_with_its_own_three_tables
+   rule: docs/testing.md rule 10
+   assertion: assert (code, *spoken(capsys)) == (0, [spelled], "")
+
+4. strike tests/test_core.py::test_a_gate_declares_no_cache_by_default
+   rule: docs/testing.md rule 10
+   assertion: assert gate.cache is None
+
+5. strike tests/test_md_trivia.py::test_the_gate_remembers_passed_lines_only_where_it_is_given_a_cache
+   rule: docs/testing.md rule 10
+   assertion: assert md_trivia.gate(tmp_path / md_trivia.CACHE_NAME).cache == tmp_path / md_trivia.CACHE_NAME
+
+6. strike tests/test_archaeology.py::test_a_bare_history_ok_pragma_is_told_it_owes_a_reason
+   rule: docs/testing.md rule 9
+   assertion: assert "reason" in " ".join(found).lower()
+
+--- reviewer ---
+READY
+discriminates: N/A - motion: strike pins nothing; no expected outcomes to judge
+
+1  ADMITTED  target tests/gates/test_check_release.py::test_the_cli_judges_the_repository_it_ships_in exists at line 205; rule 10 fits "assert GATE.main() == 0" — exit 0 from a gate that never ran, one input one absolute value; visible in the test file alone (no arguments, no seeded tree)
+2  ADMITTED  target tests/gates/test_changelog_gate.py::test_this_repository_holds_its_own_changelog_in_shape exists at line 172; rule 10 fits — a gate that unconditionally returns 0 and prints its ok line satisfies both halves, and ok_line() at line 77 is the test's own copy of that prose; visible in the file alone
+3  ADMITTED  target tests/gates/test_check_control_catalog.py::test_this_repository_agrees_with_its_own_three_tables exists at line 255; rule 10 fits — expected value computed the way the code computes it (f"... {len(GATE.CATALOG)} ..."), plus exit 0 from a gate run over its own tree; visible in the file alone
+4  ADMITTED  target tests/test_core.py::test_a_gate_declares_no_cache_by_default exists at line 154; rule 10 fits "assert gate.cache is None" — existence in place of value, and None is what the absent feature also produces; visible in the file alone
+5  ADMITTED  target tests/test_md_trivia.py::test_the_gate_remembers_passed_lines_only_where_it_is_given_a_cache exists at line 92; rule 10 fits — the path handed in is read straight back off the field, the fix's own mechanism; visible in the file alone
+6  ADMITTED  target tests/test_archaeology.py::test_a_bare_history_ok_pragma_is_told_it_owes_a_reason exists at line 128; rule 9 fits — the test seeds "this used to poll  history-ok:" and asserts "reason", a word born in the gate's complaint prose and never put on the wire by the test; visible in the file alone
+
+null stub: N/A - no behavior line in this block pins a surface, so an absent feature is not measured against it
+  satisfies: none   fails: none
+hard-coded stub: N/A - no expected outcome in this block for a table to return
+  satisfies: none   fails: none
+survives: 6
+
+Two notes, neither blocking:
+- Lines 1-5 cite rule 10 and have nothing to do with the brief's second sentence; only line 6 serves "copy changes or adjustments to agent wording should not trip testing gates". That is scope beyond the brief, not a contradiction of it, so it does not cut under (m).
+- Lines 2, 3 and 6 quote assertions whose surface may be worth re-pinning (the changelog gate's exit code over a seeded file, the catalog gate's agreement over a built table, the archaeology gate's complaint over a seeded pragma). Strike removes them outright; anything the owner wants held comes back as motion: amend lines, judged separately.
