@@ -35,8 +35,6 @@ HOOKED = {MODULE: GATE.Gate(script=SCRIPT, hook_id=HOOK_ID, plugin=True)}
 #: One gate the catalog holds off the hook path altogether.
 CONSOLE_ONLY = {SWEEP_MODULE: GATE.Gate(script=SWEEP_SCRIPT, hook_id=None, plugin=False)}
 
-#: The verdict line for a catalog whose gates all agree, one gate deep.
-AGREES = "[ok] all 1 gates agree across the three tables"
 #: The tail a refusal prints under a single finding.
 ONE_DISAGREEMENT = "1 catalog disagreement(s) across pyproject.toml, .pre-commit-hooks.yaml, hooks.json."
 
