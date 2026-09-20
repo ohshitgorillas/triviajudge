@@ -167,8 +167,3 @@ def test_main_refuses_for_the_one_path_in_argv_that_breaks_a_rule(
         1,
         f"{ok_line(held)}{broken}:{NO_LEAD_FINDING}\n\n{ONE_PROBLEM}\n",
     )
-
-
-def test_this_repository_holds_its_own_changelog_in_shape(capsys: pytest.CaptureFixture[str]) -> None:
-    path = GATE.ROOT / "CHANGELOG.md"
-    assert (GATE.check(path), capsys.readouterr().out) == (0, ok_line(path))

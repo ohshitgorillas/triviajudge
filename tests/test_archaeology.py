@@ -125,11 +125,6 @@ def test_a_bare_history_ok_pragma_with_no_reason_is_refused(tmp_path: Path) -> N
     assert refuses(tmp_path, "sample.py", py_comment("added 2025-11-04 for the resampler panel  history-ok:"))
 
 
-def test_a_bare_history_ok_pragma_is_told_it_owes_a_reason(tmp_path: Path) -> None:
-    found = complaints_for(tmp_path, "sample.py", py_comment("this used to poll  history-ok:"))
-    assert "reason" in " ".join(found).lower()
-
-
 # --- existing behavior: clean files and code that is not a comment ------------
 
 

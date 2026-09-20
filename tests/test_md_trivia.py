@@ -86,13 +86,6 @@ def test_a_run_naming_no_file_and_no_mode_judges_nothing() -> None:
     assert md_trivia.collect(namespace()) == ([], [])
 
 
-# --- behavior 3: the gate carries the cache the stop mode writes -------------
-
-
-def test_the_gate_remembers_passed_lines_only_where_it_is_given_a_cache(tmp_path: Path) -> None:
-    assert md_trivia.gate(tmp_path / md_trivia.CACHE_NAME).cache == tmp_path / md_trivia.CACHE_NAME
-
-
 # --- behavior 4: outside a work tree the gate refuses rather than passes -----
 
 

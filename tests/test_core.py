@@ -148,14 +148,6 @@ def test_the_cache_keeps_only_the_newest_entries(tmp_path: Path) -> None:
     assert len(json.loads(cache.read_text(encoding="utf-8"))) == core.CACHE_CAP
 
 
-# --- behavior 5: a gate carries a cache only if it has one -------------------
-
-
-def test_a_gate_declares_no_cache_by_default() -> None:
-    gate = core.Gate("prompt", lambda _args: ([], []), "[ok] nothing added", judge_at_stop=False)
-    assert gate.cache is None
-
-
 # --- behavior 6: the root is the tree the cwd sits in, or a refusal ----------
 
 

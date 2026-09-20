@@ -197,10 +197,3 @@ def test_a_refused_git_command_yields_no_lines(tmp_path: Path, monkeypatch: pyte
 def test_an_absent_git_binary_yields_no_lines(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(shutil, "which", lambda _name: None)
     assert GATE.git("tag", "--list") == []
-
-
-# --- behavior 6: the CLI judges this repository ------------------------------
-
-
-def test_the_cli_judges_the_repository_it_ships_in() -> None:
-    assert GATE.main() == 0

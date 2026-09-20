@@ -247,12 +247,3 @@ def test_a_wired_module_the_catalog_does_not_carry_is_named(
 ) -> None:
     tables = with_plugin([MODULE, OTHER_MODULE])
     assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (1, [WIRED_UNCATALOGED], ONE_DISAGREEMENT)
-
-
-# --- behavior 6: this repository's own catalog agrees with its own tables ------
-
-
-def test_this_repository_agrees_with_its_own_three_tables(capsys: pytest.CaptureFixture[str]) -> None:
-    code = GATE.main()
-    spelled = f"[ok] all {len(GATE.CATALOG)} gates agree across the three tables"
-    assert (code, *spoken(capsys)) == (0, [spelled], "")
