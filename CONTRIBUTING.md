@@ -87,6 +87,21 @@ holds you to:
 - **One entry per change, not one per commit.** Three commits fixing one bug
   are one entry.
 
+## Changelog shape
+
+`scripts/gates/check_changelog.py` is the offline half of the rule above, and it
+makes no model call, so it runs in `make lint` where the judge cannot. Its scope
+is the whole `[Unreleased]` section rather than the lines a commit adds: a bullet
+reshaped by a commit that adds no line to it, a heading a rebase duplicates, a
+kind order a merge scrambles — none of those reach the judge's screen, and each
+otherwise ships.
+
+Four rules: a bullet runs to at most 75 words, opens with a bold lead clause,
+and addresses no reader; and one `###` heading per kind, in Keep a Changelog's
+order plus `Internal`. Register and tone stay with the judge, because a wordlist
+is a poor proxy for either and the rule would then be stated twice. Released
+sections are history and are never read.
+
 ## Commit messages
 
 A commit message records the change and the reason for it. It may state what was
@@ -166,6 +181,55 @@ it: `match="no credit"` where the fake wrote `no credit`, not
 in the test file outside an assertion, is handed to a plain function on the
 assert line, sits inside a longer seeded string, is composed of seeded pieces, or
 matches an f-string a fake wrote.
+
+## Real clocks in tests
+
+`scripts/gates/check_test_clocks.py` refuses two shapes anywhere under `tests/`,
+with no carve-out directory. A `time.sleep` or `asyncio.sleep` is one, unless its
+argument is the literal `0`, which is a scheduler yield; the argument's spelling
+does not matter otherwise, since a paced fake names its wait with a constant as
+readily as with a literal. A `timeout` or `*_timeout` keyword or mapping key
+given a numeric literal under 0.5 is the other: at seconds such a knob is a
+ceiling a test never reaches, and at a fraction of a second it is a deadline the
+code waits out.
+
+Every clock a test here reads belongs to a seam the suite owns — a fake the
+fixtures build, a monkeypatched call — so a real wait is a test pacing itself
+against the machine it runs on. A per-test duration threshold catches neither
+shape: a ten millisecond poll over seventy call sites lifts no test over any
+threshold, and a deadline waited out inside a spawned gate reads as CPU rather
+than as idle.
+
+## Exemptions carry reasons
+
+`scripts/gates/check_noqa_reasons.py` requires an em dash and a clause after the
+codes of every `noqa` and every `type: ignore` comment, as in
+`# noqa: CODE — why the check is wrong here`. A `type: ignore` puts that clause
+behind a second `#`, which is the only tail mypy accepts after its codes.
+Ruff's `PGH` rules already hold each to naming its codes,
+which stops one suppression from swallowing whatever the next edit breaks, and a
+code is not a reason — it names the check, which the reader has from the checker
+anyway. What the line cannot otherwise recover is the argument: that the argv is
+the module's own constants, that the field is a dataclass keyword mypy cannot see
+through. Absent it, the only safe reading is that somebody wanted a gate quiet.
+
+The sweep reads comment tokens, so a suppression spelled inside a string is data,
+which is what lets the gate's own tests feed it one. A colon after the codes
+reads as more codes, hence the em dash.
+
+## Hook timeouts
+
+`scripts/gates/check_hook_timeouts.py` holds each `timeout` in
+`hooks/hooks.json` at or above the largest timeout constant the module that hook
+runs can reach: the constants that module states, and `triviajudge/core.py`'s,
+which every mode calls into through the diff it reads. Where the hook's timeout
+is smaller, the constant is unreachable — the harness kills the gate before its
+own bound can fire, so the gate's message naming the command that never answered
+never runs, and a wedged `git` reads as a flaky hook.
+
+The comparison is over constants, not call sites. A call stating `timeout=None`
+waits forever and no hook timeout covers it; that decision belongs to the call
+site, and "Calls that wait" is where it is held.
 
 ## The standard library alone
 
@@ -278,6 +342,22 @@ model other than the configured one, which is how a prompt or a model change is
 measured before it lands. It spends one call per 50 lines and needs the network,
 so it sits beside `make trivia`, outside `check`.
 
+## The calibration corpus
+
+`scripts/gates/check_corpus.py` holds the files `make calibrate` reads. Two
+rules: every line of every `corpus/*.txt` parses as `path:line<TAB>text`, and
+across each label pair — `trivia.txt` with `clean.txt`,
+`changelog-trivia.txt` with `changelog-clean.txt` — no text appears on both
+sides.
+
+Both failures are silent otherwise. A record that does not parse is dropped by
+the reader rather than refused, so a run measures a smaller corpus than the file
+states and reports a rate over it. A line filed under both labels is a
+disagreement inside the answer key: the judge is scored wrong whichever verdict
+it returns, and the run cannot report better than one error. The comparison is
+over the record's text alone, since the same sentence cited from two files is one
+claim about that sentence.
+
 ## Citing the documentation
 
 A comment that points at this repository's markdown cites the target's **heading
@@ -312,7 +392,14 @@ Three gates hold tables in step that nothing else compares:
 - `check_gates_wired.py` holds `.pre-commit-config.yaml` in step with the
   Makefile. Makefile wiring is mandatory with no exemption — a gate that should
   not run is a gate that should be deleted. Absence from pre-commit takes a
-  reason in `PRECOMMIT_EXEMPT`, and a reason naming no gate fails as stale.
+  reason in `PRECOMMIT_EXEMPT`, and a reason naming no gate fails as stale. The
+  duplication gate is an `npx jscpd` invocation rather than a script under
+  `scripts/gates/`, so a filename sweep cannot find it: that invocation is named
+  in the gate and required in both configs by the same rule. Its whole scope is
+  the `path` list in `.jscpd.json`, and every entry there names a directory the
+  tree tracks — jscpd walks what it is given and prints a percentage over what it
+  found, so a renamed directory reads as a clean tree rather than as a gate that
+  stopped looking.
 
 A new gate is wired into both the `lint` target and `.pre-commit-config.yaml` in
 the change that adds it, and holds to the standard it polices: mypy strict, the

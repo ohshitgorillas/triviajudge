@@ -84,6 +84,19 @@ repos:
         types: [python]
         files: ^tests/
 
+      - id: test-clocks
+        name: no test reads a real clock
+        entry: .venv/bin/python scripts/gates/check_test_clocks.py
+        language: system
+        types: [python]
+        files: ^tests/
+
+      - id: noqa-reasons
+        name: every suppression states a reason
+        entry: .venv/bin/python scripts/gates/check_noqa_reasons.py
+        language: system
+        types: [python]
+
       - id: pytest
         name: pytest
         entry: .venv/bin/pytest -q --cov=triviajudge --cov=scripts --cov-branch --cov-report=term-missing --cov-report=json:.coverage.json --junitxml=.pytest-junit.xml
@@ -144,6 +157,33 @@ repos:
         language: system
         types: [python]
         exclude: ^tests/
+
+      # The offline half of the changelog rule, over the whole [Unreleased]
+      # section rather than over added lines, so it runs before the judge below
+      # and needs neither the CLI nor the network.
+      - id: changelog-shape
+        name: the unreleased section holds its shape
+        entry: .venv/bin/python scripts/gates/check_changelog.py
+        language: system
+        files: ^CHANGELOG\.md$
+
+      # The corpus is two label files per judge, and a pair contradicts itself
+      # across files, so the gate reads the directory rather than the staged paths.
+      - id: corpus
+        name: the calibration corpus parses and holds one verdict per text
+        entry: .venv/bin/python scripts/gates/check_corpus.py
+        language: system
+        pass_filenames: false
+        files: ^corpus/.*\.txt$
+
+      # A hook timeout and the constant it must cover sit in two files, so either
+      # one moving is what has to trigger the comparison.
+      - id: hook-timeouts
+        name: a hook timeout covers the waits its module makes
+        entry: .venv/bin/python scripts/gates/check_hook_timeouts.py
+        language: system
+        pass_filenames: false
+        files: ^(hooks/hooks\.json|triviajudge/.*\.py)$
 
       # Screens the bullets the commit adds under [Unreleased], then asks the
       # judge about the ones the screen leaves, so it needs the `claude` CLI and

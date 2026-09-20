@@ -36,10 +36,15 @@ lint:
 	$(VENV)/python scripts/gates/check_call_timeouts.py $(SOURCES)
 	$(VENV)/python scripts/gates/check_test_assertions.py $(TESTS)
 	$(VENV)/python scripts/gates/check_no_copy_assertions.py $(TESTS)
+	$(VENV)/python scripts/gates/check_test_clocks.py $(TESTS)
+	$(VENV)/python scripts/gates/check_noqa_reasons.py $(ALL_PY)
 	$(VENV)/python scripts/gates/check_doc_refs.py $(ALL_PY) $(DOCS)
 	git log -1 --format=%B | $(VENV)/python scripts/gates/check_commit_msg.py -
 	$(VENV)/python scripts/gates/check_control_catalog.py
 	$(VENV)/python scripts/gates/check_settings_docs.py
+	$(VENV)/python scripts/gates/check_changelog.py CHANGELOG.md
+	$(VENV)/python scripts/gates/check_corpus.py
+	$(VENV)/python scripts/gates/check_hook_timeouts.py
 	$(VENV)/python scripts/gates/check_release.py
 	$(VENV)/python scripts/gates/check_gates_wired.py
 	$(VENV)/check-jsonschema --builtin-schema vendor.github-workflows .github/workflows/*.yml

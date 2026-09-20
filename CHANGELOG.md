@@ -13,6 +13,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Internal
 
 - **A gate is held to the same coverage floor as the package.** Every script in `scripts/gates/` has behavior tests under `tests/gates/`, driving its pass path, each failure category it names and each rule its exemption table carries, and `--cov=scripts` puts all of them under the 90% per-file floor.
+- **A test that reads a real clock fails a gate.** `scripts/gates/check_test_clocks.py` refuses a `time.sleep` or `asyncio.sleep` on anything but a literal zero, and a `timeout` keyword or mapping key given a numeric literal under 0.5 seconds, over every file under `tests/` with no carve-out directory.
+- **The changelog's mechanical rules hold offline.** `scripts/gates/check_changelog.py` reads the whole `[Unreleased]` section in `make lint`: a 75-word cap per bullet, a bold lead clause, no second person, and one `###` heading per kind in Keep a Changelog order. Register and tone stay with `triviajudge-changelog`.
+- **The duplication gate is held to both configs and to a tracked scope.** `scripts/gates/check_gates_wired.py` requires the `npx jscpd` invocation in the Makefile and in `.pre-commit-config.yaml`, and every `path` entry in `.jscpd.json` to name a directory the tree tracks.
+- **A suppression states why the check is wrong at its line.** `scripts/gates/check_noqa_reasons.py` requires an em dash and a clause after the codes of every `noqa` and every `type: ignore` comment in a tracked `*.py`.
+- **The calibration corpus is refused rather than measured short.** `scripts/gates/check_corpus.py` parses every line of `corpus/*.txt` as `path:line<TAB>text`, and refuses a text filed on both sides of a label pair, which scores the judge wrong whichever verdict it returns.
+- **A hook timeout covers the longest wait its module can make.** `scripts/gates/check_hook_timeouts.py` compares each `timeout` in `hooks/hooks.json` with the timeout constants in `triviajudge/core.py` and in the module the hook names, and fails with the hook, its timeout and the constant it undercuts.
 
 ## [0.4.0] - 2026-09-17
 
