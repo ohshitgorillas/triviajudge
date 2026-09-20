@@ -1,0 +1,58 @@
+slug: amend-test_check_call_timeouts-1
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_call_timeouts.py::test_the_unbounded_run_is_named_and_the_bounded_one_above_it_is_not
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=4)]
+   replace: a module whose line 3 bounds its call and whose line 4 does not draws exactly one finding, at line 4 of the written module.
+   as: tests/gates/test_check_call_timeouts.py::test_the_unbounded_run_is_named_and_the_bounded_one_above_it_is_not
+   kills: a gate that also reports the bounded call on line 3.
+
+2. strike tests/gates/test_check_call_timeouts.py::test_timeout_none_passes_and_only_the_call_stating_nothing_is_named
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=4)]
+   replace: with timeout=None on line 3 and nothing stated on line 4, the one finding is at line 4 of the written module.
+   as: tests/gates/test_check_call_timeouts.py::test_timeout_none_passes_and_only_the_call_stating_nothing_is_named
+   kills: a gate that reports line 3, reading timeout=None as no bound at all.
+
+3. strike tests/gates/test_check_call_timeouts.py::test_a_run_on_something_other_than_subprocess_is_not_the_named_call
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=5)]
+   replace: with another object's run on line 4 and subprocess.run on line 5, the one finding is at line 5 of the written module.
+   as: tests/gates/test_check_call_timeouts.py::test_a_run_on_something_other_than_subprocess_is_not_the_named_call
+   kills: a gate that reports line 4, matching any call spelled run.
+
+4. strike tests/gates/test_check_call_timeouts.py::test_a_call_on_a_subscript_is_not_the_named_call
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=5)]
+   replace: with a subscript call on line 4 and subprocess.run on line 5, the one finding is at line 5 of the written module.
+   as: tests/gates/test_check_call_timeouts.py::test_a_call_on_a_subscript_is_not_the_named_call
+   kills: a gate that raises or reports line 4 on a call whose callee is a subscript.
+
+--- reviewer ---
+READY
+discriminates: differential per line on GATE.unbounded's finding list - each module holds two calls and the line names which one the list contains; expected values 4, 4, 5, 5 over four distinct spellings, so no one line number answers the block
+
+1  ADMITTED  a written module bounding its call on line 3 and leaving line 4 unbounded -> the finding list is exactly one entry, at line 4; "a gate that also reports the bounded call on line 3" fails it there with two entries; bite: exempt by motion - amend replacement pins behavior HEAD already has, docs/testing.md rule 8 characterization exemption, stated here per that rule.
+2  ADMITTED  timeout=None on line 3, nothing stated on line 4 -> the finding list is exactly one entry, at line 4; "a gate that reports line 3, reading timeout=None as no bound at all" fails it there with line 3 in the list; bite: exempt by motion - same rule 8 characterization exemption, stated.
+3  ADMITTED  another object's run on line 4, subprocess.run on line 5 -> the finding list is exactly one entry, at line 5; "a gate that reports line 4, matching any call spelled run" fails it there; bite: exempt by motion - same rule 8 characterization exemption, stated.
+4  ADMITTED  a subscript call on line 4, subprocess.run on line 5 -> the finding list is exactly one entry, at line 5; "a gate that raises or reports line 4 on a call whose callee is a subscript" fails it there, either by never returning a list or by returning two entries; bite: exempt by motion - same rule 8 characterization exemption, stated.
+
+strike halves: all four targets exist in tests/gates/test_check_call_timeouts.py, rule 9 is real, and each quoted assertion compares the list against RUN_FAULT, whose text "subprocess.run with no timeout=, so the call may wait forever" is born under scripts/ - rule 9's "a gate's report line is copy. Assert the exit code and the path:line the test constructed, never the wording after it." Visible in the test file alone. Each `as:` names the target test, legal under amend grammar where the coupled name already states the behavior.
+
+not siblings (d): a gate reading timeout=None as no bound passes 1 and fails 2; a gate matching any attribute callee spelled run fails 3 and passes 4; a gate that crashes on an ast.Subscript callee fails 4 and passes 3.
+
+(a) on line 4: "raises" alone would be a shape, but the clause names the concrete wrong output (line 4 reported) at the concrete input (a callee that is a subscript), so it takes the escape.
+
+cap (f): four lines, at the ceiling, none past it.
+
+brief fulfilment (m): "copy changes or adjustments to agent wording should not trip testing gates" is what all four strike halves carry out - each replacement holds the gate at a count and the line number the case wrote, neither of which moves when the finding's wording does.
+
+null stub: check_call_timeouts.unbounded returns [] for every path.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: return one finding at a fixed line for every module handed over, parsing nothing.
+  satisfies: at most one pair - a stub fixed on line 4 fails 3 and 4, a stub fixed on line 5 fails 1 and 2.   fails: 1, 2, 3, 4 taken together
+survives: 4
