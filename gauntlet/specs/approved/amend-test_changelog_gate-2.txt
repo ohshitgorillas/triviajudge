@@ -1,0 +1,48 @@
+slug: amend-test_changelog_gate-2
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_changelog_gate.py::test_a_second_heading_of_one_kind_names_its_line_and_the_line_it_repeats
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(changelog(tmp_path, TWICE), capsys) == (1, [TWICE_FINDING])
+   replace: a second heading of one kind exits 1 with exactly one finding, against line 9, naming line 5 as the one it repeats.
+   as: tests/gates/test_changelog_gate.py::test_a_second_heading_of_one_kind_names_its_line_and_the_line_it_repeats
+   kills: a finding filed against line 5, the first heading, rather than line 9, the repeat.
+
+2. strike tests/gates/test_changelog_gate.py::test_a_kind_out_of_keep_a_changelog_order_names_its_line_and_the_order
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(changelog(tmp_path, OUT_OF_ORDER), capsys) == (1, [OUT_OF_ORDER_FINDING])
+   replace: a kind out of order exits 1 with exactly one finding, against line 9, where the fixture put the later heading.
+   as: tests/gates/test_changelog_gate.py::test_a_kind_out_of_keep_a_changelog_order_names_its_line_and_the_order
+   kills: a gate that exits 0 on headings written out of order.
+
+3. strike tests/gates/test_changelog_gate.py::test_a_heading_naming_no_kind_names_its_line_and_the_kinds_it_could_name
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(changelog(tmp_path, NO_KIND), capsys) == (1, [NO_KIND_FINDING])
+   replace: a heading naming no kind exits 1 with exactly one finding, against line 5, where the fixture put that heading.
+   as: tests/gates/test_changelog_gate.py::test_a_heading_naming_no_kind_names_its_line_and_the_kinds_it_could_name
+   kills: a finding filed against line 7, the bullet under it, rather than line 5.
+
+4. strike tests/gates/test_changelog_gate.py::test_a_released_section_breaking_three_rules_draws_no_finding
+   rule: docs/testing.md rule 9
+   assertion: assert (GATE.check(path), capsys.readouterr().out) == (0, ok_line(path))
+   replace: one section body, identical bytes, draws a finding at its line under ## [Unreleased] and the file exits 0 with no finding when that same body sits under the released ## [0.1.0] heading.
+   as: tests/gates/test_changelog_gate.py::test_a_released_section_breaking_three_rules_draws_no_finding
+   kills: a gate that reads past the released heading and files findings on shipped history.
+
+--- reviewer ---
+READY
+discriminates: sweep on the finding's line number over the heading rules (line 5 in NO_KIND, line 9 in TWICE/OUT_OF_ORDER), plus a differential on the released-section surface at line 4
+
+1  ADMITTED  strike half valid (target under tests/, rule 9 real, TWICE_FINDING quotes gate wording born under scripts/); replace: TWICE section -> exit 1 with exactly one finding whose numbers are line 9 repeating line 5; kills: finding filed against line 5 instead of line 9 fails it at the TWICE fixture; bite: exempt by motion (amend replacement is characterization, docs/testing.md rule 8) [carried]
+2  ADMITTED  strike half valid (rule 9, OUT_OF_ORDER_FINDING quotes the gate's own kind list and prose); replace: OUT_OF_ORDER section -> exit 1 with exactly one finding at line 9, where the fixture put the later heading; kills: a gate exiting 0 on out-of-order headings fails it at the OUT_OF_ORDER fixture; bite: exempt by motion (characterization) [carried]
+3  ADMITTED  strike half valid (rule 9, NO_KIND_FINDING quotes gate wording and its kind list); replace: NO_KIND section -> exit 1 with exactly one finding at line 5, where the fixture put the heading; kills: finding filed against line 7, the bullet, instead of line 5 fails it at the NO_KIND fixture; bite: exempt by motion (characterization) [carried]
+4  ADMITTED  strike half valid (rule 9, ok_line() asserts prose born under scripts/); replace: one section body, identical bytes -> a finding at its line under ## [Unreleased] paired with exit 0 and no finding under ## [0.1.0], compared as one state pair; kills: a gate reading past the released heading fails it on the [0.1.0] placement; bite: exempt by motion (characterization)
+
+null stub: check() does nothing, returns 0, prints nothing.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: returns 0 for every input and prints the ok line, never parsing headings.
+  satisfies: none   fails: 1, 2, 3, 4
+survives: 4
