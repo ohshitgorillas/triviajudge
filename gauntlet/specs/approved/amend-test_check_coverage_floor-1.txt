@@ -1,0 +1,60 @@
+slug: amend-test_check_coverage_floor-1
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_coverage_floor.py::test_a_report_that_was_never_written_is_refused_by_name
+   rule: docs/testing.md rule 9
+   assertion: assert (code, capsys.readouterr().out) == (1, NO_REPORT.format(report=absent))
+   replace: one report path: naming the written report of one file at 95.0% the run exits 0 with 0 findings, and naming a path that is no file it exits 1, addressed to that path.
+   as: tests/gates/test_check_coverage_floor.py::test_a_report_that_was_never_written_is_refused_by_name
+   kills: a missing report read as a clean tree, exiting 0.
+
+2. strike tests/gates/test_check_coverage_floor.py::test_a_report_measuring_no_file_says_nothing_was_checked
+   rule: docs/testing.md rule 9
+   assertion: assert (code, capsys.readouterr().out) == (1, MEASURED_NOTHING.format(report=report))
+   replace: one report: measuring one file at 95.0% the run exits 0 with 0 findings, and with its files table emptied it exits 1, addressed to that report.
+   as: tests/gates/test_check_coverage_floor.py::test_a_report_measuring_no_file_says_nothing_was_checked
+   kills: a report that measured nothing passing as a tree where every file cleared the floor.
+
+3. strike tests/gates/test_check_coverage_floor.py::test_a_report_with_no_files_key_says_nothing_was_checked
+   rule: docs/testing.md rule 9
+   assertion: assert (code, capsys.readouterr().out) == (1, MEASURED_NOTHING.format(report=report))
+   replace: one report: carrying a files key the run exits 0 with 0 findings, and carrying none at all it exits 1, addressed to that report.
+   as: tests/gates/test_check_coverage_floor.py::test_a_report_with_no_files_key_says_nothing_was_checked
+   kills: a report with no files key read as zero files under the floor, exiting 0.
+
+4. strike tests/gates/test_check_coverage_floor.py::test_a_file_exactly_at_the_floor_clears_it
+   rule: docs/testing.md rule 9
+   assertion: assert (code, capsys.readouterr().out) == (0, ALL_CLEAR.format(count=1, floor=FLOOR))
+   replace: one measured file moved across the floor: at 90.0% the run exits 0 with no file named, and at 89.9% it exits 1 with one finding addressed to edge.py.
+   as: tests/gates/test_check_coverage_floor.py::test_a_file_exactly_at_the_floor_clears_it
+   kills: a gate that refuses the boundary value, exiting 1 on a file exactly at the floor.
+
+--- reviewer ---
+READY
+discriminates: differential in every line on GATE.check's (exit code, findings) verdict - each line holds one report against two shapes, a measured clean one against a degenerate one, and line 4 adds the floor's own edge
+
+prior round returned: lines 1, 2 and 3 each rewritten to carry a second observation - a report measuring one file at 95.0%, exit 0 with 0 findings - beside the refusal they already named. That is the repair I asked for: the always-refuse gate that satisfied all three is now killed by each of them separately. The three stayed three lines rather than folding into one; the fold was economy, the defect was stub satisfiability, and it is gone. Line 4 unchanged, verdict carried.
+
+1  ADMITTED  one report path -> naming the written report of one file at 95.0%, exit 0 with 0 findings; naming a path that is no file, exit 1 addressed to that path; "a missing report read as a clean tree, exiting 0" fails it at the absent path; bite: exempt by motion - amend replacement pins behavior HEAD already has, docs/testing.md rule 8 characterization exemption, stated here per that rule.
+2  ADMITTED  one report -> measuring one file at 95.0%, exit 0 with 0 findings; with its files table emptied, exit 1 addressed to that report; "a report that measured nothing passing as a tree where every file cleared the floor" fails it at the emptied table; bite: exempt by motion - same rule 8 characterization exemption, stated.
+3  ADMITTED  one report -> carrying a files key, exit 0 with 0 findings; carrying none at all, exit 1 addressed to that report; "a report with no files key read as zero files under the floor, exiting 0" fails it at the keyless report; bite: exempt by motion - same rule 8 characterization exemption, stated.
+4  ADMITTED  carried
+
+strike halves: all four targets exist in tests/gates/test_check_coverage_floor.py, rule 9 is real, and each quoted assertion compares the gate's whole stdout against NO_REPORT, MEASURED_NOTHING or ALL_CLEAR - sentences born under scripts/, which rule 9 calls copy: "assert the exit code and the path:line the test constructed, never the wording after it." Visible in the test file alone. Each `as:` names the target test, legal under amend grammar.
+
+not siblings (d): a gate that opens the report without checking it exists fails 1 and passes 2 and 3; a gate reading report["files"] directly crashes on the keyless report, failing 3 and passing 2; a gate reading an empty files table as a clean tree of zero files fails 2 and passing 3 by refusing the keyless one; a gate refusing the boundary value fails 4 and passes the rest.
+
+cap (f): four lines, at the ceiling, none past it.
+
+brief fulfilment (m): "copy changes or adjustments to agent wording should not trip testing gates" is what all four strike halves carry out - each replacement holds the gate at an exit code, a finding count and the path the case constructed, none of which move when the gate's sentences do.
+
+block shape: the draft carries no `slug:` line. I took the slug from the round path and the draft's own filename, which agree: amend-test_check_coverage_floor-1. The approved file carries that line explicitly.
+
+null stub: check_coverage_floor.check returns 0 and prints nothing for every report.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: check returns one fixed verdict for every report, opening no file - always 0 with no findings, or always 1 with one line naming the report path.
+  satisfies: none   fails: 1, 2, 3, 4 (every line names one report shape that must pass and one that must refuse, so neither fixed verdict reaches both halves of any line)
+survives: 4
