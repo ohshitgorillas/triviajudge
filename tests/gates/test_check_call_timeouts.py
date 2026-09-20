@@ -5,8 +5,10 @@ the cases here vary the spelling: ``subprocess.run`` against a bare ``run``,
 ``urlopen`` under one dotted prefix or another, a stated ``timeout=`` against
 none, and ``timeout=None`` as the explicit way to wait forever.
 
-A refusal is matched on the path the test wrote and the line number it put the
-call on, never on the sentence the gate wraps around them.
+Each case that should pass sits in a file with one unbounded call after it, so
+the verdict under test is the single finding naming that one call's line rather
+than an empty list. The expected finding and the gate's two verdict lines are
+seeded here as text, so a reworded sentence or a shifted line number fails.
 """
 
 import sys
@@ -15,21 +17,44 @@ from pathlib import Path
 import check_call_timeouts as GATE
 import pytest
 
+RUN_FAULT = "{path}:{line}: subprocess.run with no timeout=, so the call may wait forever"
+
+URLOPEN_FAULT = "{path}:{line}: urllib.request.urlopen with no timeout=, so the call may wait forever"
+
+REFUSAL_TAIL = (
+    "\n1 problem(s). Every subprocess.run and urlopen states timeout=;\n"
+    "timeout=None is how a call says out loud that it may wait forever.\n"
+)
+
+CLEAN_LINE = "[ok] 1 file(s) bound every call that waits\n"
+
 BOUNDED = "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=30)\n"
+
+BOUNDED_THEN_UNBOUNDED = (
+    "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=30)\nsubprocess.run(['git', 'log'])\n"
+)
+
+FOREVER_BY_NAME_THEN_UNBOUNDED = (
+    "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=None)\nsubprocess.run(['git', 'log'])\n"
+)
+
+OTHER_RUN_THEN_UNBOUNDED = (
+    "import subprocess\n\nrunner = object()\nrunner.run(['git', 'status'])\nsubprocess.run(['git', 'log'])\n"
+)
+
+SUBSCRIPT_CALL_THEN_UNBOUNDED = "import subprocess\n\nhandlers = {}\nhandlers['a']()\nsubprocess.run(['git', 'log'])\n"
 
 UNBOUNDED_RUN = "import subprocess\n\nsubprocess.run(['git', 'status'])\n"
 
 UNBOUNDED_URLOPEN = "import urllib.request\n\nurllib.request.urlopen('https://example.invalid')\n"
 
+BOUNDED_URLOPEN_THEN_UNBOUNDED = (
+    "import urllib.request\n\n"
+    "urllib.request.urlopen('https://example.invalid', timeout=5)\n"
+    "urllib.request.urlopen('https://example.invalid')\n"
+)
+
 BARE_URLOPEN = "from urllib.request import urlopen\n\nurlopen('https://example.invalid')\n"
-
-BOUNDED_URLOPEN = "import urllib.request\n\nurllib.request.urlopen('https://example.invalid', timeout=5)\n"
-
-FOREVER_BY_NAME = "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=None)\n"
-
-SOME_OTHER_RUN = "runner = object()\n\nrunner.run(['git', 'status'])\n"
-
-CALL_ON_A_SUBSCRIPT = "handlers = {}\n\nhandlers['a']()\n"
 
 
 def written(tmp_path: Path, source: str) -> Path:
@@ -39,55 +64,75 @@ def written(tmp_path: Path, source: str) -> Path:
     return path
 
 
-# --- behavior 1: a call that states its bound passes, one that does not is named ---
+# --- behavior 1: the finding names the call, its spelling and its line -------
 
 
-@pytest.mark.parametrize(
-    ("source", "faults"),
-    [
-        (BOUNDED, 0),
-        (BOUNDED_URLOPEN, 0),
-        (FOREVER_BY_NAME, 0),
-        (SOME_OTHER_RUN, 0),
-        (CALL_ON_A_SUBSCRIPT, 0),
-        (UNBOUNDED_RUN, 1),
-        (UNBOUNDED_URLOPEN, 1),
-        (BARE_URLOPEN, 1),
-    ],
-)
-def test_only_a_waiting_call_with_no_timeout_is_a_fault(tmp_path: Path, source: str, faults: int) -> None:
-    assert len(GATE.unbounded(written(tmp_path, source))) == faults
+def test_the_unbounded_run_is_named_and_the_bounded_one_above_it_is_not(tmp_path: Path) -> None:
+    path = written(tmp_path, BOUNDED_THEN_UNBOUNDED)
+    assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=4)]
 
 
-def test_the_fault_names_the_line_the_call_sits_on(tmp_path: Path) -> None:
+def test_timeout_none_passes_and_only_the_call_stating_nothing_is_named(tmp_path: Path) -> None:
+    path = written(tmp_path, FOREVER_BY_NAME_THEN_UNBOUNDED)
+    assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=4)]
+
+
+def test_a_run_on_something_other_than_subprocess_is_not_the_named_call(tmp_path: Path) -> None:
+    path = written(tmp_path, OTHER_RUN_THEN_UNBOUNDED)
+    assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=5)]
+
+
+def test_a_call_on_a_subscript_is_not_the_named_call(tmp_path: Path) -> None:
+    path = written(tmp_path, SUBSCRIPT_CALL_THEN_UNBOUNDED)
+    assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=5)]
+
+
+def test_the_unbounded_urlopen_is_named_and_the_bounded_one_above_it_is_not(tmp_path: Path) -> None:
+    path = written(tmp_path, BOUNDED_URLOPEN_THEN_UNBOUNDED)
+    assert GATE.unbounded(path) == [URLOPEN_FAULT.format(path=path, line=4)]
+
+
+def test_a_bare_urlopen_is_named_by_its_dotted_spelling(tmp_path: Path) -> None:
+    path = written(tmp_path, BARE_URLOPEN)
+    assert GATE.unbounded(path) == [URLOPEN_FAULT.format(path=path, line=3)]
+
+
+# --- behavior 2: what the run prints is the verdict over the files handed over
+
+
+def test_a_tree_that_bounds_every_wait_prints_the_clean_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = GATE.check([written(tmp_path, BOUNDED)])
+    assert (code, capsys.readouterr().out) == (0, CLEAN_LINE)
+
+
+def test_one_unbounded_call_prints_its_line_and_the_refusal(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     path = written(tmp_path, UNBOUNDED_RUN)
-    assert GATE.unbounded(path)[0].startswith(f"{path}:3:")
-
-
-# --- behavior 2: the exit code is the verdict over every file handed over ----
-
-
-def test_a_tree_that_bounds_every_wait_exits_clean(tmp_path: Path) -> None:
-    assert GATE.check([written(tmp_path, BOUNDED)]) == 0
-
-
-def test_one_unbounded_call_fails_the_run(tmp_path: Path) -> None:
-    assert GATE.check([written(tmp_path, UNBOUNDED_RUN)]) == 1
+    code = GATE.check([path])
+    assert (code, capsys.readouterr().out) == (1, RUN_FAULT.format(path=path, line=3) + "\n" + REFUSAL_TAIL)
 
 
 # --- behavior 3: argv names the files, and its absence names the tree --------
 
 
-def test_main_judges_the_file_argv_names(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_names_the_call_in_the_file_argv_gave(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     path = written(tmp_path, UNBOUNDED_URLOPEN)
     monkeypatch.setattr(sys, "argv", ["check_call_timeouts.py", str(path)])
-    assert GATE.main() == 1
+    code = GATE.main()
+    assert (code, capsys.readouterr().out) == (1, URLOPEN_FAULT.format(path=path, line=3) + "\n" + REFUSAL_TAIL)
 
 
-def test_main_with_no_argv_judges_the_package_and_the_gates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_with_no_argv_names_the_call_in_the_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     (tmp_path / "triviajudge").mkdir()
-    (tmp_path / "triviajudge" / "mod.py").write_text(UNBOUNDED_RUN, encoding="utf-8")
+    path = tmp_path / "triviajudge" / "mod.py"
+    path.write_text(UNBOUNDED_RUN, encoding="utf-8")
     (tmp_path / "scripts" / "gates").mkdir(parents=True)
     monkeypatch.setattr(GATE, "ROOT", tmp_path)
     monkeypatch.setattr(sys, "argv", ["check_call_timeouts.py"])
-    assert GATE.main() == 1
+    code = GATE.main()
+    assert (code, capsys.readouterr().out) == (1, RUN_FAULT.format(path=path, line=3) + "\n" + REFUSAL_TAIL)
