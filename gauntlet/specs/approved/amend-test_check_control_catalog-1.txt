@@ -1,0 +1,50 @@
+slug: amend-test_check_control_catalog-1
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_control_catalog.py::test_a_hooked_gate_spelled_the_same_everywhere_agrees
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(tmp_path, monkeypatch, capsys, HOOKED, AGREED) == (0, [AGREES], "")
+   replace: one catalogued gate against the same four places: spelled alike in all of them the run exits 0 with no disagreement, and with the module file removed it exits 1 with one disagreement keyed to md_trivia, the catalog name the case seeded.
+   as: tests/gates/test_check_control_catalog.py::test_a_hooked_gate_spelled_the_same_everywhere_agrees
+   kills: a gate that exits 1 over tables that all agree.
+
+2. strike tests/gates/test_check_control_catalog.py::test_a_console_only_gate_absent_from_both_hook_tables_agrees
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(tmp_path, monkeypatch, capsys, CONSOLE_ONLY, AGREED_OFF_HOOK) == (0, [AGREES], "")
+   replace: one console-only catalog entry: absent from both hook tables the run exits 0 with no disagreement, and wired into hooks.json it exits 1 with one disagreement keyed to sweep.
+   as: tests/gates/test_check_control_catalog.py::test_a_console_only_gate_absent_from_both_hook_tables_agrees
+   kills: a gate that demands a hook id of every catalog entry and files a disagreement against the console-only one.
+
+3. strike tests/gates/test_check_control_catalog.py::test_a_module_two_events_run_is_wired_once
+   rule: docs/testing.md rule 9
+   assertion: assert (code, *spoken(capsys)) == (0, [AGREES], "")
+   replace: one wired module against the same catalog: run by one hook event and by two it exits 0 with no disagreement either way, and run by none it exits 1 with one disagreement keyed to md_trivia.
+   as: tests/gates/test_check_control_catalog.py::test_a_module_two_events_run_is_wired_once
+   kills: a gate that files a disagreement against the module because two events run it.
+
+--- reviewer ---
+READY
+discriminates: differential on GATE.check's (exit code, disagreement) verdict - each line holds one catalog against two or three trees with distinct expected values
+
+prior round returned: line 1 rewritten to key the disagreement on md_trivia, the name the case seeds, dropping the gate's CATALOG['...'] rendering - my (c) finding repaired. Line 4 deleted - my (d) finding repaired. Both findings discharged; neither restated. Lines 2 and 3 unchanged, verdicts carried.
+
+1  ADMITTED  one catalogued gate against the four places -> spelled alike everywhere, exit 0 with no disagreement; with the module file removed, exit 1 with one disagreement keyed to md_trivia, the catalog name the case seeded; "a gate that exits 1 over tables that all agree" fails it at the agreeing tree; bite: exempt by motion - amend replacement pins behavior HEAD already has, docs/testing.md rule 8 characterization exemption, stated here per that rule.
+2  ADMITTED  carried
+3  ADMITTED  carried
+
+strike halves: all three targets exist in tests/gates/test_check_control_catalog.py, rule 9 is real, and each quoted assertion compares against AGREES - a sentence born under scripts/, which rule 9 calls copy. Visible in the test file alone. Each `as:` names the target test, legal under amend grammar where the coupled name already states the behavior.
+
+not siblings (d): a gate that never checks for the module file fails 1 and passes 2 and 3; a gate demanding a hook id of every entry fails 2 and passes 1 and 3; a gate complaining when two events run one module fails 3 and passes 1 and 2. Lines 1 and 3 now expect the same refusing value, exit 1 with one disagreement keyed to md_trivia, but at different trees, and each of the two gates above separates them.
+
+cap (f): three lines, under the ceiling.
+
+brief fulfilment (m): "copy changes or adjustments to agent wording should not trip testing gates" is what all three strike halves carry out - each replacement holds the gate at an exit code, a disagreement count and a name the case seeded, none of which move when the gate's sentences do.
+
+null stub: check_control_catalog.check returns 0 and prints nothing for every catalog.
+  satisfies: none   fails: 1, 2, 3
+hard-coded stub: check returns a fixed verdict for every tree - always 0 with no disagreement, or always 1 with one disagreement keyed to md_trivia.
+  satisfies: none   fails: 1, 2, 3 (each line names both an agreeing and a refusing tree, so no fixed verdict reaches both halves of any line)
+survives: 3
