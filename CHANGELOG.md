@@ -12,6 +12,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Internal
 
+- **The testing policy is one binding document.** `docs/testing.md` states eighteen numbered rules a test is reviewed against, the exemption route, and the motions a test leaves by. `CONTRIBUTING.md` keeps the gate mechanics and points there for the rule each gate serves.
 - **A gate is held to the same coverage floor as the package.** Every script in `scripts/gates/` has behavior tests under `tests/gates/`, driving its pass path, each failure category it names and each rule its exemption table carries, and `--cov=scripts` puts all of them under the 90% per-file floor.
 - **A test that reads a real clock fails a gate.** `scripts/gates/check_test_clocks.py` refuses a `time.sleep` or `asyncio.sleep` on anything but a literal zero, and a `timeout` keyword or mapping key given a numeric literal under 0.5 seconds, over every file under `tests/` with no carve-out directory.
 - **The changelog's mechanical rules hold offline.** `scripts/gates/check_changelog.py` reads the whole `[Unreleased]` section in `make lint`: a 75-word cap per bullet, a bold lead clause, no second person, and one `###` heading per kind in Keep a Changelog order. Register and tone stay with `triviajudge-changelog`.

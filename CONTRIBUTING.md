@@ -147,6 +147,13 @@ then `core`, then `config` — and the two judges share a layer, so an import
 between them fails. The one edge that runs upward is `config` reaching `core`
 for the work tree, deferred to call time and named in `ignore_imports`.
 
+## Tests
+
+`docs/testing.md` is the binding testing policy: what a test may assert, what a
+fake may be, what leaves the suite and how. The sections below describe the
+mechanics of the gates that enforce its mechanical half; the rule each one
+serves is cited there by number.
+
 ## One assertion per test
 
 `scripts/gates/check_test_assertions.py` holds a `test_` function to exactly one
@@ -282,20 +289,9 @@ stays runnable with no `node_modules` installed. `check` runs both.
 
 ## Mutation testing
 
-`make mutate` breaks the code one edit at a time and reports how many of those
-breakages the suite noticed. A surviving mutant is a line no test constrains — the
-one question the assertion gates cannot ask. It runs by hand and is in neither
-`check` nor pre-commit, because the whole package takes far longer than a commit
-path allows. Scope it while working:
-
-```sh
-make mutate                              # everything under triviajudge/
-make mutate MUTATE='triviajudge.core.*'  # one module
-```
-
-`MUTATE` is an fnmatch pattern over mutant names, so the trailing `.*` is
-load-bearing: a bare module name matches no mutant and mutmut asserts rather than
-running. Scope and pytest arguments live in `[tool.mutmut]` in `pyproject.toml`.
+`make mutate` runs by hand and is in neither `check` nor pre-commit. Scope,
+invocation and how to read a survivor are in `docs/testing.md`
+("Mutation testing").
 
 ## Cutting a release
 
