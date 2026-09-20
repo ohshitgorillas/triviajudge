@@ -1,0 +1,52 @@
+slug: amend-test_check_gates_wired-1
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_gates_wired.py::test_a_gate_in_both_wirings_passes
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(root, {}, capsys) == (0, [WIRED])
+   replace: the sweep counts the scripts in the directory: over 2 wired scripts it exits 0 with 0 findings naming 2, and over the same tree with a third script written and wired it exits 0 naming 3.
+   as: tests/gates/test_check_gates_wired.py::test_a_gate_in_both_wirings_passes
+   kills: a gate that exits 1 over a tree where both wirings already run every script.
+
+2. strike tests/gates/test_check_gates_wired.py::test_a_gate_missing_from_precommit_is_named
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(root, {}, capsys) == (1, [NOT_IN_PRECOMMIT])
+   replace: one script's pre-commit hook: present, the run exits 0 with 0 findings, and dropped, it exits 1 with 1 finding addressed to scripts/gates/check_two.py.
+   as: tests/gates/test_check_gates_wired.py::test_a_gate_missing_from_precommit_is_named
+   kills: a gate that checks the Makefile alone and exits 0 on a script pre-commit never runs.
+
+3. strike tests/gates/test_check_gates_wired.py::test_a_gate_commented_out_of_the_makefile_is_named
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(root, {}, capsys) == (1, [NO_MAKEFILE_TARGET])
+   replace: one script's Makefile line: live, the run exits 0 with 0 findings, and the same line commented out, it exits 1 with 1 finding addressed to scripts/gates/check_two.py.
+   as: tests/gates/test_check_gates_wired.py::test_a_gate_commented_out_of_the_makefile_is_named
+   kills: a commented invocation counted as wiring, exiting 0.
+
+--- reviewer ---
+READY
+discriminates: differential in every line - a wired tree against an unwired one on each surface, and a script count that follows the number of scripts the case wrote (2 against 3)
+
+prior round returned: round 1's line 2, the dropped-Makefile-line duplicate of the commented-line case, deleted and the rest renumbered. That is the repair I named; finding discharged, not restated. The three surviving lines are unchanged in text, verdicts carried under their new numbers - round 1's line 1 is line 1, its line 3 is line 2, its line 4 is line 3.
+
+1  ADMITTED  carried (round 1 line 1): the script directory swept -> over 2 wired scripts, exit 0 with 0 findings naming 2; over the same tree with a third script written and wired, exit 0 naming 3.
+2  ADMITTED  carried (round 1 line 3): one script's pre-commit hook -> present, exit 0 with 0 findings; dropped, exit 1 with 1 finding addressed to scripts/gates/check_two.py.
+3  ADMITTED  carried (round 1 line 4): one script's Makefile line -> live, exit 0 with 0 findings; the same line commented out, exit 1 with 1 finding addressed to scripts/gates/check_two.py.
+
+strike halves: all three targets exist in tests/gates/test_check_gates_wired.py, rule 9 is real, and each quoted assertion compares against WIRED, NOT_IN_PRECOMMIT or NO_MAKEFILE_TARGET - sentences born under scripts/ ("[ok] all {count} gate scripts are wired into the Makefile and pre-commit", "not in .pre-commit-config.yaml and not exempt", "no Makefile target invokes it"), which rule 9 calls copy: assert the exit code and what the case constructed, never the wording after it. Visible in the test file alone. Each `as:` names the target test, legal under amend grammar.
+
+not siblings (d): a gate printing a fixed script count fails 1 and passes 2 and 3; a gate that reads the Makefile alone fails 2 and passes 1 and 3; a gate that counts a commented line as wiring fails 3 and passes 1 and 2.
+
+cap (f): three lines, under the ceiling.
+
+brief fulfilment (m): "copy changes or adjustments to agent wording should not trip testing gates" is what all three strike halves carry out - each replacement holds the gate at an exit code, a finding count, a script count and the path the case constructed, none of which move when the gate's sentences do.
+
+block shape: the draft carries no `slug:` line. I took the slug from the round path and the draft's own filename, which agree: amend-test_check_gates_wired-1. The approved file carries that line explicitly.
+
+null stub: check_gates_wired.check returns 0 and prints nothing for every tree.
+  satisfies: none   fails: 1, 2, 3
+hard-coded stub: check returns one fixed verdict for every tree - a fixed ok line with count 2, or a fixed finding naming scripts/gates/check_two.py.
+  satisfies: none   fails: 1, 2, 3 (each line names one tree that must pass and one that must refuse, and line 1 names two counts)
+survives: 3
