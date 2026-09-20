@@ -6,13 +6,15 @@ case wrote. The documents are named ``GUIDE.md`` and ``NOTES.md`` rather than
 this repository's own filenames, which keeps a citation written here a fixture
 rather than a citation of the tree the gate also reads.
 
-A failing case asserts the finding itself: which citation on which line, and
-whether it resolved to no heading or to more than one. The expected sentences are
-seeded here as constants, with ``{path}`` standing for the citing file a case
-writes, since a file under ``tmp_path`` is outside the repository and the gate
-addresses it by its absolute path.
+A failing case asserts where the finding points: the citing file and the line
+the case wrote the citation on, read off the ``<path>:<line>:`` address every
+finding opens with, and the count of headings an ambiguous prefix matched, read
+off the digits after it. The wording after the address is the gate's own and is
+never asserted. A file under ``tmp_path`` is outside the repository, so the
+gate addresses it by its absolute path.
 """
 
+import re
 from pathlib import Path
 from textwrap import dedent
 
@@ -64,11 +66,6 @@ TWO_BROKEN_CITATIONS = '# (GUIDE.md "nothing of the sort")\n# (GUIDE.md "or this
 UNDECODABLE_WITH_A_BROKEN_CITATION = b'\xff\xfe# (GUIDE.md "nothing of the sort")\n'
 
 NO_SUCH_HEADING_FINDING = '{path}:1: GUIDE.md "nothing of the sort" — no such heading'
-SECOND_BROKEN_CITATION_FINDING = '{path}:2: GUIDE.md "or this either" — no such heading'
-AMBIGUOUS_PREFIX_FINDING = '{path}:1: GUIDE.md "the judged repository" — ambiguous — matches 2 headings'
-A_ROUND_CITATION_FINDING = "{path}:1: ordinal citation 'GUIDE.md round 3' — rot risk"
-A_STEP_CITATION_FINDING = "{path}:1: ordinal citation 'GUIDE.md step 12' — rot risk"
-A_ROUND_CITATION_WITH_WORDS_BETWEEN_FINDING = "{path}:1: ordinal citation 'GUIDE.md sweep pass round 3' — rot risk"
 #: what ``main`` prints under the findings it listed
 ONE_BROKEN_CITATION_TAIL = "\n\n1 broken doc citation(s)\n"
 EMPTY_INDEX_REFUSAL = "check_doc_refs: no markdown found\n"
@@ -90,6 +87,32 @@ def citing(tmp_path: Path, body: str) -> Path:
     path = tmp_path / "citing.py"
     path.write_text(body, encoding="utf-8")
     return path
+
+
+def located(findings: list[str], path: Path) -> list[int]:
+    """The line of ``path`` each finding is reported against, in the order the gate listed them.
+
+    A finding addresses the citing file as ``<path>:<line>:``; anything after
+    that is the gate's own wording and stays unread. A finding that does not
+    open with ``path`` raises, since no line can be read off it.
+    """
+    lines = []
+    for finding in findings:
+        if not finding.startswith(f"{path}:"):
+            raise ValueError(f"finding is not against {path}: {finding!r}")
+        lines.append(int(finding.removeprefix(f"{path}:").split(":", 1)[0]))
+    return lines
+
+
+def counted(findings: list[str], path: Path) -> list[list[int]]:
+    """Every integer each finding carries after its ``<path>:<line>:`` address, per finding."""
+    counts = []
+    for finding in findings:
+        if not finding.startswith(f"{path}:"):
+            raise ValueError(f"finding is not against {path}: {finding!r}")
+        tail = finding.removeprefix(f"{path}:").split(":", 1)[1]
+        counts.append([int(digits) for digits in re.findall(r"\d+", tail)])
+    return counts
 
 
 # --- behavior 1: a citation that names a heading resolves ---------------------
@@ -119,39 +142,39 @@ def test_the_index_answers_to_the_stem_and_to_the_filename(docs: dict[str, list[
 
 
 def test_a_citation_matching_no_heading_names_the_heading_it_wanted(tmp_path: Path, docs: dict[str, list[str]]) -> None:
+    resolving = GATE.check(citing(tmp_path, RESOLVING), docs)
     path = citing(tmp_path, NO_SUCH_HEADING)
-    assert GATE.check(path, docs) == [NO_SUCH_HEADING_FINDING.format(path=path)]
+    assert (resolving, located(GATE.check(path, docs), path)) == ([], [1])
 
 
 def test_a_prefix_matching_two_headings_says_how_many_it_matched(tmp_path: Path, docs: dict[str, list[str]]) -> None:
+    resolving = GATE.check(citing(tmp_path, RESOLVING_BY_PREFIX), docs)
     path = citing(tmp_path, AMBIGUOUS_PREFIX)
-    assert GATE.check(path, docs) == [AMBIGUOUS_PREFIX_FINDING.format(path=path)]
+    ambiguous = GATE.check(path, docs)
+    assert (resolving, located(ambiguous, path), counted(ambiguous, path)) == ([], [1], [[2]])
 
 
 def test_every_broken_citation_is_reported_against_its_own_line(tmp_path: Path, docs: dict[str, list[str]]) -> None:
+    path = citing(tmp_path, NO_SUCH_HEADING)
+    one = located(GATE.check(path, docs), path)
     path = citing(tmp_path, TWO_BROKEN_CITATIONS)
-    assert GATE.check(path, docs) == [
-        NO_SUCH_HEADING_FINDING.format(path=path),
-        SECOND_BROKEN_CITATION_FINDING.format(path=path),
-    ]
+    assert (one, located(GATE.check(path, docs), path)) == ([1], [1, 2])
 
 
 # --- behavior 3: a positional citation is refused while it still resolves ------
 
 
 @pytest.mark.parametrize(
-    ("body", "finding"),
-    [
-        (A_ROUND_CITATION, A_ROUND_CITATION_FINDING),
-        (A_STEP_CITATION, A_STEP_CITATION_FINDING),
-        (A_ROUND_CITATION_WITH_WORDS_BETWEEN, A_ROUND_CITATION_WITH_WORDS_BETWEEN_FINDING),
-    ],
+    "body",
+    [A_ROUND_CITATION, A_STEP_CITATION, A_ROUND_CITATION_WITH_WORDS_BETWEEN],
+    ids=["round", "step", "round with words between"],
 )
 def test_a_citation_of_a_position_rather_than_a_heading_is_refused(
-    tmp_path: Path, docs: dict[str, list[str]], body: str, finding: str
+    tmp_path: Path, docs: dict[str, list[str]], body: str
 ) -> None:
+    resolving = GATE.check(citing(tmp_path, RESOLVING), docs)
     path = citing(tmp_path, body)
-    assert GATE.check(path, docs) == [finding.format(path=path)]
+    assert (resolving, located(GATE.check(path, docs), path)) == ([], [1])
 
 
 # --- behavior 4: what the gate leaves alone -----------------------------------
