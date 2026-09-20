@@ -137,31 +137,57 @@ def verdict(
     return code, findings, tail
 
 
+def keyed(
+    root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    catalog: dict[str, GATE.Gate],
+    tables: Tables,
+    key: str,
+    events: tuple[str, ...] = ("Stop",),
+) -> tuple[int, int]:
+    """Judge ``catalog`` against a tree wired to ``tables``: (exit code, disagreements naming ``key``).
+
+    ``events`` are the hook events under which ``hooks.json`` runs each module
+    ``tables.plugin`` names; the wording after a name is the gate's own, so only
+    the count of lines carrying the name the case seeded is read.
+    """
+    wire(root, tables)
+    commands = [{"command": f'"$PLUGIN/hooks/run-gate.sh" {name}'} for name in tables.plugin]
+    payload = {"hooks": {event: [{"hooks": commands}] for event in events}}
+    (root / "hooks" / "hooks.json").write_text(json.dumps(payload), encoding="utf-8")
+    pointed_at(root, monkeypatch)
+    code = GATE.check(catalog)
+    return code, sum(key in line for line in capsys.readouterr().out.splitlines())
+
+
 # --- behavior 1: agreement across all four places passes ----------------------
 
 
 def test_a_hooked_gate_spelled_the_same_everywhere_agrees(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, AGREED) == (0, [AGREES], "")
+    agreeing = keyed(tmp_path / "agreeing", monkeypatch, capsys, HOOKED, AGREED, MODULE)
+    unmodulated = keyed(tmp_path / "unmodulated", monkeypatch, capsys, HOOKED, with_modules([]), MODULE)
+    assert (agreeing, unmodulated) == ((0, 0), (1, 1))
 
 
 def test_a_console_only_gate_absent_from_both_hook_tables_agrees(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(tmp_path, monkeypatch, capsys, CONSOLE_ONLY, AGREED_OFF_HOOK) == (0, [AGREES], "")
+    wired = Tables(AGREED_OFF_HOOK.modules, AGREED_OFF_HOOK.declared, AGREED_OFF_HOOK.manifest, [SWEEP_MODULE])
+    absent = keyed(tmp_path / "absent", monkeypatch, capsys, CONSOLE_ONLY, AGREED_OFF_HOOK, SWEEP_MODULE)
+    hooked = keyed(tmp_path / "hooked", monkeypatch, capsys, CONSOLE_ONLY, wired, SWEEP_MODULE)
+    assert (absent, hooked) == ((0, 0), (1, 1))
 
 
 def test_a_module_two_events_run_is_wired_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    wire(tmp_path, AGREED)
-    command = {"command": f'"$PLUGIN/hooks/run-gate.sh" {MODULE}'}
-    payload = {"hooks": {"Stop": [{"hooks": [command]}], "SubagentStop": [{"hooks": [command]}]}}
-    (tmp_path / "hooks" / "hooks.json").write_text(json.dumps(payload), encoding="utf-8")
-    pointed_at(tmp_path, monkeypatch)
-    code = GATE.check(HOOKED)
-    assert (code, *spoken(capsys)) == (0, [AGREES], "")
+    one = keyed(tmp_path / "one", monkeypatch, capsys, HOOKED, AGREED, MODULE, events=("Stop",))
+    two = keyed(tmp_path / "two", monkeypatch, capsys, HOOKED, AGREED, MODULE, events=("Stop", "SubagentStop"))
+    none = keyed(tmp_path / "none", monkeypatch, capsys, HOOKED, with_plugin([]), MODULE, events=("Stop",))
+    assert (one, two, none) == ((0, 0), (0, 0), (1, 1))
 
 
 # --- behavior 2: a catalog name names a module that exists ---------------------
