@@ -1,0 +1,41 @@
+slug: amend-test_changelog_gate-1
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_changelog_gate.py::test_a_bullet_in_shape_draws_no_finding_and_the_file_is_called_in_shape
+   rule: docs/testing.md rule 9
+   assertion: assert (GATE.check(path), capsys.readouterr().out) == (0, ok_line(path))
+   replace: one bullet body under ## [Unreleased] exits 0 with no finding while it opens with its bold lead, and the same body with that lead struck exits 1 with one finding at line 7.
+   as: tests/gates/test_changelog_gate.py::test_a_bullet_in_shape_draws_no_finding_and_the_file_is_called_in_shape
+   kills: a gate that exits 1 on a bullet that breaks no rule.
+
+3. strike tests/gates/test_changelog_gate.py::test_a_bullet_addressing_the_reader_is_named_by_line_and_the_word_it_used
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(changelog(tmp_path, ADDRESSED), capsys) == (1, [ADDRESSED_FINDING])
+   replace: a bullet addressing the reader exits 1 with exactly one finding, against line 7, where the fixture put that bullet.
+   as: tests/gates/test_changelog_gate.py::test_a_bullet_addressing_the_reader_is_named_by_line_and_the_word_it_used
+   kills: a gate that exits 0 on a bullet addressing the reader.
+
+4. strike tests/gates/test_changelog_gate.py::test_a_bullet_past_the_word_cap_is_named_by_line_word_count_and_cap
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(changelog(tmp_path, OVER_THE_CAP), capsys) == (1, [OVER_THE_CAP_FINDING])
+   replace: a bullet of the 85 words the fixture wrote exits 1 with exactly one finding, against line 7, counting 85.
+   as: tests/gates/test_changelog_gate.py::test_a_bullet_past_the_word_cap_is_named_by_line_word_count_and_cap
+   kills: a gate that counts the bullet's words as 80 and passes it under the cap.
+
+--- reviewer ---
+READY
+discriminates: differential on check_changelog's verdict over one bullet body under ## [Unreleased] — the same body led and lead-struck, exit 0 with no finding against exit 1 with one finding at line 7
+
+1  ADMITTED  one bullet body under ## [Unreleased], led and with the lead struck -> exit 0 with no finding for the led body, exit 1 with one finding at line 7 for the struck one; a gate that exits 1 on a bullet breaking no rule fails it at the led body; bite: N/A, characterization exempt by `motion: amend` (docs/testing.md rule 8).
+2  STRICKEN  d: line 1's repaired second half now states line 2's whole outcome (no-lead body -> exit 1, one finding at line 7), so no implementation can fail line 2 while line 1 passes — survivor is line 1; I passed line 2 in round 1 when line 1 pinned only exit 0 and the overlap did not yet exist.
+3  ADMITTED  changelog whose line-7 bullet addresses the reader -> exit 1 with exactly one finding against line 7; a gate that exits 0 on that bullet fails it at that input; bite: N/A, characterization exempt by `motion: amend` (docs/testing.md rule 8).
+4  ADMITTED  changelog whose line-7 bullet carries the fixture's 85 words -> exit 1 with exactly one finding against line 7 counting 85; a gate counting that bullet at 80 and passing it under the cap fails it at that input; bite: N/A, characterization exempt by `motion: amend` (docs/testing.md rule 8).
+
+null stub: check() is a no-op returning 0 and printing nothing.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: check() returns the named verdict for each fixture body verbatim and 0 otherwise.
+  satisfies: none   fails: 1, 2, 3, 4 (line 1 relates two verdicts over one body differing only in its lead, and lines 3 and 4 put two further bodies on that same surface, so the table must run the lead, second-person and word-count checks)
+survives: 3
