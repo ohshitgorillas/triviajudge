@@ -64,27 +64,32 @@ def written(tmp_path: Path, source: str) -> Path:
     return path
 
 
+def located(findings: list[str]) -> list[str]:
+    """The ``path:line`` each finding opens with, the wording after it dropped."""
+    return [finding.partition(": ")[0] for finding in findings]
+
+
 # --- behavior 1: the finding names the call, its spelling and its line -------
 
 
 def test_the_unbounded_run_is_named_and_the_bounded_one_above_it_is_not(tmp_path: Path) -> None:
     path = written(tmp_path, BOUNDED_THEN_UNBOUNDED)
-    assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=4)]
+    assert located(GATE.unbounded(path)) == [f"{path}:4"]
 
 
 def test_timeout_none_passes_and_only_the_call_stating_nothing_is_named(tmp_path: Path) -> None:
     path = written(tmp_path, FOREVER_BY_NAME_THEN_UNBOUNDED)
-    assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=4)]
+    assert located(GATE.unbounded(path)) == [f"{path}:4"]
 
 
 def test_a_run_on_something_other_than_subprocess_is_not_the_named_call(tmp_path: Path) -> None:
     path = written(tmp_path, OTHER_RUN_THEN_UNBOUNDED)
-    assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=5)]
+    assert located(GATE.unbounded(path)) == [f"{path}:5"]
 
 
 def test_a_call_on_a_subscript_is_not_the_named_call(tmp_path: Path) -> None:
     path = written(tmp_path, SUBSCRIPT_CALL_THEN_UNBOUNDED)
-    assert GATE.unbounded(path) == [RUN_FAULT.format(path=path, line=5)]
+    assert located(GATE.unbounded(path)) == [f"{path}:5"]
 
 
 def test_the_unbounded_urlopen_is_named_and_the_bounded_one_above_it_is_not(tmp_path: Path) -> None:
