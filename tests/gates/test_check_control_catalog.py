@@ -139,6 +139,7 @@ def verdict(
 
 def keyed(
     root: Path,
+    *,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     catalog: dict[str, GATE.Gate],
@@ -167,8 +168,9 @@ def keyed(
 def test_a_hooked_gate_spelled_the_same_everywhere_agrees(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    agreeing = keyed(tmp_path / "agreeing", monkeypatch, capsys, HOOKED, AGREED, MODULE)
-    unmodulated = keyed(tmp_path / "unmodulated", monkeypatch, capsys, HOOKED, with_modules([]), MODULE)
+    judge = {"monkeypatch": monkeypatch, "capsys": capsys, "catalog": HOOKED, "key": MODULE}
+    agreeing = keyed(tmp_path / "agreeing", tables=AGREED, **judge)
+    unmodulated = keyed(tmp_path / "unmodulated", tables=with_modules([]), **judge)
     assert (agreeing, unmodulated) == ((0, 0), (1, 1))
 
 
@@ -176,17 +178,19 @@ def test_a_console_only_gate_absent_from_both_hook_tables_agrees(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     wired = Tables(AGREED_OFF_HOOK.modules, AGREED_OFF_HOOK.declared, AGREED_OFF_HOOK.manifest, [SWEEP_MODULE])
-    absent = keyed(tmp_path / "absent", monkeypatch, capsys, CONSOLE_ONLY, AGREED_OFF_HOOK, SWEEP_MODULE)
-    hooked = keyed(tmp_path / "hooked", monkeypatch, capsys, CONSOLE_ONLY, wired, SWEEP_MODULE)
+    judge = {"monkeypatch": monkeypatch, "capsys": capsys, "catalog": CONSOLE_ONLY, "key": SWEEP_MODULE}
+    absent = keyed(tmp_path / "absent", tables=AGREED_OFF_HOOK, **judge)
+    hooked = keyed(tmp_path / "hooked", tables=wired, **judge)
     assert (absent, hooked) == ((0, 0), (1, 1))
 
 
 def test_a_module_two_events_run_is_wired_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    one = keyed(tmp_path / "one", monkeypatch, capsys, HOOKED, AGREED, MODULE, events=("Stop",))
-    two = keyed(tmp_path / "two", monkeypatch, capsys, HOOKED, AGREED, MODULE, events=("Stop", "SubagentStop"))
-    none = keyed(tmp_path / "none", monkeypatch, capsys, HOOKED, with_plugin([]), MODULE, events=("Stop",))
+    judge = {"monkeypatch": monkeypatch, "capsys": capsys, "catalog": HOOKED, "key": MODULE}
+    one = keyed(tmp_path / "one", tables=AGREED, events=("Stop",), **judge)
+    two = keyed(tmp_path / "two", tables=AGREED, events=("Stop", "SubagentStop"), **judge)
+    none = keyed(tmp_path / "none", tables=with_plugin([]), events=("Stop",), **judge)
     assert (one, two, none) == ((0, 0), (0, 0), (1, 1))
 
 
