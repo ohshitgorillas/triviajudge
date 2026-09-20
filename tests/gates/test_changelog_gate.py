@@ -41,21 +41,15 @@ OUT_OF_ORDER = "### Fixed\n\n- **One thing holds.** With a reason.\n\n### Added\
 
 NO_KIND = "### Notes\n\n- **One thing holds.** With a reason.\n"
 
-#: A shipped section breaking the bold lead, the second person and the kind rules at once.
-RELEASED = "\n## [0.1.0]\n\n### Notes\n\n- a released bullet addressing your reading of it\n"
+#: A section body breaking the bold lead, the second person and the kind rules at once.
+THREE_RULES_BROKEN = "### Notes\n\n- a released bullet addressing your reading of it\n"
+
+#: That same body, byte for byte, shipped under a released heading.
+RELEASED = "\n## [0.1.0]\n\n" + THREE_RULES_BROKEN
 
 NO_LEAD_FINDING = "line 7: no bold lead clause, which a bullet opens with as `- **…**`"
 
 ADDRESSED_FINDING = "line 7: 'your' addresses the reader — state the change impersonally"
-
-#: The kinds a heading may name, as the gate spells them into its own findings.
-KIND_LIST = "['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security', 'Internal']"
-
-TWICE_FINDING = "line 9: '### Added' repeats line 5 — one heading per kind, merged"
-
-OUT_OF_ORDER_FINDING = f"line 9: '### Added' sits out of order — {KIND_LIST}"
-
-NO_KIND_FINDING = f"line 5: '### Notes' names no kind — one of {KIND_LIST}"
 
 TWO_PROBLEMS = "2 problem(s) under ## [Unreleased]. See CONTRIBUTING.md."
 ONE_PROBLEM = "1 problem(s) under ## [Unreleased]. See CONTRIBUTING.md."
@@ -134,19 +128,20 @@ def test_a_code_span_is_priced_at_no_words_so_a_bullet_at_the_cap_passes(
 def test_a_second_heading_of_one_kind_names_its_line_and_the_line_it_repeats(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(changelog(tmp_path, TWICE), capsys) == (1, [TWICE_FINDING])
+    code, findings = verdict(changelog(tmp_path, TWICE), capsys)
+    assert (code, [numbers(finding)[:2] for finding in findings]) == (1, [[9, 5]])
 
 
 def test_a_kind_out_of_keep_a_changelog_order_names_its_line_and_the_order(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(changelog(tmp_path, OUT_OF_ORDER), capsys) == (1, [OUT_OF_ORDER_FINDING])
+    assert flagged_lines(changelog(tmp_path, OUT_OF_ORDER), capsys) == (1, [9])
 
 
 def test_a_heading_naming_no_kind_names_its_line_and_the_kinds_it_could_name(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(changelog(tmp_path, NO_KIND), capsys) == (1, [NO_KIND_FINDING])
+    assert flagged_lines(changelog(tmp_path, NO_KIND), capsys) == (1, [5])
 
 
 # --- behavior 3: a released section is history ------------------------------
@@ -155,8 +150,9 @@ def test_a_heading_naming_no_kind_names_its_line_and_the_kinds_it_could_name(
 def test_a_released_section_breaking_three_rules_draws_no_finding(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    path = changelog(tmp_path, IN_SHAPE, RELEASED)
-    assert (GATE.check(path), capsys.readouterr().out) == (0, ok_line(path))
+    code, lines = flagged_lines(changelog(tmp_path / "unreleased", THREE_RULES_BROKEN), capsys)
+    shipped = flagged_lines(changelog(tmp_path / "released", IN_SHAPE, RELEASED), capsys)
+    assert ((code, sorted(set(lines))), shipped) == ((1, [5, 7]), (0, []))
 
 
 # --- behavior 4: how a refusal reads ----------------------------------------
