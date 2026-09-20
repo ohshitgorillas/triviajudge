@@ -10,6 +10,7 @@ A refusal is matched on the exit code and on the sentence the gate prints for
 that one disagreement, seeded below as a constant.
 """
 
+import functools
 import json
 from pathlib import Path
 from typing import NamedTuple
@@ -166,9 +167,9 @@ def keyed(
 def test_a_hooked_gate_spelled_the_same_everywhere_agrees(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    judge = {"monkeypatch": monkeypatch, "capsys": capsys, "catalog": HOOKED, "key": MODULE}
-    agreeing = keyed(tmp_path / "agreeing", tables=AGREED, **judge)
-    unmodulated = keyed(tmp_path / "unmodulated", tables=with_modules([]), **judge)
+    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=MODULE)
+    agreeing = judge(tmp_path / "agreeing", tables=AGREED)
+    unmodulated = judge(tmp_path / "unmodulated", tables=with_modules([]))
     assert (agreeing, unmodulated) == ((0, 0), (1, 1))
 
 
@@ -176,19 +177,19 @@ def test_a_console_only_gate_absent_from_both_hook_tables_agrees(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     wired = Tables(AGREED_OFF_HOOK.modules, AGREED_OFF_HOOK.declared, AGREED_OFF_HOOK.manifest, [SWEEP_MODULE])
-    judge = {"monkeypatch": monkeypatch, "capsys": capsys, "catalog": CONSOLE_ONLY, "key": SWEEP_MODULE}
-    absent = keyed(tmp_path / "absent", tables=AGREED_OFF_HOOK, **judge)
-    hooked = keyed(tmp_path / "hooked", tables=wired, **judge)
+    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=CONSOLE_ONLY, key=SWEEP_MODULE)
+    absent = judge(tmp_path / "absent", tables=AGREED_OFF_HOOK)
+    hooked = judge(tmp_path / "hooked", tables=wired)
     assert (absent, hooked) == ((0, 0), (1, 1))
 
 
 def test_a_module_two_events_run_is_wired_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    judge = {"monkeypatch": monkeypatch, "capsys": capsys, "catalog": HOOKED, "key": MODULE}
-    one = keyed(tmp_path / "one", tables=AGREED, events=("Stop",), **judge)
-    two = keyed(tmp_path / "two", tables=AGREED, events=("Stop", "SubagentStop"), **judge)
-    none = keyed(tmp_path / "none", tables=with_plugin([]), events=("Stop",), **judge)
+    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=MODULE)
+    one = judge(tmp_path / "one", tables=AGREED, events=("Stop",))
+    two = judge(tmp_path / "two", tables=AGREED, events=("Stop", "SubagentStop"))
+    none = judge(tmp_path / "none", tables=with_plugin([]), events=("Stop",))
     assert (one, two, none) == ((0, 0), (0, 0), (1, 1))
 
 
