@@ -282,7 +282,7 @@ def local_settings(**over: object) -> object:
     """A settings stand-in on the ``local`` backend, overridable per field."""
     fields: dict[str, object] = {"backend": "local", "base_url": "http://127.0.0.1:8080", "api_key_env": ""}
     fields.update(over)
-    return lambda: Settings(**fields)  # type: ignore[arg-type]
+    return lambda: Settings(**fields)  # type: ignore[arg-type]  # — the case names its own fields
 
 
 class Answer:
@@ -312,9 +312,9 @@ def answering_post(body: str, sent: dict[str, object] | None = None) -> object:
 
     def urlopen(request: object, timeout: float | None = None) -> Answer:
         if sent is not None:
-            sent["url"] = request.full_url  # type: ignore[attr-defined]
-            sent["headers"] = dict(request.headers)  # type: ignore[attr-defined]
-            sent["payload"] = json.loads(request.data.decode("utf-8"))  # type: ignore[attr-defined]
+            sent["url"] = request.full_url  # type: ignore[attr-defined]  # — a Request reaches the fake
+            sent["headers"] = dict(request.headers)  # type: ignore[attr-defined]  # — as above
+            sent["payload"] = json.loads(request.data.decode("utf-8"))  # type: ignore[attr-defined]  # — as above
             sent["timeout"] = timeout
         return Answer(envelope)
 
@@ -361,13 +361,13 @@ def test_the_payload_names_the_model_the_caller_asked_for(monkeypatch: pytest.Mo
 def test_the_payload_asks_the_server_for_a_schema_shaped_answer(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: dict[str, object] = {}
     local_call(monkeypatch, ONE_FLAG, sent)
-    assert sent_payload(sent)["response_format"]["type"] == "json_schema"  # type: ignore[index]
+    assert sent_payload(sent)["response_format"]["type"] == "json_schema"  # type: ignore[index]  # — a JSON envelope
 
 
 def test_the_payload_carries_the_lines_to_judge(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: dict[str, object] = {}
     local_call(monkeypatch, ONE_FLAG, sent)
-    assert "doc.md:1\ta line" in sent_payload(sent)["messages"][0]["content"]  # type: ignore[index]
+    assert "doc.md:1\ta line" in sent_payload(sent)["messages"][0]["content"]  # type: ignore[index]  # — as above
 
 
 def test_the_table_names_where_under_base_url_the_question_is_posted(monkeypatch: pytest.MonkeyPatch) -> None:

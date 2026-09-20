@@ -127,7 +127,7 @@ def read(start: Path) -> Settings:
             given[name] = tuple(cast("Iterable[str]", value))
         else:
             given[name] = value
-    return Settings(**given)  # type: ignore[arg-type]
+    return Settings(**given)  # type: ignore[arg-type]  # — keys checked above, values hold their fields' types
 
 
 @cache
