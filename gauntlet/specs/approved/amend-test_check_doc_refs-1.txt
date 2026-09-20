@@ -1,0 +1,51 @@
+slug: amend-test_check_doc_refs-1
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_doc_refs.py::test_a_citation_matching_no_heading_names_the_heading_it_wanted
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.check(path, docs) == [NO_SUCH_HEADING_FINDING.format(path=path)]
+   replace: one citation on line 1: naming a heading the fixture wrote it draws 0 findings, and naming one it never wrote it draws 1, at line 1 of the citing file.
+   as: tests/gates/test_check_doc_refs.py::test_a_citation_matching_no_heading_names_the_heading_it_wanted
+   kills: a citation that resolves against no heading and draws no finding at all.
+
+2. strike tests/gates/test_check_doc_refs.py::test_a_prefix_matching_two_headings_says_how_many_it_matched
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.check(path, docs) == [AMBIGUOUS_PREFIX_FINDING.format(path=path)]
+   replace: one prefix on line 1: long enough to match 1 of the headings the fixture wrote it draws 0 findings, and shortened to match 2 it draws 1, at line 1 of the citing file, counting the 2 it matched.
+   as: tests/gates/test_check_doc_refs.py::test_a_prefix_matching_two_headings_says_how_many_it_matched
+   kills: a prefix taken as resolved on its first match, drawing no finding.
+
+3. strike tests/gates/test_check_doc_refs.py::test_every_broken_citation_is_reported_against_its_own_line
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.check(path, docs) == [ NO_SUCH_HEADING_FINDING.format(path=path), SECOND_BROKEN_CITATION_FINDING.format(path=path), ]
+   replace: one broken citation on line 1 draws 1 finding at line 1 of the citing file, and the same file with a second broken citation on line 2 draws 2, at line 1 and line 2 in that order.
+   as: tests/gates/test_check_doc_refs.py::test_every_broken_citation_is_reported_against_its_own_line
+   kills: a gate that reports the first broken citation in a file and stops.
+
+4. strike tests/gates/test_check_doc_refs.py::test_a_citation_of_a_position_rather_than_a_heading_is_refused
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.check(path, docs) == [finding.format(path=path)]
+   replace: one citation on line 1: naming a heading it draws 0 findings, and in each of the three ordinal forms in its place it draws 1, at line 1 of the citing file.
+   as: tests/gates/test_check_doc_refs.py::test_a_citation_of_a_position_rather_than_a_heading_is_refused
+   kills: an ordinal citation passed because it names no heading to resolve.
+
+--- reviewer ---
+READY
+discriminates: four differentials on one surface - the same citing line drawing 0 findings when it resolves and 1 when it does not (lines 1, 2, 4), and 1 finding at line 1 against 2 at lines 1 and 2 when the case adds a second broken citation (line 3)
+
+1  ADMITTED  strike half valid (target at tests/gates/test_check_doc_refs.py, assertion byte-identical, NO_SUCH_HEADING_FINDING carries the gate's own "no such heading" prose, rule 9); replace: one citation on line 1 -> 0 findings naming a heading the fixture wrote, 1 finding at line 1 naming one it never wrote; kills: a gate drawing nothing for an unresolvable citation fails the second half; bite: exempt by motion (amend replacement is characterization, docs/testing.md rule 8)
+2  ADMITTED  strike half valid (rule 9, AMBIGUOUS_PREFIX_FINDING carries "ambiguous - matches 2 headings"); replace: one prefix on line 1 -> 0 findings at the length matching 1 heading the fixture wrote, 1 finding at line 1 counting 2 when shortened to match 2; kills: a prefix taken as resolved on its first match draws nothing and fails the second half; bite: exempt by motion (characterization)
+3  ADMITTED  round 1's finding repaired: the whole assertion is now quoted, both NO_SUCH_HEADING_FINDING and SECOND_BROKEN_CITATION_FINDING visible, so the rule 9 violation shows on the quoted text and the quote identifies that body uniquely; replace: one broken citation -> 1 finding at line 1, the same file with a second on line 2 -> 2 findings at line 1 and line 2 in that order; kills: a gate reporting the first broken citation and stopping fails the second half; bite: exempt by motion (characterization)
+4  ADMITTED  strike half valid (rule 9, the parametrize table binds `finding` to A_ROUND_CITATION_FINDING and its siblings, each carrying the gate's "ordinal citation ... rot risk" prose); replace: one citation on line 1 -> 0 findings naming a heading, 1 finding at line 1 in each of the three ordinal forms put in its place; kills: an ordinal citation passed for naming no heading draws nothing and fails the second half; bite: exempt by motion (characterization)
+
+null stub: check() returns [] for every file and index.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: returns one finding at line 1 for every citing file, reading neither the citation nor the heading index.
+  satisfies: none   fails: 1, 2, 3, 4 - each line's resolving half needs 0 findings from the same stub, and line 3 needs a second finding at line 2
+
+survives: 4
+
+note: the draft on disk carries no `slug:` line, so the approved copy takes its slug from the round path, amend-test_check_doc_refs-1, and states it at the top.
