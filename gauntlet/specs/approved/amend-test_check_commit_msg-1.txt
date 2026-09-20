@@ -1,0 +1,51 @@
+slug: amend-test_check_commit_msg-1
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_commit_msg.py::test_narration_is_named_with_its_class_line_and_matched_words
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.check_message(message) == [finding]
+   replace: each of the five narrating messages draws exactly one finding, against line 3, where the fixture wrote the narration.
+   as: tests/gates/test_check_commit_msg.py::test_narration_is_named_with_its_class_line_and_matched_words
+   kills: a finding filed against line 1, the subject, for narration written in the body.
+
+2. strike tests/gates/test_check_commit_msg.py::test_a_finding_per_narrating_line_in_the_order_the_lines_run
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.check_message(TWO_LINES) == [SUBJECT_FINDING, PROCESS_FINDING]
+   replace: a message narrating on line 1 and line 3 draws two findings, line 1 first and line 3 second.
+   as: tests/gates/test_check_commit_msg.py::test_a_finding_per_narrating_line_in_the_order_the_lines_run
+   kills: a gate that reports one finding per message and drops the second narrating line.
+
+3. strike tests/gates/test_check_commit_msg.py::test_a_reasonless_pragma_is_the_one_finding_on_a_narrating_line
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.check_message(BARE) == [BARE_FINDING]
+   replace: a narrating line whose pragma carries no reason draws exactly one finding, against line 3.
+   as: tests/gates/test_check_commit_msg.py::test_a_reasonless_pragma_is_the_one_finding_on_a_narrating_line
+   kills: a gate that files two findings on that line, the narration and the bare pragma both.
+
+4. strike tests/gates/test_check_commit_msg.py::test_main_prints_the_finding_for_the_file_argv_names
+   rule: docs/testing.md rule 9
+   assertion: assert (GATE.main(), capsys.readouterr().out.splitlines()[0]) == (1, DISCOVERY_FINDING)
+   replace: a run over the message file argv names exits 1 and its first printed line is the finding against line 3.
+   as: tests/gates/test_check_commit_msg.py::test_main_prints_the_finding_for_the_file_argv_names
+   kills: a run that reads the file and exits 0 on a narrating message.
+
+--- reviewer ---
+READY
+discriminates: sweep on the finding's line number over one surface - line 3 where the fixture put narration in the body (lines 1, 3, 4), line 1 then line 3 where it put narration in both (line 2)
+
+1  ADMITTED  strike half valid (target at tests/gates/test_check_commit_msg.py, assertion byte-identical, the five *_FINDING constants quote gate wording born under scripts/, rule 9); replace: each of the five narrating messages -> exactly one finding naming line 3, where the fixture wrote the narration; kills: a finding filed against line 1, the subject, fails it on every one of the five body-narration messages; bite: exempt by motion (amend replacement is characterization, docs/testing.md rule 8)
+2  ADMITTED  strike half valid (rule 9, SUBJECT_FINDING and PROCESS_FINDING quote the gate's class labels and matched words); replace: TWO_LINES, narrating on line 1 and line 3 -> two findings, line 1 first and line 3 second; kills: a gate reporting one finding per message fails it at TWO_LINES; bite: exempt by motion (characterization)
+3  ADMITTED  strike half valid (rule 9, BARE_FINDING quotes the gate's own sentence); replace: BARE, a narrating line whose pragma carries no reason -> exactly one finding, against line 3; kills: a gate filing both the narration and the bare pragma fails it at BARE with two findings; bite: exempt by motion (characterization)
+4  ADMITTED  strike half valid (rule 9, DISCOVERY_FINDING quotes gate wording); replace: main() over the message file argv names -> exit 1 paired with a first printed line naming line 3; kills: a run that reads the file and exits 0 fails it on the exit code; bite: exempt by motion (characterization)
+
+null stub: check_message() returns [] for every message and main() returns 0 printing nothing.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: answers one finding naming line 3 for every message and exits 1 from main, reading no line of the message.
+  satisfies: none   fails: 1, 2, 3, 4 - it cannot put a finding on line 1 before the line 3 one at line 2's message, and the file's surviving test_a_message_that_states_the_change_and_the_reason_draws_nothing kills it outright
+
+survives: 4
+
+note: lines 1 and 3 both reduce to "one finding at line 3" once the wording goes, so what separates them is the input - BARE carries a reasonless pragma the other five messages do not, and a gate that treats a bare pragma as exempting draws nothing there. They fail independently; rule 12 is not reached.
