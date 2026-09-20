@@ -1,0 +1,68 @@
+slug: amend-test_sweep-wire-2
+motion: amend
+brief:
+> we amend the tests.
+> all flagged fucking tests are in scope. do not change the fucking scope.
+
+1. strike tests/test_sweep.py::test_markdown_only_asks_no_comment_batches
+   rule: docs/testing.md rule 4
+   assertion: assert {batch.gate for batch in batches} == {sweep.MD}
+   replace: in a real checkout tracking one markdown file and one source file, the markdown-only selection
+            collects batches for the markdown gate alone, while the unscoped selection collects both gates
+   as: tests/test_sweep.py::test_markdown_only_asks_no_comment_batches
+   kills: a --md run that also bills every comment in the tree
+
+2. strike tests/test_sweep.py::test_comments_only_asks_no_markdown_batches
+   rule: docs/testing.md rule 4
+   assertion: assert {batch.gate for batch in batches} == {sweep.COMMENTS}
+   replace: in the same real checkout, the comments-only selection collects batches for the comment gate
+            alone, while the unscoped selection collects both gates
+   as: tests/test_sweep.py::test_comments_only_asks_no_markdown_batches
+   kills: a --comments run that also bills every prose line in the tree
+
+3. strike tests/test_sweep.py::test_the_limit_caps_what_one_gate_hands_over
+   rule: docs/testing.md rule 4
+   assertion: assert sum(len(batch.lines) for batch in batches) == 2
+   replace: in a real checkout tracking a markdown file of three prose lines, a limit of two hands over two
+            lines and a limit of three hands over three, so the cap is the number the caller named
+   as: tests/test_sweep.py::test_the_limit_caps_what_one_gate_hands_over
+   kills: a --limit that is ignored, so a trial run spends the full tree's budget
+
+4. strike tests/test_sweep.py::test_a_directory_in_no_work_tree_is_refused_rather_than_swept
+   rule: docs/testing.md rule 4
+   assertion: assert "no git work tree" in capsys.readouterr().err
+   replace: run from a real temporary directory that is no git work tree the sweep exits 1, and run from a
+            real checkout tracking one clean markdown file it exits 0, two codes on one surface
+   as: tests/test_sweep.py::test_a_directory_in_no_work_tree_is_refused_rather_than_swept
+   kills: a sweep that reads a bare directory as an empty repository and reports a clean tree
+
+--- reviewer ---
+READY
+discriminates: differential in every line - gate selection against the unscoped run, a line count that follows the number the caller named, and two exit codes over two real directories
+
+prior round returned: line 4 rewritten with the stderr clause gone, leaving exit 1 from a real temporary directory that is no git work tree against exit 0 from a real checkout tracking one clean markdown file. That is the repair I named: no sentence born under triviajudge/ is asserted, and the pair of codes is what pins the behavior. Finding discharged, not restated. Lines 1, 2 and 3 unchanged but for line wrapping, verdicts carried.
+
+1  ADMITTED  carried
+2  ADMITTED  carried
+3  ADMITTED  carried
+4  ADMITTED  the sweep run from a real temporary directory that is no git work tree -> exit 1; run from a real checkout tracking one clean markdown file -> exit 0; "a sweep that reads a bare directory as an empty repository and reports a clean tree" fails it at the bare directory, exiting 0; bite: exempt by motion - amend replacement pins behavior HEAD already has, docs/testing.md rule 8 characterization exemption, stated here per that rule.
+
+strike halves: all four targets exist in tests/test_sweep.py, rule 4 is real, and each quoted assertion sits in a test that fakes git - three through the `tracked` helper's `monkeypatch.setattr("triviajudge.sweep.git", fake_git)`, the fourth through `monkeypatch.setattr("triviajudge.sweep.git", outside)` in its own body. Rule 4: "git: never faked. A throwaway repository under tmp_path, real commits, real git." Visible in the test file alone. Each `as:` names the target test, legal under amend grammar.
+
+not siblings (d): a selection that maps --comments onto the markdown gate fails 2 and passes 1; one that maps --md onto both gates fails 1 and passes 2; a collector that ignores --limit fails 3 and passes 1 and 2; a sweep that treats a bare directory as an empty repository fails 4 and passes the rest.
+
+cap (f): four lines, at the ceiling, none past it.
+
+brief fulfilment (m): "all flagged fucking tests are in scope. do not change the fucking scope." Four flagged tests, four lines, nothing narrowed and nothing added.
+
+note for the owner, not a finding, and it rests on a file I may not read (triviajudge/sweep.py): line 4's second half asserts exit 0 from a real checkout that tracks a markdown file, and that run must reach exit 0 without a judge call, since rule 18 keeps the suite off the wire. If the run only reaches 0 through consent and a call, the case needs the wire fake rule 4 prescribes, or a tree with nothing to judge. Nothing in the block's shape turns on this; the writer will see it at once.
+
+not judged, and not carried into the approved file: the trailing `fakes:` section. Its first bullet is already stated inside every `replace:` line; its second - moving `committed_repo` from tests/test_hook_modes.py into tests/conftest.py - is a move of a shared helper that no line here pins, and it travels as its own motion if it is wanted.
+
+block shape: the draft carries no `slug:` line. I took the slug from the round path and the draft's own filename, which agree: amend-test_sweep-wire-2. The approved file carries that line explicitly.
+
+null stub: sweep.collect returns no batches and sweep.main exits 0 printing nothing.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: collect returns one fixed batch set and main returns one fixed exit code, reading no tree.
+  satisfies: none   fails: 1, 2, 3, 4 (each line names two runs whose values differ, so one fixed answer misses a half every time)
+survives: 4
