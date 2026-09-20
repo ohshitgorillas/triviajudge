@@ -1,0 +1,47 @@
+slug: amend-test_check_call_timeouts-2
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_call_timeouts.py::test_the_unbounded_urlopen_is_named_and_the_bounded_one_above_it_is_not
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.unbounded(path) == [URLOPEN_FAULT.format(path=path, line=4)]
+   replace: two urlopen calls, one bounded and one not: bounded on line 3 the module draws 1 finding at line 4, and with the two spellings swapped it draws 1 finding at line 3.
+   as: tests/gates/test_check_call_timeouts.py::test_the_unbounded_urlopen_is_named_and_the_bounded_one_above_it_is_not
+   kills: a gate that also reports the bounded urlopen, drawing 2 findings where one call states timeout=5.
+
+2. strike tests/gates/test_check_call_timeouts.py::test_a_bare_urlopen_is_named_by_its_dotted_spelling
+   rule: docs/testing.md rule 9
+   assertion: assert GATE.unbounded(path) == [URLOPEN_FAULT.format(path=path, line=3)]
+   replace: one urlopen imported bare: unbounded on line 3 the module draws 1 finding at line 3, and with timeout=5 stated on that same call it draws 0.
+   as: tests/gates/test_check_call_timeouts.py::test_a_bare_urlopen_is_named_by_its_dotted_spelling
+   kills: a gate that finds nothing where urlopen is called without its dotted prefix, drawing 0 findings on both.
+
+3. strike tests/gates/test_check_call_timeouts.py::test_a_tree_that_bounds_every_wait_prints_the_clean_line
+   rule: docs/testing.md rule 9
+   assertion: assert (code, capsys.readouterr().out) == (0, CLEAN_LINE)
+   replace: one subprocess.run at line 3 of the written module: stating timeout=30 the run exits 0 with 0 findings, and stating nothing it exits 1 with 1 finding at line 3.
+   as: tests/gates/test_check_call_timeouts.py::test_a_tree_that_bounds_every_wait_prints_the_clean_line
+   kills: a run that exits 1 over a file whose every call states a bound.
+
+--- reviewer ---
+READY
+discriminates: sweep on the gate's finding list over one module, two distinct expected values on every line — the finding moves with the ordering on line 1, appears and disappears with `timeout=5` on line 2, and carries the exit code with it on line 3.
+
+round-1 findings, all answered by named repair: line 1 was struck under the hard-coded stub and now states the invariant at two orderings, the shape rule 11 asks for; line 2 was struck under the same stub and now varies `timeout=5` on the one call, so the answer moves; line 4 was struck under the stub with rule 12 behind it and is gone from the block; and my round-1 shape note is met — every line now names both facts, how many findings and which line each points at, with "no line named" replaced by "0 findings".
+
+1  ADMITTED  two urlopen calls, one bounded and one not, bounded on line 3 -> 1 finding at line 4, and the same module with the two swapped -> 1 finding at line 3; "a gate that also reports the bounded urlopen, drawing 2 findings where one call states timeout=5" fails it at both inputs, drawing 2 where the line names 1; bite: exempt by motion — the replacement pins behavior HEAD already has, docs/testing.md rule 8's characterization exemption, said here rather than assumed, so the absent bite: field is not a blank field. The expected value tracks which call states the bound, which is the read the gate exists to do.
+2  ADMITTED  one bare-imported urlopen, unbounded on line 3 -> 1 finding at line 3, and the same call stating timeout=5 -> 0 findings; "a gate that finds nothing where urlopen is called without its dotted prefix, drawing 0 findings on both" fails it at the unbounded input; bite: exempt by motion, same rule 8 characterization exemption, said not assumed. The two inputs differ only in the `timeout=` token, and the bare spelling separates this line from line 1's dotted pair: a gate blind to bare imports passes 1 and fails 2.
+3  ADMITTED  one subprocess.run at line 3, stating timeout=30 -> exit 0 with 0 findings, and stating nothing -> exit 1 with 1 finding at line 3; "a run that exits 1 over a file whose every call states a bound" fails it at the bounded input; bite: exempt by motion, same rule 8 characterization exemption, said not assumed. The 0-against-1 pair takes (n)'s third escape — an invariant at two inputs, the bounded file passing and the unbounded one refusing — rather than the literal 1 asserted alone.
+
+null stub: the gate walks nothing, returns an empty finding list for every path, and check() returns 0.
+  satisfies: none   fails: 1, 2, 3 — it answers each line's bounded half and none of the unbounded halves.
+hard-coded stub: answer each module named by the block with a canned finding list, never looking for `timeout=` and never walking an AST.
+  satisfies: none   fails: 1, 2, 3 — every line now pairs two modules that differ only in where the bound is stated, so no canned list follows the answer as it moves.
+
+survives: 3
+
+strike halves, all three sound: tests/gates/test_check_call_timeouts.py:92, :97 and :107 carry the quoted assertions, and each compares against a literal transcribed from the gate's own wording at :19-:29 — URLOPEN_FAULT and CLEAN_LINE. Rule 9 fits: "A gate's report line is copy. Assert the exit code and the `path:line` the test constructed, never the wording after it", and the file's docstring states the violation outright at :10-:11. Each is visible in the test file alone. (m) is satisfied: the brief's "copy changes or adjustments to agent wording should not trip testing gates" is what these strike halves do, and no brief sentence is left unpinned. Cap: three lines, under the ceiling.
+
+one settled fact for the owner, outside this block and not a question: dropping the fourth row leaves tests/gates/test_check_call_timeouts.py:110-113 in the suite asserting `RUN_FAULT.format(...) + "\n" + REFUSAL_TAIL`, the same rule 9 copy violation the three rows above cite, and `grep -rln "test_one_unbounded_call_prints_its_line_and_the_refusal" gauntlet/specs` matches nothing, so no other draft carries it. My round-1 repair called for folding it into line 3 rather than keeping it, and line 3 now pins the exit code and the located finding that test was reaching for. Removing it is a `motion: strike` block citing rule 9 and quoting that assertion; it cannot ride in this one, since a strike line beside an amend line is a mixed block.
