@@ -10,9 +10,12 @@ excuse cannot outlive the file it excused.
 Both checks run in one pass: a run that has a file under the floor and a stale
 exemption reports both.
 
-Every case here asserts the verdict the user reads — the file named, its
-percentage against the floor, the exemption called stale — as the exit code
-paired with the gate's whole stdout, against the text seeded below.
+A refusal, a boundary and a clean tree are asserted as the exit code paired with
+the findings addressed to a path the case constructed — the report it wrote or
+the file it measured — read off the ``<path>:`` every finding opens with. The
+wording after that address is the gate's own and is never asserted there. The
+remaining cases assert the verdict the user reads as the exit code paired with
+the gate's whole stdout, against the text seeded below.
 """
 
 from __future__ import annotations
@@ -31,10 +34,7 @@ if TYPE_CHECKING:
 #: The floor every case here holds files to, and the one the gate prints.
 FLOOR = 90
 
-#: What the gate prints when the report is missing, when it measured nothing,
-#: and when everything cleared the floor.
-NO_REPORT = "{report}: no coverage report — the suite must run before this gate\n"
-MEASURED_NOTHING = "{report}: coverage report measured no files — nothing was checked\n"
+#: What the gate prints when everything cleared the floor.
 ALL_CLEAR = "[ok] all {count} files cover at least {floor}%\n"
 
 #: One line per file under the floor, worst first, and one per stale exemption.
@@ -59,38 +59,59 @@ def report_of(tmp_path: Path, measured: dict[str, float]) -> Path:
     return report
 
 
+def findings(out: str, *subjects: Path | str) -> list[str]:
+    """The lines of ``out`` addressed to any of ``subjects``, in the order the gate printed them.
+
+    A finding opens with the path it is about, ``<path>:``, and the case
+    constructed every path it asks after; whatever the gate says after that
+    address stays unread.
+    """
+    return [line for line in out.splitlines() if any(line.startswith(f"{subject}:") for subject in subjects)]
+
+
+def verdict(report: Path, *subjects: Path | str, capsys: pytest.CaptureFixture[str]) -> tuple[int, list[str]]:
+    """Run the gate on ``report`` with no exemption: its exit code and its findings against ``subjects``."""
+    code = GATE.check(report, FLOOR, {})
+    return code, findings(capsys.readouterr().out, *subjects)
+
+
 # --- behavior 1: a report that says nothing is a refusal, never a pass -------
 
 
 def test_a_report_that_was_never_written_is_refused_by_name(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    report = report_of(tmp_path, {"hot.py": 95.0})
+    written = verdict(report, report, "hot.py", capsys=capsys)
     absent = tmp_path / "absent.json"
-    code = GATE.check(absent, FLOOR, {})
-    assert (code, capsys.readouterr().out) == (1, NO_REPORT.format(report=absent))
+    absent_code, addressed = verdict(absent, absent, capsys=capsys)
+    assert (written, absent_code, len(addressed)) == ((0, []), 1, 1)
 
 
 def test_a_report_measuring_no_file_says_nothing_was_checked(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    report = report_of(tmp_path, {})
-    code = GATE.check(report, FLOOR, {})
-    assert (code, capsys.readouterr().out) == (1, MEASURED_NOTHING.format(report=report))
+    report = report_of(tmp_path, {"hot.py": 95.0})
+    measured = verdict(report, report, "hot.py", capsys=capsys)
+    emptied_code, addressed = verdict(report_of(tmp_path, {}), report, capsys=capsys)
+    assert (measured, emptied_code, len(addressed)) == ((0, []), 1, 1)
 
 
 def test_a_report_with_no_files_key_says_nothing_was_checked(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    report = tmp_path / "coverage.json"
+    report = report_of(tmp_path, {"hot.py": 95.0})
+    keyed = verdict(report, report, "hot.py", capsys=capsys)
     report.write_text(json.dumps({"meta": {}}), encoding="utf-8")
-    code = GATE.check(report, FLOOR, {})
-    assert (code, capsys.readouterr().out) == (1, MEASURED_NOTHING.format(report=report))
+    keyless_code, addressed = verdict(report, report, capsys=capsys)
+    assert (keyed, keyless_code, len(addressed)) == ((0, []), 1, 1)
 
 
 # --- behavior 2: the floor is per file, and the boundary value passes --------
 
 
 def test_a_file_exactly_at_the_floor_clears_it(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    code = GATE.check(report_of(tmp_path, {"edge.py": 90.0}), FLOOR, {})
-    assert (code, capsys.readouterr().out) == (0, ALL_CLEAR.format(count=1, floor=FLOOR))
+    at_the_floor = verdict(report_of(tmp_path, {"edge.py": 90.0}), "edge.py", capsys=capsys)
+    under_code, addressed = verdict(report_of(tmp_path, {"edge.py": 89.9}), "edge.py", capsys=capsys)
+    assert (at_the_floor, under_code, len(addressed)) == ((0, []), 1, 1)
 
 
 def test_a_file_just_under_the_floor_is_named_with_its_percentage(
