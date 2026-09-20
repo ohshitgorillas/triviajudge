@@ -46,6 +46,8 @@ RELEASED = "\n## [0.1.0]\n\n### Notes\n\n- a released bullet addressing your rea
 
 NO_LEAD_FINDING = "line 7: no bold lead clause, which a bullet opens with as `- **…**`"
 
+ADDRESSED_FINDING = "line 7: 'your' addresses the reader — state the change impersonally"
+
 #: The kinds a heading may name, as the gate spells them into its own findings.
 KIND_LIST = "['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security', 'Internal']"
 
