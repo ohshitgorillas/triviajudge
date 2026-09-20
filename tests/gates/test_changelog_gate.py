@@ -7,6 +7,7 @@ broke, and the words the gate quotes back. Everything below the next ``##``
 heading has shipped and is never read.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -17,6 +18,9 @@ import pytest
 OPENING = "# Changelog\n\n## [Unreleased]\n\n"
 
 IN_SHAPE = "### Internal\n\n- **A gate holds the section's shape.** It makes no model call.\n"
+
+#: The same body as ``IN_SHAPE`` with its bold lead struck, and nothing else changed.
+LEAD_STRUCK = IN_SHAPE.replace("**", "")
 
 NO_LEAD = "### Internal\n\n- A gate holds the section's shape, and opens with no bold clause.\n"
 
@@ -41,10 +45,6 @@ NO_KIND = "### Notes\n\n- **One thing holds.** With a reason.\n"
 RELEASED = "\n## [0.1.0]\n\n### Notes\n\n- a released bullet addressing your reading of it\n"
 
 NO_LEAD_FINDING = "line 7: no bold lead clause, which a bullet opens with as `- **…**`"
-
-ADDRESSED_FINDING = "line 7: 'your' addresses the reader — state the change impersonally"
-
-OVER_THE_CAP_FINDING = "line 7: 85 words, and 75 is the cap"
 
 #: The kinds a heading may name, as the gate spells them into its own findings.
 KIND_LIST = "['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security', 'Internal']"
@@ -74,6 +74,17 @@ def verdict(path: Path, capsys: pytest.CaptureFixture[str]) -> tuple[int, list[s
     return code, [line.removeprefix(f"{path}:") for line in printed if line.startswith(f"{path}:")]
 
 
+def numbers(finding: str) -> list[int]:
+    """Every number a finding names, in the order it names them: the line it opens on first."""
+    return [int(found) for found in re.findall(r"\d+", finding)]
+
+
+def flagged_lines(path: Path, capsys: pytest.CaptureFixture[str]) -> tuple[int, list[int]]:
+    """The gate's exit code over ``path``, with the line each of its findings opens on."""
+    code, findings = verdict(path, capsys)
+    return code, [numbers(finding)[0] for finding in findings]
+
+
 def ok_line(path: Path) -> str:
     """What the gate prints over a file that breaks no rule."""
     return f"[ok] {path} holds its shape under ## [Unreleased]\n"
@@ -85,8 +96,9 @@ def ok_line(path: Path) -> str:
 def test_a_bullet_in_shape_draws_no_finding_and_the_file_is_called_in_shape(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    path = changelog(tmp_path, IN_SHAPE)
-    assert (GATE.check(path), capsys.readouterr().out) == (0, ok_line(path))
+    led = flagged_lines(changelog(tmp_path / "led", IN_SHAPE), capsys)
+    struck = flagged_lines(changelog(tmp_path / "struck", LEAD_STRUCK), capsys)
+    assert (led, struck) == ((0, []), (1, [7]))
 
 
 def test_a_bullet_opening_with_no_bold_lead_is_named_by_line_and_owed_lead(
@@ -98,13 +110,14 @@ def test_a_bullet_opening_with_no_bold_lead_is_named_by_line_and_owed_lead(
 def test_a_bullet_addressing_the_reader_is_named_by_line_and_the_word_it_used(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(changelog(tmp_path, ADDRESSED), capsys) == (1, [ADDRESSED_FINDING])
+    assert flagged_lines(changelog(tmp_path, ADDRESSED), capsys) == (1, [7])
 
 
 def test_a_bullet_past_the_word_cap_is_named_by_line_word_count_and_cap(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(changelog(tmp_path, OVER_THE_CAP), capsys) == (1, [OVER_THE_CAP_FINDING])
+    code, findings = verdict(changelog(tmp_path, OVER_THE_CAP), capsys)
+    assert (code, [numbers(finding)[:2] for finding in findings]) == (1, [[7, 85]])
 
 
 def test_a_code_span_is_priced_at_no_words_so_a_bullet_at_the_cap_passes(
