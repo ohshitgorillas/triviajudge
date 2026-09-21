@@ -13,6 +13,7 @@ tracks nothing under.
 """
 
 import json
+import re
 import subprocess
 from itertools import takewhile
 from pathlib import Path
@@ -22,6 +23,7 @@ import pytest
 
 ONE = "check_one.py"
 TWO = "check_two.py"
+THREE = "check_three.py"
 GHOST = "check_gone.py"
 
 REASON = "too slow for the commit path"
@@ -104,12 +106,32 @@ def verdict(root: Path, exempt: dict[str, str], capsys: pytest.CaptureFixture[st
     return code, list(takewhile(bool, printed))
 
 
+def addressed(root: Path, gates: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, list[str]]:
+    """The exit code and the path of each written script a printed line is addressed to."""
+    code = GATE.check(root, {})
+    printed = capsys.readouterr().out.splitlines()
+    paths = [f"scripts/gates/{name}" for name in gates]
+    return code, [path for line in printed for path in paths if path in line]
+
+
+def counted(root: Path, gates: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, int, set[int]]:
+    """The exit code, how many lines are addressed to a written script, and every number printed."""
+    code = GATE.check(root, {})
+    out = capsys.readouterr().out
+    paths = [f"scripts/gates/{name}" for name in gates]
+    findings = [line for line in out.splitlines() if any(path in line for path in paths)]
+    return code, len(findings), {int(digits) for digits in re.findall(r"\d+", out)}
+
+
 # --- behavior 1: a gate runs in the Makefile and in pre-commit, or says why not ---
 
 
 def test_a_gate_in_both_wirings_passes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO))
-    assert verdict(root, {}, capsys) == (0, [WIRED])
+    two = counted(tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO)), [ONE, TWO], capsys)
+    three = counted(
+        tree(tmp_path, [ONE, TWO, THREE], recipe(ONE, TWO, THREE), hooks(ONE, TWO, THREE)), [ONE, TWO, THREE], capsys
+    )
+    assert (two, three) == ((0, 0, {2}), (0, 0, {3}))
 
 
 def test_a_gate_no_makefile_target_invokes_is_named(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -118,13 +140,15 @@ def test_a_gate_no_makefile_target_invokes_is_named(tmp_path: Path, capsys: pyte
 
 
 def test_a_gate_missing_from_precommit_is_named(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE))
-    assert verdict(root, {}, capsys) == (1, [NOT_IN_PRECOMMIT])
+    present = addressed(tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO)), [ONE, TWO], capsys)
+    dropped = addressed(tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE)), [ONE, TWO], capsys)
+    assert (present, dropped) == ((0, []), (1, [f"scripts/gates/{TWO}"]))
 
 
 def test_a_gate_commented_out_of_the_makefile_is_named(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    root = tree(tmp_path, [ONE, TWO], recipe(ONE) + commented(TWO), hooks(ONE, TWO))
-    assert verdict(root, {}, capsys) == (1, [NO_MAKEFILE_TARGET])
+    live = addressed(tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO)), [ONE, TWO], capsys)
+    muted = addressed(tree(tmp_path, [ONE, TWO], recipe(ONE) + commented(TWO), hooks(ONE, TWO)), [ONE, TWO], capsys)
+    assert (live, muted) == ((0, []), (1, [f"scripts/gates/{TWO}"]))
 
 
 def test_a_gate_commented_out_of_precommit_is_named(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
