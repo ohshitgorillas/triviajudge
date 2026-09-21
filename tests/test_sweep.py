@@ -25,15 +25,19 @@ comment or docstring of this file.
 
 import argparse
 import json
+import os
+import shutil
+import subprocess
 import sys
+from collections.abc import Callable, Iterator
 from fnmatch import fnmatch
 from pathlib import Path
 
 import pytest
 
-from triviajudge import sweep
+from triviajudge import core, sweep
 from triviajudge.config import Settings
-from triviajudge.core import Line, NotARepositoryError, digest
+from triviajudge.core import Line, digest
 
 LINES = [Line("doc.md", number, f"line {number}") for number in range(1, 8)]
 
@@ -252,22 +256,94 @@ def namespace(**overrides: object) -> argparse.Namespace:
     return argparse.Namespace(**{**args, **overrides})
 
 
-def test_markdown_only_asks_no_comment_batches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN, "src/sample.py": CLEAN_COMMENT})
-    batches, _complaints = sweep.collect(namespace(md=True), 50)
-    assert {batch.gate for batch in batches} == {sweep.MD}
+GIT = shutil.which("git")
+
+THREE_PROSE_LINES = (
+    "the panel holds the staged rate\n"
+    "the lane returns the staged model\n"
+    "the resampler runs at the rate the panel asks for\n"
+)
+
+#: The print-mode envelope a ``claude`` that flags nothing answers with.
+NO_FLAGS_ENVELOPE = json.dumps({"result": "[]"})
 
 
-def test_comments_only_asks_no_markdown_batches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN, "src/sample.py": CLEAN_COMMENT})
-    batches, _complaints = sweep.collect(namespace(comments=True), 50)
-    assert {batch.gate for batch in batches} == {sweep.COMMENTS}
+def git_run(root: Path, *args: str) -> None:
+    """Run one git command in the throwaway checkout, resolving git from the PATH the test built."""
+    subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
 
 
-def test_the_limit_caps_what_one_gate_hands_over(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    tracked(monkeypatch, tmp_path, {"docs/plan.md": "first line\nsecond line\nthird line\n"})
-    batches, _complaints = sweep.collect(namespace(md=True, limit=2), 50)
-    assert sum(len(batch.lines) for batch in batches) == 2
+def scrubbed_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """An environment built from nothing: a PATH carrying git alone, a HOME under ``tmp_path``, no git config."""
+    if GIT is None:
+        raise RuntimeError("git is not on PATH, so no checkout can be built")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    (bin_dir / "git").symlink_to(GIT)
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    monkeypatch.setenv("PATH", str(bin_dir))
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("LC_ALL", "C")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", os.devnull)
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+    for role in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{role}_NAME", "sweep probe")
+        monkeypatch.setenv(f"GIT_{role}_EMAIL", "sweep@example.invalid")
+    monkeypatch.delenv("INNER", raising=False)
+    return bin_dir
+
+
+def committed_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, files: dict[str, str]) -> Path:
+    """A real throwaway checkout tracking exactly ``files`` in one commit, entered as the working directory."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    git_run(root, "init", "-q")
+    for rel, text in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    git_run(root, "add", "-A")
+    git_run(root, "commit", "-qm", "tracked")
+    monkeypatch.chdir(root)
+    return root
+
+
+@pytest.fixture
+def checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[dict[str, str]], Path]]:
+    """A builder of real checkouts, with the cached root forgotten on either side of the test."""
+    scrubbed_environment(tmp_path, monkeypatch)
+    core.root.cache_clear()
+    yield lambda files: committed_checkout(tmp_path, monkeypatch, files)
+    core.root.cache_clear()
+
+
+def gates_of(args: argparse.Namespace) -> set[str]:
+    """The gates the batches ``collect`` hands over for one argument set."""
+    batches, _complaints = sweep.collect(args, 50)
+    return {batch.gate for batch in batches}
+
+
+def lines_handed_over(limit: int) -> int:
+    """How many markdown lines ``collect`` hands over under one ``--limit``."""
+    batches, _complaints = sweep.collect(namespace(md=True, limit=limit), 50)
+    return sum(len(batch.lines) for batch in batches)
+
+
+def test_markdown_only_asks_no_comment_batches(checkout: Callable[[dict[str, str]], Path]) -> None:
+    checkout({"docs/plan.md": PROSE_MARKDOWN, "src/sample.py": CLEAN_COMMENT})
+    assert (gates_of(namespace(md=True)), gates_of(namespace())) == ({sweep.MD}, {sweep.MD, sweep.COMMENTS})
+
+
+def test_comments_only_asks_no_markdown_batches(checkout: Callable[[dict[str, str]], Path]) -> None:
+    checkout({"docs/plan.md": PROSE_MARKDOWN, "src/sample.py": CLEAN_COMMENT})
+    assert (gates_of(namespace(comments=True)), gates_of(namespace())) == ({sweep.COMMENTS}, {sweep.MD, sweep.COMMENTS})
+
+
+def test_the_limit_caps_what_one_gate_hands_over(checkout: Callable[[dict[str, str]], Path]) -> None:
+    checkout({"docs/plan.md": THREE_PROSE_LINES})
+    assert (lines_handed_over(2), lines_handed_over(3)) == (2, 3)
 
 
 # --- behavior 10: the whole run, from the argument list to the exit code -----
@@ -334,12 +410,30 @@ def test_a_failed_batch_is_named_on_the_way_out(
     assert "md#1" in capsys.readouterr().err
 
 
-def test_a_directory_in_no_work_tree_is_refused_rather_than_swept(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    def outside(*_args: str) -> str:
-        raise NotARepositoryError("no git work tree")
+def fake_claude(bin_dir: Path, envelope: str) -> None:
+    """A ``claude`` executable on the test-built PATH printing one fixed print-mode envelope."""
+    script = bin_dir / "claude"
+    script.write_text(f"#!/bin/sh\nprintf '%s\\n' '{envelope}'\n", encoding="utf-8")
+    script.chmod(0o755)
 
-    monkeypatch.setattr("triviajudge.sweep.git", outside)
-    sweep_run(monkeypatch, ["--md", "--yes"])
-    assert "no git work tree" in capsys.readouterr().err
+
+def exit_code(monkeypatch: pytest.MonkeyPatch, flags: list[str]) -> int:
+    """The exit code of one sweep, whether ``main`` returns it or raises it."""
+    try:
+        return sweep_run(monkeypatch, flags)
+    except SystemExit as exc:
+        return int(exc.code or 0)
+
+
+def test_a_directory_in_no_work_tree_is_refused_rather_than_swept(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, checkout: Callable[[dict[str, str]], Path]
+) -> None:
+    fake_claude(tmp_path / "bin", NO_FLAGS_ENVELOPE)
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    monkeypatch.chdir(bare)
+    outside = exit_code(monkeypatch, ["--md", "--yes"])
+    core.root.cache_clear()
+    checkout({"docs/plan.md": PROSE_MARKDOWN})
+    inside = exit_code(monkeypatch, ["--md", "--yes"])
+    assert (outside, inside) == (1, 0)
