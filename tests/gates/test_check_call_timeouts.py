@@ -11,6 +11,7 @@ than an empty list. The expected finding and the gate's two verdict lines are
 seeded here as text, so a reworded sentence or a shifted line number fails.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -45,6 +46,8 @@ SUBSCRIPT_CALL_THEN_UNBOUNDED = "import subprocess\n\nhandlers = {}\nhandlers['a
 UNBOUNDED_RUN = "import subprocess\n\nsubprocess.run(['git', 'status'])\n"
 
 UNBOUNDED_URLOPEN = "import urllib.request\n\nurllib.request.urlopen('https://example.invalid')\n"
+
+BOUNDED_URLOPEN = "import urllib.request\n\nurllib.request.urlopen('https://example.invalid', timeout=5)\n"
 
 BOUNDED_URLOPEN_THEN_UNBOUNDED = (
     "import urllib.request\n\n"
@@ -155,23 +158,67 @@ def test_one_unbounded_call_prints_its_line_and_the_refusal(tmp_path: Path, caps
 # --- behavior 3: argv names the files, and its absence names the tree --------
 
 
+def findings_under(root: Path, out: str) -> list[str]:
+    """The ``path:line`` of every printed line naming a file under ``root``."""
+    return located([line for line in out.splitlines() if line.startswith(f"{root}{os.sep}")])
+
+
+@pytest.mark.parametrize(
+    ("source", "code", "lines"),
+    [
+        (BOUNDED_URLOPEN, 0, []),
+        (UNBOUNDED_URLOPEN, 1, [3]),
+    ],
+    ids=["timeout stated in the argv file passes", "nothing stated in the argv file is named there"],
+)
 def test_main_names_the_call_in_the_file_argv_gave(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    source: str,
+    code: int,
+    lines: list[int],
 ) -> None:
-    path = written(tmp_path, UNBOUNDED_URLOPEN)
+    (tmp_path / "triviajudge").mkdir()
+    (tmp_path / "triviajudge" / "mod.py").write_text(UNBOUNDED_RUN, encoding="utf-8")
+    (tmp_path / "scripts" / "gates").mkdir(parents=True)
+    (tmp_path / "bounded.py").write_text(BOUNDED_URLOPEN, encoding="utf-8")
+    (tmp_path / "unbounded.py").write_text(UNBOUNDED_URLOPEN, encoding="utf-8")
+    path = tmp_path / ("bounded.py" if source == BOUNDED_URLOPEN else "unbounded.py")
+    monkeypatch.setattr(GATE, "ROOT", tmp_path)
     monkeypatch.setattr(sys, "argv", ["check_call_timeouts.py", str(path)])
-    code = GATE.main()
-    assert (code, capsys.readouterr().out) == (1, URLOPEN_FAULT.format(path=path, line=3) + "\n" + REFUSAL_TAIL)
+    exit_code = GATE.main()
+    assert (exit_code, findings_under(tmp_path, capsys.readouterr().out)) == (
+        code,
+        [f"{path}:{line}" for line in lines],
+    )
 
 
+@pytest.mark.parametrize(
+    ("source", "code", "lines"),
+    [
+        (BOUNDED, 0, []),
+        (UNBOUNDED_RUN, 1, [3]),
+    ],
+    ids=["timeout stated in the package module passes", "nothing stated in the package module is named there"],
+)
 def test_main_with_no_argv_names_the_call_in_the_package(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    source: str,
+    code: int,
+    lines: list[int],
 ) -> None:
     (tmp_path / "triviajudge").mkdir()
     path = tmp_path / "triviajudge" / "mod.py"
-    path.write_text(UNBOUNDED_RUN, encoding="utf-8")
+    path.write_text(source, encoding="utf-8")
     (tmp_path / "scripts" / "gates").mkdir(parents=True)
+    (tmp_path / "outside.py").write_text(UNBOUNDED_URLOPEN, encoding="utf-8")
     monkeypatch.setattr(GATE, "ROOT", tmp_path)
     monkeypatch.setattr(sys, "argv", ["check_call_timeouts.py"])
-    code = GATE.main()
-    assert (code, capsys.readouterr().out) == (1, RUN_FAULT.format(path=path, line=3) + "\n" + REFUSAL_TAIL)
+    exit_code = GATE.main()
+    assert (exit_code, findings_under(tmp_path, capsys.readouterr().out)) == (
+        code,
+        [f"{path}:{line}" for line in lines],
+    )
