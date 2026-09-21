@@ -1,0 +1,32 @@
+slug: amend-test_check_call_timeouts-3
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_call_timeouts.py::test_main_names_the_call_in_the_file_argv_gave
+   rule: docs/testing.md rule 9
+   assertion: assert (code, capsys.readouterr().out) == (1, URLOPEN_FAULT.format(path=path, line=3) + "\n" + REFUSAL_TAIL)
+   replace: two files written beside an unbounded package module: argv naming the file whose one urlopen at line 3 states timeout= exits 0 with no finding, and argv naming the file whose one urlopen at line 3 states nothing exits 1 with exactly one finding, at line 3 of that file and none for the package module.
+   as: tests/gates/test_check_call_timeouts.py::test_main_names_the_call_in_the_file_argv_gave
+   kills: a run that ignores argv and names the unbounded call in the package module rather than the file argv gave.
+
+2. strike tests/gates/test_check_call_timeouts.py::test_main_with_no_argv_names_the_call_in_the_package
+   rule: docs/testing.md rule 9
+   assertion: assert (code, capsys.readouterr().out) == (1, RUN_FAULT.format(path=path, line=3) + "\n" + REFUSAL_TAIL)
+   replace: with no argv and one module written under the package root beside an unbounded file outside it, the run exits 0 with no finding while the module's one subprocess.run at line 3 states timeout=, and exits 1 with exactly one finding, at line 3 of that module and none for the outside file, once it states nothing.
+   as: tests/gates/test_check_call_timeouts.py::test_main_with_no_argv_names_the_call_in_the_package
+   kills: a run with no argv that names the unbounded call in the file outside the package, or exits 0 while the package module's call waits forever.
+
+--- reviewer ---
+READY
+discriminates: differential on main()'s verdict under each route — one file whose single call at line 3 states timeout= against the same file with it dropped, once through argv and once through the no-argv package sweep
+
+1  ADMITTED  argv naming a file whose one urlopen at line 3 states timeout=, against argv naming the file whose urlopen states nothing, both beside an unbounded package module -> exit 0 with no finding, against exit 1 with exactly one finding at line 3 of the argv file and none for the package module; a run that ignores argv and names the package module's unbounded call fails it at the second input; bite: N/A, characterization exempt by `motion: amend` (docs/testing.md rule 8).
+2  ADMITTED  no argv, a module under the package root whose one subprocess.run at line 3 states timeout= against the same module with it dropped, an unbounded file sitting outside the package either way -> exit 0 with no finding, against exit 1 with exactly one finding at line 3 of that module and none for the outside file; a run that names the outside file's call, and one that exits 0 while the module's call waits forever, both fail it at the second input; bite: N/A, characterization exempt by `motion: amend` (docs/testing.md rule 8).
+
+null stub: main() returns 0 and prints nothing, no file read.
+  satisfies: none   fails: 1, 2
+hard-coded stub: main() prints one finding at line 3 of whichever file is in scope and returns 1, parsing nothing and reading no `timeout=`.
+  satisfies: none   fails: 1, 2 (each line now holds two verdicts over bodies differing only in the `timeout=` argument, so a table that always reports, or never reports, loses one half)
+survives: 2
