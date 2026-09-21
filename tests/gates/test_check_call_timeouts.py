@@ -173,6 +173,7 @@ def findings_under(root: Path, out: str) -> list[str]:
 )
 def test_main_names_the_call_in_the_file_argv_gave(
     tmp_path: Path,
+    *,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     source: str,
@@ -204,6 +205,7 @@ def test_main_names_the_call_in_the_file_argv_gave(
 )
 def test_main_with_no_argv_names_the_call_in_the_package(
     tmp_path: Path,
+    *,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     source: str,
