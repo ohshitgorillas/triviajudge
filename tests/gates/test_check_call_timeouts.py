@@ -26,8 +26,6 @@ REFUSAL_TAIL = (
     "timeout=None is how a call says out loud that it may wait forever.\n"
 )
 
-CLEAN_LINE = "[ok] 1 file(s) bound every call that waits\n"
-
 BOUNDED = "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=30)\n"
 
 BOUNDED_THEN_UNBOUNDED = (
@@ -54,7 +52,15 @@ BOUNDED_URLOPEN_THEN_UNBOUNDED = (
     "urllib.request.urlopen('https://example.invalid')\n"
 )
 
+UNBOUNDED_URLOPEN_THEN_BOUNDED = (
+    "import urllib.request\n\n"
+    "urllib.request.urlopen('https://example.invalid')\n"
+    "urllib.request.urlopen('https://example.invalid', timeout=5)\n"
+)
+
 BARE_URLOPEN = "from urllib.request import urlopen\n\nurlopen('https://example.invalid')\n"
+
+BOUNDED_BARE_URLOPEN = "from urllib.request import urlopen\n\nurlopen('https://example.invalid', timeout=5)\n"
 
 
 def written(tmp_path: Path, source: str) -> Path:
@@ -92,24 +98,52 @@ def test_a_call_on_a_subscript_is_not_the_named_call(tmp_path: Path) -> None:
     assert located(GATE.unbounded(path)) == [f"{path}:5"]
 
 
-def test_the_unbounded_urlopen_is_named_and_the_bounded_one_above_it_is_not(tmp_path: Path) -> None:
-    path = written(tmp_path, BOUNDED_URLOPEN_THEN_UNBOUNDED)
-    assert GATE.unbounded(path) == [URLOPEN_FAULT.format(path=path, line=4)]
+@pytest.mark.parametrize(
+    ("source", "line"),
+    [
+        (BOUNDED_URLOPEN_THEN_UNBOUNDED, 4),
+        (UNBOUNDED_URLOPEN_THEN_BOUNDED, 3),
+    ],
+    ids=["bounded first names the second", "unbounded first names the first"],
+)
+def test_the_unbounded_urlopen_is_named_and_the_bounded_one_above_it_is_not(
+    tmp_path: Path, source: str, line: int
+) -> None:
+    path = written(tmp_path, source)
+    assert located(GATE.unbounded(path)) == [f"{path}:{line}"]
 
 
-def test_a_bare_urlopen_is_named_by_its_dotted_spelling(tmp_path: Path) -> None:
-    path = written(tmp_path, BARE_URLOPEN)
-    assert GATE.unbounded(path) == [URLOPEN_FAULT.format(path=path, line=3)]
+@pytest.mark.parametrize(
+    ("source", "lines"),
+    [
+        (BARE_URLOPEN, [3]),
+        (BOUNDED_BARE_URLOPEN, []),
+    ],
+    ids=["bare and unbounded is named", "bare with timeout is not"],
+)
+def test_a_bare_urlopen_is_named_by_its_dotted_spelling(tmp_path: Path, source: str, lines: list[int]) -> None:
+    path = written(tmp_path, source)
+    assert located(GATE.unbounded(path)) == [f"{path}:{line}" for line in lines]
 
 
 # --- behavior 2: what the run prints is the verdict over the files handed over
 
 
+@pytest.mark.parametrize(
+    ("source", "code", "lines"),
+    [
+        (BOUNDED, 0, []),
+        (UNBOUNDED_RUN, 1, [3]),
+    ],
+    ids=["timeout stated passes", "nothing stated refuses at the call"],
+)
 def test_a_tree_that_bounds_every_wait_prints_the_clean_line(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], source: str, code: int, lines: list[int]
 ) -> None:
-    code = GATE.check([written(tmp_path, BOUNDED)])
-    assert (code, capsys.readouterr().out) == (0, CLEAN_LINE)
+    path = written(tmp_path, source)
+    exit_code = GATE.check([path])
+    printed = [line for line in capsys.readouterr().out.splitlines() if line.startswith(f"{path}:")]
+    assert (exit_code, located(printed)) == (code, [f"{path}:{line}" for line in lines])
 
 
 def test_one_unbounded_call_prints_its_line_and_the_refusal(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
