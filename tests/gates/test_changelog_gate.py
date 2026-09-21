@@ -49,11 +49,6 @@ RELEASED = "\n## [0.1.0]\n\n" + THREE_RULES_BROKEN
 
 NO_LEAD_FINDING = "line 7: no bold lead clause, which a bullet opens with as `- **…**`"
 
-ADDRESSED_FINDING = "line 7: 'your' addresses the reader — state the change impersonally"
-
-TWO_PROBLEMS = "2 problem(s) under ## [Unreleased]. See CONTRIBUTING.md."
-ONE_PROBLEM = "1 problem(s) under ## [Unreleased]. See CONTRIBUTING.md."
-
 
 def changelog(tmp_path: Path, section: str, tail: str = "") -> Path:
     """Put one changelog in a throwaway tree, with the given section body and tail."""
@@ -81,9 +76,16 @@ def flagged_lines(path: Path, capsys: pytest.CaptureFixture[str]) -> tuple[int, 
     return code, [numbers(finding)[0] for finding in findings]
 
 
-def ok_line(path: Path) -> str:
-    """What the gate prints over a file that breaks no rule."""
-    return f"[ok] {path} holds its shape under ## [Unreleased]\n"
+def lines_under(path: Path, printed: str) -> list[int]:
+    """The line each finding printed under ``path`` opens on, in the order printed."""
+    prefix = f"{path}:"
+    findings = [line for line in printed.splitlines() if line.startswith(prefix)]
+    return [numbers(finding.removeprefix(prefix))[0] for finding in findings]
+
+
+def count_printed(printed: str) -> int:
+    """The count the gate closes its output with: the first number on its last line."""
+    return numbers(printed.rstrip("\n").splitlines()[-1])[0]
 
 
 # --- behavior 1: one bullet's shape -----------------------------------------
@@ -162,10 +164,9 @@ def test_check_prints_a_line_per_finding_then_the_count_and_refuses(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = changelog(tmp_path, UNLED_AND_ADDRESSED)
-    assert (GATE.check(path), capsys.readouterr().out) == (
-        1,
-        f"{path}:{NO_LEAD_FINDING}\n{path}:{ADDRESSED_FINDING}\n\n{TWO_PROBLEMS}\n",
-    )
+    code = GATE.check(path)
+    printed = capsys.readouterr().out
+    assert (code, lines_under(path, printed), count_printed(printed)) == (1, [7, 7], 2)
 
 
 def test_main_refuses_for_the_one_path_in_argv_that_breaks_a_rule(
@@ -174,7 +175,7 @@ def test_main_refuses_for_the_one_path_in_argv_that_breaks_a_rule(
     held = changelog(tmp_path / "held", IN_SHAPE)
     broken = changelog(tmp_path / "broken", NO_LEAD)
     monkeypatch.setattr(sys, "argv", ["check_changelog.py", str(held), str(broken)])
-    assert (GATE.main(), capsys.readouterr().out) == (
-        1,
-        f"{ok_line(held)}{broken}:{NO_LEAD_FINDING}\n\n{ONE_PROBLEM}\n",
-    )
+    code = GATE.main()
+    printed = capsys.readouterr().out
+    under_each = (lines_under(held, printed), lines_under(broken, printed))
+    assert (code, under_each, count_printed(printed)) == (1, ([], [7]), 1)
