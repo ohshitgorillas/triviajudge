@@ -1,0 +1,42 @@
+slug: amend-test_changelog_gate-3
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_changelog_gate.py::test_check_prints_a_line_per_finding_then_the_count_and_refuses
+   rule: docs/testing.md rule 9
+   assertion: assert (GATE.check(path), capsys.readouterr().out) == (
+   replace: a bullet breaking two rules exits 1 with two findings, both against line 7, and a count of 2.
+   as: tests/gates/test_changelog_gate.py::test_check_prints_a_line_per_finding_then_the_count_and_refuses
+   kills: a gate that prints the first finding only and counts 1.
+
+2. strike tests/gates/test_changelog_gate.py::test_main_refuses_for_the_one_path_in_argv_that_breaks_a_rule
+   rule: docs/testing.md rule 9
+   assertion: assert (GATE.main(), capsys.readouterr().out) == (
+   replace: over two paths on argv the run exits 1 with one finding, against line 7 of the broken path and none against the held one.
+   as: tests/gates/test_changelog_gate.py::test_main_refuses_for_the_one_path_in_argv_that_breaks_a_rule
+   kills: a run that files the finding against the first path on argv, the one that holds its shape.
+
+--- reviewer ---
+READY
+discriminates: sweep on the changelog gate's printed findings - one invariant (one finding per rule break, at the line the case seeded, under the path that seeded it) at two inputs, expected values 2 findings/count 2 and 1 finding/count 1
+
+1  ADMITTED  a seeded bullet at line 7 breaking two rules, through GATE.check -> exit 1 with two findings both against line 7 and a count of 2; "a gate that prints the first finding only and counts 1" fails it at that bullet, where the count line reads 1 and one finding is missing; bite: exempt by motion - amend replacement pins behavior HEAD already has, docs/testing.md rule 8 characterization exemption, stated here per that rule.
+2  ADMITTED  two paths on argv, one holding its shape and one with a rule-breaking bullet at line 7, through GATE.main -> exit 1 with exactly one finding, against line 7 of the broken path; "a run that files the finding against the first path on argv, the one that holds its shape" fails it there, attributing the finding to the held path; bite: exempt by motion - same rule 8 characterization exemption, stated.
+
+strike halves: both targets exist in tests/gates/test_changelog_gate.py, rule 9 is real, and each quoted assertion compares the gate's whole stdout against NO_LEAD_FINDING, ADDRESSED_FINDING, ok_line and the "N problem(s) under ## [Unreleased]. See CONTRIBUTING.md." line - strings born under scripts/, which rule 9 calls copy. Visible in the test file alone. Each `as:` names the target test, legal under amend grammar where the coupled name already states the behavior.
+
+outcome count (i): each line compares one printed state - exit code with the finding lines and the count - as the one tuple rule 2 allows; the count is not a second behavior but the fact line 1's kills: contradicts.
+
+line 2's "none against the held one" is not an absence under (h'): the outcome is the complete finding list (exactly one, under the broken path), and the attribution is the discriminating content.
+
+not siblings (d): a gate that prints both findings with a correct count but files main's findings under argv[0] passes line 1 and fails line 2.
+
+brief fulfilment (m): "copy changes or adjustments to agent wording should not trip testing gates" is what both strike halves carry out - each replacement holds the gate at counts, line numbers and the path the case constructed, none of which move when the gate's prose is reworded.
+
+null stub: check_changelog prints nothing and returns 0 for every path.
+  satisfies: none   fails: 1, 2
+hard-coded stub: print a fixed pair of line-7 findings and "2 problem(s)" for every invocation, reading no file.
+  satisfies: none   fails: 2 (which needs exactly one finding, under the second path on argv); a stub tuned to line 2's single finding fails 1. No one fixed table reaches both counts without counting the breaks the case seeded.
+survives: 2
