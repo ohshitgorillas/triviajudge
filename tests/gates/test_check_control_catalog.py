@@ -40,10 +40,6 @@ CONSOLE_ONLY = {SWEEP_MODULE: GATE.Gate(script=SWEEP_SCRIPT, hook_id=None, plugi
 ONE_DISAGREEMENT = "1 catalog disagreement(s) across pyproject.toml, .pre-commit-hooks.yaml, hooks.json."
 
 NO_MODULE = f"CATALOG['{MODULE}']: names no module at triviajudge/{MODULE}.py"
-NO_SCRIPT = f"{SCRIPT}: no [project.scripts] entry"
-SCRIPT_MISPOINTED = f"{SCRIPT}: [project.scripts] points at '{SWEEP_ENTRY_POINT}', not '{ENTRY_POINT}'"
-SCRIPT_UNCATALOGED = f"{OTHER_SCRIPT}: a [project.scripts] entry the catalog does not carry"
-NO_HOOK_ID = f"{HOOK_ID}: no id in .pre-commit-hooks.yaml, for gate {MODULE}"
 HOOK_ID_MISPOINTED = f"{HOOK_ID}: runs '{OTHER_SCRIPT}', not '{SCRIPT}'"
 HOOK_ID_RUNS_NOTHING = f"{HOOK_ID}: runs '', not '{SCRIPT}'"
 HOOK_ID_UNCATALOGED = f"{OTHER_HOOK_ID}: a .pre-commit-hooks.yaml id the catalog does not carry"
@@ -208,21 +204,28 @@ def test_a_catalog_name_with_no_module_file_is_named(
 def test_a_gate_with_no_console_script_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, with_declared({})) == (1, [NO_SCRIPT], ONE_DISAGREEMENT)
+    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=SCRIPT)
+    carried = judge(tmp_path / "carried", tables=AGREED)
+    emptied = judge(tmp_path / "emptied", tables=with_declared({}))
+    assert (carried, emptied) == ((0, 0), (1, 1))
 
 
 def test_a_console_script_bound_to_another_module_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    tables = with_declared({SCRIPT: SWEEP_ENTRY_POINT})
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (1, [SCRIPT_MISPOINTED], ONE_DISAGREEMENT)
+    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=SCRIPT)
+    own = judge(tmp_path / "own", tables=with_declared({SCRIPT: ENTRY_POINT}))
+    sweep = judge(tmp_path / "sweep", tables=with_declared({SCRIPT: SWEEP_ENTRY_POINT}))
+    assert (own, sweep) == ((0, 0), (1, 1))
 
 
 def test_a_console_script_the_catalog_does_not_carry_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    tables = with_declared({SCRIPT: ENTRY_POINT, OTHER_SCRIPT: ENTRY_POINT})
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (1, [SCRIPT_UNCATALOGED], ONE_DISAGREEMENT)
+    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=OTHER_SCRIPT)
+    alone = judge(tmp_path / "alone", tables=with_declared({SCRIPT: ENTRY_POINT}))
+    beside = judge(tmp_path / "beside", tables=with_declared({SCRIPT: ENTRY_POINT, OTHER_SCRIPT: ENTRY_POINT}))
+    assert (alone, beside) == ((0, 0), (1, 1))
 
 
 # --- behavior 4: the pre-commit manifest disagreeing is named -----------------
@@ -231,7 +234,10 @@ def test_a_console_script_the_catalog_does_not_carry_is_named(
 def test_a_hooked_gate_with_no_pre_commit_id_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, with_manifest([])) == (1, [NO_HOOK_ID], ONE_DISAGREEMENT)
+    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=HOOK_ID)
+    carried = judge(tmp_path / "carried", tables=AGREED)
+    emptied = judge(tmp_path / "emptied", tables=with_manifest([]))
+    assert (carried, emptied) == ((0, 0), (1, 1))
 
 
 def test_a_pre_commit_id_running_another_script_is_named(
