@@ -98,15 +98,22 @@ collateral:
   breaks: `sweep.judge` asks through `verdicts` rather than `ask`, so the patch target
     moves to `triviajudge.sweep.verdicts`
   assertion: assert "md#1" in capsys.readouterr().err
+- tests/test_sweep.py::test_concurrency_is_at_least_one_and_at_most_half_the_cores
+  breaks: `workers` moves to `gate`, so `sweep` imports no `os` and the patch target
+    moves to `triviajudge.gate.os.cpu_count`
+  assertion: assert [sweep.workers(asked) for asked in (0, 1, 4, 64)] == [1, 1, 4, 4]
 
 --- reviewer ---
 READY
 discriminates: sweep on `gate.verdicts` - two chunk sizes over the flag ids (line 1), two judge answers over the flag ids (lines 2 and 3), two answer coverages over the bodies sent (line 4)
 
-1  ADMITTED
+rows-only round: no behavior line and no row c1-c8 changed, so every behavior verdict and
+every row verdict but c9 carries, and no line's stubs are rewritten.
+
+1  ADMITTED  carried
 2  ADMITTED  carried
 3  ADMITTED  carried
-4  ADMITTED
+4  ADMITTED  carried
 
 collateral rows:
 c1 tests/test_sweep.py::test_a_call_that_raises_answers_with_no_flags_and_the_reason  ADMITTED  carried
@@ -117,38 +124,35 @@ c5 tests/test_sweep.py::test_a_flagged_line_fails_the_run_under_check  ADMITTED 
 c6 tests/test_sweep.py::test_the_out_file_carries_the_flags_the_run_printed  ADMITTED  carried
 c7 tests/test_sweep.py::test_the_baseline_remembers_the_lines_no_judge_flagged  ADMITTED  carried
 c8 tests/test_sweep.py::test_a_failed_batch_is_named_on_the_way_out  ADMITTED  carried
+c9 tests/test_sweep.py::test_concurrency_is_at_least_one_and_at_most_half_the_cores  ADMITTED
 
-findings of round 1, and what came back:
-- line 1, hard-coded stub / sentinel input: repaired. `batch=0` is gone; the two inputs are
-  `batch=20` and `batch=15` over 45 lines, neither a multiple, neither degenerate. The two
-  expected lists are no longer a function of "batch truthy": a stub that sends no body gets
-  no table row back and would have to reimplement the partition at two sizes to produce
-  either list. Finding withdrawn.
-- line 1, rule 13 fake: repaired. The judge is now a fixed table with six rows keyed by the
-  id set of the body, written by the test; no fake decides what to flag by reading prose.
-  Finding withdrawn.
-- line 4, hard-coded stub: repaired. `exhaustive=True` is held across both cases and the
-  varying input is the first answer's coverage, so the knobs are identical in the two cases
-  and the second body's ids (`["a.md:3", "a.md:4"]` against `["a.md:4"]`) are the skipped
-  set computed from the answer. Finding withdrawn.
-- block level (m), chunking unpinned: repaired by the restated line 1.
+c9 under (u), all four conditions met: the target is a test under tests/, at
+tests/test_sweep.py:83; the quoted assertion sits byte-identical in that test's own body at
+tests/test_sweep.py:85, `assert [sweep.workers(asked) for asked in (0, 1, 4, 64)] == [1, 1, 4, 4]`;
+`breaks:` names a fact outside tests/ - `workers` moving to `gate`, which forces the
+monkeypatch target on tests/test_sweep.py:84 from `triviajudge.sweep.os.cpu_count` to
+`triviajudge.gate.os.cpu_count`; and the row carries no `rule:`, `removed:`, `replace:`,
+`kills:` or `bite:`. The target is not whole-file, it is named by no `existing:` clause in
+the block - those name tests/gates/test_corpus.py - the block is `kind:`, not `motion:`, and
+the repair stays in the same file under the same test name, so none of the three on-sight
+shapes applies.
 
-null stub: `verdicts` exists, exports the named signature, calls no judge and returns `[]`,
-  sending no body.
+null stub (carried): `verdicts` exists, exports the named signature, calls no judge and
+  returns `[]`, sending no body.
   satisfies: none   fails: 1, 2, 3, 4
-hard-coded stub: `verdicts` returns the exact id list each line names and sends the exact
-  body lists line 4 names, never calling a judge or reading an answer.
+hard-coded stub (carried): `verdicts` returns the exact id list each line names and sends the
+  exact body lists line 4 names, never calling a judge or reading an answer.
   satisfies: none   fails: 1, 2, 3, 4
-  1 - the ids returned are the table rows the judge answered with; without a body there is
-  no row, and the two lists differ by the partition at two live sizes.
-  2, 3 - both cases of each carry identical knobs and differ only in the judge's answer, so
-  the stub must map per-id verdict words to flag ids.
-  4 - both cases carry identical knobs and differ only in the first answer's coverage, so
-  the stub must compute which ids the answer skipped.
 
 survives: 4
 
-note for the owner, not a verdict: the brief's "parallel judges" question is pinned by no
-line - line 1 fixes `parallel=1` and no line varies it. The brief's closing sentence settles
-the plan as the exhaustive schema and chunking, both of which the block pins, so the gate
-does not rest on it.
+notes for the owner, not verdicts:
+- c9 keeps `sweep.workers(asked)` byte-identical while `breaks:` says `workers` moves to
+  `gate`. That holds only if `sweep` still exposes the name after the move, by re-export or
+  by keeping a wrapper. I am denied src/triviajudge/sweep.py and cannot settle it; if the
+  name does not survive there, the assertion is not byte-identical after and the row is a
+  `motion: amend` line, not collateral.
+- carried from round 2: the brief's "parallel judges" question is pinned by no line - line 1
+  fixes `parallel=1` and no line varies it. The brief's closing sentence settles the plan as
+  the exhaustive schema and chunking, both of which the block pins, so the gate does not rest
+  on it.
