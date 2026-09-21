@@ -1,0 +1,48 @@
+slug: amend-test_check_control_catalog-2
+motion: amend
+brief:
+> we amend the tests.
+> copy changes or adjustments to agent wording should not trip testing gates.
+
+1. strike tests/gates/test_check_control_catalog.py::test_a_gate_with_no_console_script_is_named
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(tmp_path, monkeypatch, capsys, HOOKED, with_declared({})) == (1, [NO_SCRIPT], ONE_DISAGREEMENT)
+   replace: one catalogued gate against the scripts table: carrying triviajudge-md the run exits 0 with 0 disagreements, and with that table emptied it exits 1 with 1, keyed to triviajudge-md.
+   as: tests/gates/test_check_control_catalog.py::test_a_gate_with_no_console_script_is_named
+   kills: a gate that exits 0 when a catalogued gate has no console script at all.
+
+2. strike tests/gates/test_check_control_catalog.py::test_a_console_script_bound_to_another_module_is_named
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (1, [SCRIPT_MISPOINTED], ONE_DISAGREEMENT)
+   replace: one scripts entry for triviajudge-md: pointed at its own module the run exits 0 with 0 disagreements, and pointed at the sweep entry point it exits 1 with 1, keyed to triviajudge-md.
+   as: tests/gates/test_check_control_catalog.py::test_a_console_script_bound_to_another_module_is_named
+   kills: a gate that checks only that the script name exists and passes it bound to another module.
+
+3. strike tests/gates/test_check_control_catalog.py::test_a_console_script_the_catalog_does_not_carry_is_named
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (1, [SCRIPT_UNCATALOGED], ONE_DISAGREEMENT)
+   replace: one scripts table against the same catalog: holding triviajudge-md alone the run exits 0 with 0 disagreements, and holding triviajudge-comments beside it it exits 1 with 1, keyed to triviajudge-comments.
+   as: tests/gates/test_check_control_catalog.py::test_a_console_script_the_catalog_does_not_carry_is_named
+   kills: a gate that reads the catalog only forward and passes a scripts table entry nothing catalogues.
+
+4. strike tests/gates/test_check_control_catalog.py::test_a_hooked_gate_with_no_pre_commit_id_is_named
+   rule: docs/testing.md rule 9
+   assertion: assert verdict(tmp_path, monkeypatch, capsys, HOOKED, with_manifest([])) == (1, [NO_HOOK_ID], ONE_DISAGREEMENT)
+   replace: one pre-commit manifest against a hooked gate: carrying md-trivia the run exits 0 with 0 disagreements, and emptied it exits 1 with 1, keyed to md-trivia.
+   as: tests/gates/test_check_control_catalog.py::test_a_hooked_gate_with_no_pre_commit_id_is_named
+   kills: a gate that exits 0 when a hooked gate has no id in the manifest.
+
+--- reviewer ---
+READY
+discriminates: differential on check()'s verdict, one per line — the agreeing tree against the same tree with one field changed (the scripts table emptied, the entry point repointed, a second scripts entry added, the manifest emptied)
+
+1  ADMITTED  a catalogued gate against a scripts table carrying triviajudge-md, then the same tree with that table emptied -> exit 0 with 0 disagreements, against exit 1 with 1 keyed to triviajudge-md; a gate that exits 0 when a catalogued gate has no console script fails it at the second tree; bite: N/A, characterization exempt by `motion: amend` (docs/testing.md rule 8).
+2  ADMITTED  the triviajudge-md entry pointed at its own module, then pointed at the sweep entry point -> exit 0 with 0 disagreements, against exit 1 with 1 keyed to triviajudge-md; a gate that checks only that the script name exists fails it at the second tree; bite: N/A, characterization exempt by `motion: amend` (docs/testing.md rule 8).
+3  ADMITTED  a scripts table holding triviajudge-md alone, then holding triviajudge-comments beside it -> exit 0 with 0 disagreements, against exit 1 with 1 keyed to triviajudge-comments; a gate that reads the catalog only forward fails it at the second tree; bite: N/A, characterization exempt by `motion: amend` (docs/testing.md rule 8).
+4  ADMITTED  a manifest carrying md-trivia for a hooked gate, then emptied -> exit 0 with 0 disagreements, against exit 1 with 1 keyed to md-trivia; a gate that exits 0 when a hooked gate has no manifest id fails it at the second tree; bite: N/A, characterization exempt by `motion: amend` (docs/testing.md rule 8).
+
+null stub: check() returns 0 and prints nothing, reading none of the three tables.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: check() always returns 1 and prints one disagreement keyed to the id at fault, comparing no script, no entry point and no manifest id.
+  satisfies: none   fails: 1, 2, 3, 4 (each line holds two verdicts over trees differing in one field, so neither an always-refusing gate nor an always-agreeing one keeps both halves)
+survives: 4
