@@ -1,0 +1,154 @@
+slug: gate-chunking
+kind: new
+brief:
+> I'm getting sick of the judge's non-deterministic behavior: it often takes 3-4 rounds to commit a heavily-edited document because the judge flags different things every time around.
+> How can we solve this? Break it up into parallel judges with smaller content per model?
+> Okay, so it sounds like what I said is accurate: we're overloading the models with too much and they're only actually looking at so much. So we need to give them more reasonable sized chunks, right? What am I missing here?
+> Great. Now, back to the plan: let's try the exhaustive schema first, then chunking next. or do we need both given model size?
+
+surface: `triviajudge.gate.verdicts(lines, prompt, *, exhaustive, batch, parallel, model, timeout)`,
+called directly with `Line` records and a prompt string, over a judge whose answers are
+fixed per call: the list of flag dictionaries it returns, and the input each `claude`
+call receives.
+
+1. The ids in the flags `verdicts` returns for the 45 lines `a.md:1` through `a.md:45`
+   at `exhaustive=False`, `parallel=1`, where the judge answers from a fixed table keyed
+   by the ids the body carries — `a.md:1`-`a.md:20` -> one object for `a.md:1`,
+   `a.md:21`-`a.md:40` -> `a.md:21`, `a.md:41`-`a.md:45` -> `a.md:41`,
+   `a.md:1`-`a.md:15` -> `a.md:1`, `a.md:16`-`a.md:30` -> `a.md:16`,
+   `a.md:31`-`a.md:45` -> `a.md:31` — are `["a.md:1", "a.md:21", "a.md:41"]` at
+   `batch=20` and `["a.md:1", "a.md:16", "a.md:31"]` at `batch=15`.
+   kills: asks the lines it was given in one call whatever `batch` says, so neither run
+     finds a table row and both answer `[]`
+   bite: null stub fails at `batch=20` (surface new) — a `verdicts` returning `[]`
+     answers neither list
+   existing: none, `grep -rn "verdicts\|exhaustive\|gate_batch" tests/ --include=*.py` ->
+     tests/gates/test_corpus.py:1 and :38, both the corpus gate's clean/trivia wording
+
+2. The ids in the flags `verdicts` returns for the 3 lines `a.md:1`, `a.md:2`, `a.md:3`
+   at `batch=0`, `exhaustive=True`, where the judge answers with one object per input id
+   carrying that id's verdict word, are `["a.md:2"]` where the three words are
+   `clean`, `trivia`, `clean`, and `["a.md:1", "a.md:3"]` where they are
+   `trivia`, `clean`, `trivia`.
+   kills: flags every object the answer carries, so the first input answers
+     `["a.md:1", "a.md:2", "a.md:3"]`
+   bite: null stub fails at both inputs (surface new) — a `verdicts` returning `[]`
+     answers neither list
+   existing: none, `grep -rn "verdicts\|exhaustive\|gate_batch" tests/ --include=*.py` ->
+     tests/gates/test_corpus.py:1 and :38, both the corpus gate's clean/trivia wording
+
+3. The ids in the flags `verdicts` returns for the 4 lines `a.md:1` through `a.md:4`
+   at `batch=0`, `exhaustive=True`, where the first answer carries `clean` for `a.md:1`,
+   `trivia` for `a.md:2` and no object for the other two ids, are
+   `["a.md:2", "a.md:3"]` where the next answer carries `trivia` for `a.md:3` and
+   `clean` for `a.md:4`, and `["a.md:2", "a.md:3", "a.md:4"]` where the next answer
+   carries no object at all.
+   kills: returns the flags of the objects it got and nothing for the ids the answer
+     skipped, so the second input answers `["a.md:2"]` and the two lines the judge never
+     read go back unflagged
+   bite: null stub fails at both inputs (surface new) — a `verdicts` returning `[]`
+     answers neither list
+   existing: none, `grep -rn "verdicts\|exhaustive\|gate_batch" tests/ --include=*.py` ->
+     tests/gates/test_corpus.py:1 and :38, both the corpus gate's clean/trivia wording
+
+4. The ids each body the judge receives carries, for the 4 lines `a.md:1` through
+   `a.md:4` at `batch=0`, `exhaustive=True`, where the judge answers from a fixed table
+   keyed by the ids the body carries and every body after the first answers with no
+   object, are `[["a.md:1", "a.md:2", "a.md:3", "a.md:4"], ["a.md:3", "a.md:4"]]` where
+   the first answer carries `clean` for `a.md:1` and `trivia` for `a.md:2` alone, and
+   `[["a.md:1", "a.md:2", "a.md:3", "a.md:4"], ["a.md:4"]]` where the first answer
+   carries those two and `clean` for `a.md:3`.
+   kills: asks the ids an answer skipped again until they come back, so the first input
+     sends `["a.md:3", "a.md:4"]` a second and a third time
+   bite: null stub fails at both inputs (surface new) — a `verdicts` that asks nothing
+     sends no body
+   existing: none, `grep -rn "verdicts\|exhaustive\|gate_batch" tests/ --include=*.py` ->
+     tests/gates/test_corpus.py:1 and :38, both the corpus gate's clean/trivia wording
+
+collateral:
+- tests/test_sweep.py::test_a_call_that_raises_answers_with_no_flags_and_the_reason
+  breaks: `sweep.judge` asks through `verdicts` rather than `ask`, so the patch target
+    moves to `triviajudge.sweep.verdicts`
+  assertion: assert sweep.judge(batch, "a-model") == (batch, None, "claude exited 1")
+- tests/test_sweep.py::test_every_batch_is_asked_when_the_calls_run_concurrently
+  breaks: `sweep.judge` asks through `verdicts` rather than `ask`, so the patch target
+    moves to `triviajudge.sweep.verdicts`
+  assertion: assert [batch.name for batch, _flags, _why in sweep.run_batches(batches, "a-model", 4)] == [
+- tests/test_sweep.py::test_a_tree_with_nothing_to_judge_asks_nothing
+  breaks: `sweep.judge` asks through `verdicts` rather than `ask`, so the patch target
+    moves to `triviajudge.sweep.verdicts`
+  assertion: assert sweep_run(monkeypatch, ["--md", "--yes"]) == 0
+- tests/test_sweep.py::test_a_declined_question_asks_nothing
+  breaks: `sweep.judge` asks through `verdicts` rather than `ask`, so the patch target
+    moves to `triviajudge.sweep.verdicts`
+  assertion: assert sweep_run(monkeypatch, ["--md"]) == 0
+- tests/test_sweep.py::test_a_flagged_line_fails_the_run_under_check
+  breaks: `sweep.judge` asks through `verdicts` rather than `ask`, so the patch target
+    moves to `triviajudge.sweep.verdicts`
+  assertion: assert sweep_run(monkeypatch, ["--md", "--yes", "--check"]) == 1
+- tests/test_sweep.py::test_the_out_file_carries_the_flags_the_run_printed
+  breaks: `sweep.judge` asks through `verdicts` rather than `ask`, so the patch target
+    moves to `triviajudge.sweep.verdicts`
+  assertion: assert json.loads(out.read_text(encoding="utf-8"))["flags"][0]["id"] == "docs/plan.md:1"
+- tests/test_sweep.py::test_the_baseline_remembers_the_lines_no_judge_flagged
+  breaks: `sweep.judge` asks through `verdicts` rather than `ask`, so the patch target
+    moves to `triviajudge.sweep.verdicts`
+  assertion: assert json.loads(cache.read_text(encoding="utf-8")) == [digest(first)]
+- tests/test_sweep.py::test_a_failed_batch_is_named_on_the_way_out
+  breaks: `sweep.judge` asks through `verdicts` rather than `ask`, so the patch target
+    moves to `triviajudge.sweep.verdicts`
+  assertion: assert "md#1" in capsys.readouterr().err
+
+--- reviewer ---
+READY
+discriminates: sweep on `gate.verdicts` - two chunk sizes over the flag ids (line 1), two judge answers over the flag ids (lines 2 and 3), two answer coverages over the bodies sent (line 4)
+
+1  ADMITTED
+2  ADMITTED  carried
+3  ADMITTED  carried
+4  ADMITTED
+
+collateral rows:
+c1 tests/test_sweep.py::test_a_call_that_raises_answers_with_no_flags_and_the_reason  ADMITTED  carried
+c2 tests/test_sweep.py::test_every_batch_is_asked_when_the_calls_run_concurrently  ADMITTED  carried
+c3 tests/test_sweep.py::test_a_tree_with_nothing_to_judge_asks_nothing  ADMITTED  carried
+c4 tests/test_sweep.py::test_a_declined_question_asks_nothing  ADMITTED  carried
+c5 tests/test_sweep.py::test_a_flagged_line_fails_the_run_under_check  ADMITTED  carried
+c6 tests/test_sweep.py::test_the_out_file_carries_the_flags_the_run_printed  ADMITTED  carried
+c7 tests/test_sweep.py::test_the_baseline_remembers_the_lines_no_judge_flagged  ADMITTED  carried
+c8 tests/test_sweep.py::test_a_failed_batch_is_named_on_the_way_out  ADMITTED  carried
+
+findings of round 1, and what came back:
+- line 1, hard-coded stub / sentinel input: repaired. `batch=0` is gone; the two inputs are
+  `batch=20` and `batch=15` over 45 lines, neither a multiple, neither degenerate. The two
+  expected lists are no longer a function of "batch truthy": a stub that sends no body gets
+  no table row back and would have to reimplement the partition at two sizes to produce
+  either list. Finding withdrawn.
+- line 1, rule 13 fake: repaired. The judge is now a fixed table with six rows keyed by the
+  id set of the body, written by the test; no fake decides what to flag by reading prose.
+  Finding withdrawn.
+- line 4, hard-coded stub: repaired. `exhaustive=True` is held across both cases and the
+  varying input is the first answer's coverage, so the knobs are identical in the two cases
+  and the second body's ids (`["a.md:3", "a.md:4"]` against `["a.md:4"]`) are the skipped
+  set computed from the answer. Finding withdrawn.
+- block level (m), chunking unpinned: repaired by the restated line 1.
+
+null stub: `verdicts` exists, exports the named signature, calls no judge and returns `[]`,
+  sending no body.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: `verdicts` returns the exact id list each line names and sends the exact
+  body lists line 4 names, never calling a judge or reading an answer.
+  satisfies: none   fails: 1, 2, 3, 4
+  1 - the ids returned are the table rows the judge answered with; without a body there is
+  no row, and the two lists differ by the partition at two live sizes.
+  2, 3 - both cases of each carry identical knobs and differ only in the judge's answer, so
+  the stub must map per-id verdict words to flag ids.
+  4 - both cases carry identical knobs and differ only in the first answer's coverage, so
+  the stub must compute which ids the answer skipped.
+
+survives: 4
+
+note for the owner, not a verdict: the brief's "parallel judges" question is pinned by no
+line - line 1 fixes `parallel=1` and no line varies it. The brief's closing sentence settles
+the plan as the exhaustive schema and chunking, both of which the block pins, so the gate
+does not rest on it.
