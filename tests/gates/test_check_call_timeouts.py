@@ -20,8 +20,6 @@ import pytest
 
 RUN_FAULT = "{path}:{line}: subprocess.run with no timeout=, so the call may wait forever"
 
-URLOPEN_FAULT = "{path}:{line}: urllib.request.urlopen with no timeout=, so the call may wait forever"
-
 REFUSAL_TAIL = (
     "\n1 problem(s). Every subprocess.run and urlopen states timeout=;\n"
     "timeout=None is how a call says out loud that it may wait forever.\n"
