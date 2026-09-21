@@ -270,7 +270,10 @@ NO_FLAGS_ENVELOPE = json.dumps({"result": "[]"})
 
 def git_run(root: Path, *args: str) -> None:
     """Run one git command in the throwaway checkout, resolving git from the PATH the test built."""
-    subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    git = shutil.which("git")
+    if git is None:
+        raise RuntimeError("git is not on the PATH the test built")
+    subprocess.run([git, *args], cwd=root, check=True, capture_output=True)
 
 
 def scrubbed_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
