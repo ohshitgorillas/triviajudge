@@ -35,7 +35,7 @@ EXEMPT: dict[str, str] = {
     # size held them over the floor, and a block that pins them cannot be
     # written against a module that has not landed. The entry leaves with that
     # block and holds nothing else excused.
-    "triviajudge/gate.py": "twelve statements carried untested out of core.py, pinned by the block that follows this one",
+    "triviajudge/gate.py": "twelve statements carried untested out of core.py, pinned by the block after this one",
 }
 
 
