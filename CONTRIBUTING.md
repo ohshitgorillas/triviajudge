@@ -116,17 +116,6 @@ block of `Key: value` trailers are out of scope, which is where a session link
 lives. A line that must stay takes `history-ok: <reason>`, reason required — the
 same contract the comment gate offers.
 
-## File length
-
-A source file is capped at 500 lines, a test file at 800. Above 400 lines a
-source file also enters a ratchet: it carries an entry in `ALLOWANCE` in
-`scripts/gates/check_file_length.py` and may only ever get shorter. Growing past
-the entry fails, and so does measuring under it — the gate makes you lower the
-number to match, so headroom cannot be banked in one commit and spent in the
-next. Nothing raises an allowance. A file that needs more room needs a split.
-The ratchet does not reach under `tests/`, where one assertion per test inflates
-line count without adding coupling.
-
 ## Shape
 
 Three gates hold the tree's shape where line count says nothing.

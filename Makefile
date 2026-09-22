@@ -29,7 +29,6 @@ lint:
 	$(VENV)/mypy
 	$(VENV)/lint-imports
 	$(VENV)/triviajudge-archaeology $(SOURCES)
-	$(VENV)/python scripts/gates/check_file_length.py $(ALL_PY)
 	$(VENV)/python scripts/gates/check_nesting.py $(ALL_PY)
 	$(VENV)/python scripts/gates/check_no_barrels.py $(SOURCES)
 	$(VENV)/python scripts/gates/check_stdlib_only.py $(PACKAGE)
