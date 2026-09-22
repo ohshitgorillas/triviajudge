@@ -48,7 +48,15 @@ from pathlib import Path
 
 from triviajudge import comment_trivia, md_trivia
 from triviajudge.config import SWEEP_CACHE, Settings, cache_path, settings
-from triviajudge.core import CLAUDE_BACKEND, Line, NotARepositoryError, clean_cache, digest, git, root
+from triviajudge.core import (
+    CLAUDE_BACKEND,
+    Line,
+    NotARepositoryError,
+    clean_cache,
+    digest,
+    git,
+    root,
+)
 from triviajudge.gate import verdicts
 from triviajudge.gate import workers as workers  # noqa: PLC0414 — the alias is the explicit re-export: one cap covers the gate path and the sweep, and callers of a sweep read it here
 
@@ -119,14 +127,18 @@ def comment_candidates(prefixes: tuple[str, ...]) -> tuple[list[Line], list[str]
         except (OSError, UnicodeDecodeError) as exc:
             print(f"{rel}: not read ({exc})", file=sys.stderr)
             continue
-        cands.extend(comment_trivia.parsed(rel, text, set(range(1, len(text.splitlines()) + 1))))
+        cands.extend(
+            comment_trivia.parsed(rel, text, set(range(1, len(text.splitlines()) + 1)))
+        )
     return comment_trivia.screen(cands)
 
 
 def batched(gate: str, prompt: str, lines: list[Line], size: int) -> list[Batch]:
     """Split one gate's candidates into calls of at most ``size`` lines."""
     chunks = [lines[start : start + size] for start in range(0, len(lines), size)]
-    return [Batch(gate, index, prompt, chunk) for index, chunk in enumerate(chunks, start=1)]
+    return [
+        Batch(gate, index, prompt, chunk) for index, chunk in enumerate(chunks, start=1)
+    ]
 
 
 def transport() -> str:
@@ -206,22 +218,48 @@ def write_baseline(passed: list[Line]) -> Path:
 
 def parse_args() -> argparse.Namespace:
     """Read the gate selection, the scoping flags and the two output modes."""
-    parser = argparse.ArgumentParser(description=__doc__ or "", formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__ or "", formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--md", action="store_true", help="sweep markdown only")
-    parser.add_argument("--comments", action="store_true", help="sweep comments and docstrings only")
-    parser.add_argument("--paths", action="append", default=[], metavar="PREFIX", help="limit to a path prefix")
-    parser.add_argument("--batch", type=int, help="lines per call (default sweep_batch)")
-    parser.add_argument("--limit", type=int, help="judge at most this many candidates per gate")
-    parser.add_argument("--parallel", type=int, help="concurrent calls (default sweep_parallel)")
+    parser.add_argument(
+        "--comments", action="store_true", help="sweep comments and docstrings only"
+    )
+    parser.add_argument(
+        "--paths",
+        action="append",
+        default=[],
+        metavar="PREFIX",
+        help="limit to a path prefix",
+    )
+    parser.add_argument(
+        "--batch", type=int, help="lines per call (default sweep_batch)"
+    )
+    parser.add_argument(
+        "--limit", type=int, help="judge at most this many candidates per gate"
+    )
+    parser.add_argument(
+        "--parallel", type=int, help="concurrent calls (default sweep_parallel)"
+    )
     parser.add_argument("--model", help="model to ask (default sweep_model)")
     parser.add_argument("--yes", action="store_true", help="skip the confirmation")
-    parser.add_argument("--baseline", action="store_true", help=f"write every passed line to {CACHE_NAME}")
-    parser.add_argument("--check", action="store_true", help="exit 1 when anything is flagged")
-    parser.add_argument("--out", help="write the flags, complaints and failures here as JSON")
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help=f"write every passed line to {CACHE_NAME}",
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="exit 1 when anything is flagged"
+    )
+    parser.add_argument(
+        "--out", help="write the flags, complaints and failures here as JSON"
+    )
     return parser.parse_args()
 
 
-def collect(args: argparse.Namespace, size: int, md_size: int | None = None) -> tuple[list[Batch], list[str]]:
+def collect(
+    args: argparse.Namespace, size: int, md_size: int | None = None
+) -> tuple[list[Batch], list[str]]:
     """The batches to ask and the complaints the pattern screen already answered for.
 
     ``md_size`` is the markdown gate's own chunk, which is smaller than the
@@ -239,7 +277,9 @@ def collect(args: argparse.Namespace, size: int, md_size: int | None = None) -> 
         batches.extend(batched(MD, md_trivia.PROMPT, lines, md_size))
     if args.comments or both:
         lines, complaints = comment_candidates(prefixes)
-        batches.extend(batched(COMMENTS, comment_trivia.PROMPT, lines[: args.limit], size))
+        batches.extend(
+            batched(COMMENTS, comment_trivia.PROMPT, lines[: args.limit], size)
+        )
     return batches, complaints
 
 
@@ -249,7 +289,10 @@ def report(results: list[Result]) -> tuple[list[dict[str, str]], list[Line]]:
     passed: list[Line] = []
     for batch, answer, error in results:
         if answer is None:
-            print(f"batch {batch.name} failed ({len(batch.lines)} line(s)): {error}", file=sys.stderr)
+            print(
+                f"batch {batch.name} failed ({len(batch.lines)} line(s)): {error}",
+                file=sys.stderr,
+            )
             rerun = " ".join(f"--paths {path}" for path in batch.paths)
             print(f"  rerun: triviajudge-sweep --{batch.gate} {rerun}", file=sys.stderr)
             continue
@@ -292,12 +335,17 @@ def main() -> int:
     return finish(args, run_batches(batches, model, parallel), complaints)
 
 
-def finish(args: argparse.Namespace, results: list[Result], complaints: list[str]) -> int:
+def finish(
+    args: argparse.Namespace, results: list[Result], complaints: list[str]
+) -> int:
     """Report what the judges flagged, what failed and what the baseline took, and answer with the exit code."""
     flags, passed = report(results)
     failed = [batch.name for batch, answer, _ in results if answer is None]
     if failed:
-        print(f"\n{len(failed)} batch(es) failed and were not judged: {', '.join(failed)}", file=sys.stderr)
+        print(
+            f"\n{len(failed)} batch(es) failed and were not judged: {', '.join(failed)}",
+            file=sys.stderr,
+        )
     if args.baseline:
         print(f"\n{len(passed)} passed line(s) written to {write_baseline(passed)}")
     print(f"\n{len(flags)} flag(s), {len(complaints)} pattern complaint(s)")

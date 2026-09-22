@@ -107,7 +107,9 @@ def _table(start: Path) -> dict[str, object]:
         try:
             loaded = tomllib.loads(path.read_text(encoding="utf-8"))
         except (OSError, tomllib.TOMLDecodeError) as exc:
-            raise RuntimeError(f"{path} is present but unreadable, refusing to judge on defaults: {exc}") from exc
+            raise RuntimeError(
+                f"{path} is present but unreadable, refusing to judge on defaults: {exc}"
+            ) from exc
         found: object = loaded
         for key in SECTION if name == "pyproject.toml" else ():
             if not isinstance(found, dict) or key not in found:

@@ -85,11 +85,20 @@ def judge(seconds: float, last: float, *, accept: bool) -> tuple[bool, str]:
     """Return whether the run passes against ``last`` and the line saying why."""
     over = seconds - last
     if over >= REJECT:
-        return False, f"suite {seconds:.1f}s, last green {last:.1f}s: {over:+.1f}s, rejected (limit {REJECT:.0f}s)"
+        return (
+            False,
+            f"suite {seconds:.1f}s, last green {last:.1f}s: {over:+.1f}s, rejected (limit {REJECT:.0f}s)",
+        )
     if over > ESCALATE:
         if accept:
-            return True, f"suite {seconds:.1f}s, last green {last:.1f}s: {over:+.1f}s accepted by the owner"
-        return False, f"suite {seconds:.1f}s, last green {last:.1f}s: {over:+.1f}s, escalate to owner (--accept)"
+            return (
+                True,
+                f"suite {seconds:.1f}s, last green {last:.1f}s: {over:+.1f}s accepted by the owner",
+            )
+        return (
+            False,
+            f"suite {seconds:.1f}s, last green {last:.1f}s: {over:+.1f}s, escalate to owner (--accept)",
+        )
     return True, f"[ok] suite {seconds:.1f}s, last green {last:.1f}s ({over:+.1f}s)"
 
 
@@ -129,7 +138,9 @@ def main(argv: list[str] | None = None) -> int:
     """CLI: optional ``--accept``; report and baseline resolved to the main checkout."""
     args = sys.argv[1:] if argv is None else argv
     checkout = main_checkout(ROOT)
-    return check(ROOT / REPORT_NAME, checkout / BASELINE_NAME, accept="--accept" in args)
+    return check(
+        ROOT / REPORT_NAME, checkout / BASELINE_NAME, accept="--accept" in args
+    )
 
 
 if __name__ == "__main__":

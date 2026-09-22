@@ -54,7 +54,9 @@ SUMMARY = (
 def report_of(tmp_path: Path, measured: dict[str, float]) -> Path:
     """A coverage JSON report carrying one percentage per named file."""
     report = tmp_path / "coverage.json"
-    files = {name: {"summary": {"percent_covered": pct}} for name, pct in measured.items()}
+    files = {
+        name: {"summary": {"percent_covered": pct}} for name, pct in measured.items()
+    }
     report.write_text(json.dumps({"files": files}), encoding="utf-8")
     return report
 
@@ -66,10 +68,16 @@ def findings(out: str, *subjects: Path | str) -> list[str]:
     constructed every path it asks after; whatever the gate says after that
     address stays unread.
     """
-    return [line for line in out.splitlines() if any(line.startswith(f"{subject}:") for subject in subjects)]
+    return [
+        line
+        for line in out.splitlines()
+        if any(line.startswith(f"{subject}:") for subject in subjects)
+    ]
 
 
-def verdict(report: Path, *subjects: Path | str, capsys: pytest.CaptureFixture[str]) -> tuple[int, list[str]]:
+def verdict(
+    report: Path, *subjects: Path | str, capsys: pytest.CaptureFixture[str]
+) -> tuple[int, list[str]]:
     """Run the gate on ``report`` with no exemption: its exit code and its findings against ``subjects``."""
     code = GATE.check(report, FLOOR, {})
     return code, findings(capsys.readouterr().out, *subjects)
@@ -78,7 +86,9 @@ def verdict(report: Path, *subjects: Path | str, capsys: pytest.CaptureFixture[s
 # --- behavior 1: a report that says nothing is a refusal, never a pass -------
 
 
-def test_a_report_that_was_never_written_is_refused_by_name(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_report_that_was_never_written_is_refused_by_name(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     report = report_of(tmp_path, {"hot.py": 95.0})
     written = verdict(report, report, "hot.py", capsys=capsys)
     absent = tmp_path / "absent.json"
@@ -108,9 +118,15 @@ def test_a_report_with_no_files_key_says_nothing_was_checked(
 # --- behavior 2: the floor is per file, and the boundary value passes --------
 
 
-def test_a_file_exactly_at_the_floor_clears_it(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    at_the_floor = verdict(report_of(tmp_path, {"edge.py": 90.0}), "edge.py", capsys=capsys)
-    under_code, addressed = verdict(report_of(tmp_path, {"edge.py": 89.9}), "edge.py", capsys=capsys)
+def test_a_file_exactly_at_the_floor_clears_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    at_the_floor = verdict(
+        report_of(tmp_path, {"edge.py": 90.0}), "edge.py", capsys=capsys
+    )
+    under_code, addressed = verdict(
+        report_of(tmp_path, {"edge.py": 89.9}), "edge.py", capsys=capsys
+    )
     assert (at_the_floor, under_code, len(addressed)) == ((0, []), 1, 1)
 
 
@@ -122,7 +138,9 @@ def test_a_file_just_under_the_floor_is_named_with_its_percentage(
     assert (code, capsys.readouterr().out) == (1, expected)
 
 
-def test_the_files_under_the_floor_are_printed_worst_first(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_the_files_under_the_floor_are_printed_worst_first(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     report = report_of(tmp_path, {"warm.py": 80.0, "cold.py": 10.0, "hot.py": 95.0})
     code = GATE.check(report, FLOOR, {})
     expected = COLD_UNDER + WARM_UNDER + SUMMARY.format(problems=2, floor=FLOOR)
@@ -132,10 +150,19 @@ def test_the_files_under_the_floor_are_printed_worst_first(tmp_path: Path, capsy
 def test_each_percentage_comes_from_that_file_s_own_summary(tmp_path: Path) -> None:
     report = tmp_path / "coverage.json"
     files = {
-        "one.py": {"summary": {"percent_covered": 42.5, "num_statements": 8}, "missing_lines": [3]},
-        "two.py": {"summary": {"percent_covered": 100.0, "num_statements": 2}, "missing_lines": []},
+        "one.py": {
+            "summary": {"percent_covered": 42.5, "num_statements": 8},
+            "missing_lines": [3],
+        },
+        "two.py": {
+            "summary": {"percent_covered": 100.0, "num_statements": 2},
+            "missing_lines": [],
+        },
     }
-    report.write_text(json.dumps({"meta": {"branch_coverage": True}, "files": files}), encoding="utf-8")
+    report.write_text(
+        json.dumps({"meta": {"branch_coverage": True}, "files": files}),
+        encoding="utf-8",
+    )
     assert GATE.percentages(report) == {"one.py": 42.5, "two.py": 100.0}
 
 
@@ -147,7 +174,10 @@ def test_an_exempt_file_under_the_floor_leaves_the_tree_clear(
 ) -> None:
     report = report_of(tmp_path, {"one.py": 10.0})
     code = GATE.check(report, FLOOR, {"one.py": "no behavior to assert"})
-    assert (code, capsys.readouterr().out) == (0, ALL_CLEAR.format(count=1, floor=FLOOR))
+    assert (code, capsys.readouterr().out) == (
+        0,
+        ALL_CLEAR.format(count=1, floor=FLOOR),
+    )
 
 
 def test_the_stale_exemption_is_named_and_the_live_one_is_not(
@@ -162,7 +192,9 @@ def test_the_stale_exemption_is_named_and_the_live_one_is_not(
 def test_a_file_under_the_floor_and_a_stale_exemption_are_both_reported(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code = GATE.check(report_of(tmp_path, {"cold.py": 10.0}), FLOOR, {"gone.py": "held"})
+    code = GATE.check(
+        report_of(tmp_path, {"cold.py": 10.0}), FLOOR, {"gone.py": "held"}
+    )
     expected = COLD_UNDER + GONE_STALE + SUMMARY.format(problems=2, floor=FLOOR)
     assert (code, capsys.readouterr().out) == (1, expected)
 
@@ -196,4 +228,7 @@ def test_the_default_exemption_table_is_the_module_s_own(
 ) -> None:
     monkeypatch.setattr(GATE, "EXEMPT", {"one.py": "no behavior to assert"})
     code = GATE.check(report_of(tmp_path, {"one.py": 1.0}), FLOOR)
-    assert (code, capsys.readouterr().out) == (0, ALL_CLEAR.format(count=1, floor=FLOOR))
+    assert (code, capsys.readouterr().out) == (
+        0,
+        ALL_CLEAR.format(count=1, floor=FLOOR),
+    )

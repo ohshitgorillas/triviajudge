@@ -18,7 +18,9 @@ from pathlib import Path
 import check_call_timeouts as GATE
 import pytest
 
-RUN_FAULT = "{path}:{line}: subprocess.run with no timeout=, so the call may wait forever"
+RUN_FAULT = (
+    "{path}:{line}: subprocess.run with no timeout=, so the call may wait forever"
+)
 
 REFUSAL_TAIL = (
     "\n1 problem(s). Every subprocess.run and urlopen states timeout=;\n"
@@ -27,23 +29,19 @@ REFUSAL_TAIL = (
 
 BOUNDED = "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=30)\n"
 
-BOUNDED_THEN_UNBOUNDED = (
-    "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=30)\nsubprocess.run(['git', 'log'])\n"
-)
+BOUNDED_THEN_UNBOUNDED = "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=30)\nsubprocess.run(['git', 'log'])\n"
 
-FOREVER_BY_NAME_THEN_UNBOUNDED = (
-    "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=None)\nsubprocess.run(['git', 'log'])\n"
-)
+FOREVER_BY_NAME_THEN_UNBOUNDED = "import subprocess\n\nsubprocess.run(['git', 'status'], timeout=None)\nsubprocess.run(['git', 'log'])\n"
 
-OTHER_RUN_THEN_UNBOUNDED = (
-    "import subprocess\n\nrunner = object()\nrunner.run(['git', 'status'])\nsubprocess.run(['git', 'log'])\n"
-)
+OTHER_RUN_THEN_UNBOUNDED = "import subprocess\n\nrunner = object()\nrunner.run(['git', 'status'])\nsubprocess.run(['git', 'log'])\n"
 
 SUBSCRIPT_CALL_THEN_UNBOUNDED = "import subprocess\n\nhandlers = {}\nhandlers['a']()\nsubprocess.run(['git', 'log'])\n"
 
 UNBOUNDED_RUN = "import subprocess\n\nsubprocess.run(['git', 'status'])\n"
 
-UNBOUNDED_URLOPEN = "import urllib.request\n\nurllib.request.urlopen('https://example.invalid')\n"
+UNBOUNDED_URLOPEN = (
+    "import urllib.request\n\nurllib.request.urlopen('https://example.invalid')\n"
+)
 
 BOUNDED_URLOPEN = "import urllib.request\n\nurllib.request.urlopen('https://example.invalid', timeout=5)\n"
 
@@ -59,7 +57,9 @@ UNBOUNDED_URLOPEN_THEN_BOUNDED = (
     "urllib.request.urlopen('https://example.invalid', timeout=5)\n"
 )
 
-BARE_URLOPEN = "from urllib.request import urlopen\n\nurlopen('https://example.invalid')\n"
+BARE_URLOPEN = (
+    "from urllib.request import urlopen\n\nurlopen('https://example.invalid')\n"
+)
 
 BOUNDED_BARE_URLOPEN = "from urllib.request import urlopen\n\nurlopen('https://example.invalid', timeout=5)\n"
 
@@ -79,17 +79,23 @@ def located(findings: list[str]) -> list[str]:
 # --- behavior 1: the finding names the call, its spelling and its line -------
 
 
-def test_the_unbounded_run_is_named_and_the_bounded_one_above_it_is_not(tmp_path: Path) -> None:
+def test_the_unbounded_run_is_named_and_the_bounded_one_above_it_is_not(
+    tmp_path: Path,
+) -> None:
     path = written(tmp_path, BOUNDED_THEN_UNBOUNDED)
     assert located(GATE.unbounded(path)) == [f"{path}:4"]
 
 
-def test_timeout_none_passes_and_only_the_call_stating_nothing_is_named(tmp_path: Path) -> None:
+def test_timeout_none_passes_and_only_the_call_stating_nothing_is_named(
+    tmp_path: Path,
+) -> None:
     path = written(tmp_path, FOREVER_BY_NAME_THEN_UNBOUNDED)
     assert located(GATE.unbounded(path)) == [f"{path}:4"]
 
 
-def test_a_run_on_something_other_than_subprocess_is_not_the_named_call(tmp_path: Path) -> None:
+def test_a_run_on_something_other_than_subprocess_is_not_the_named_call(
+    tmp_path: Path,
+) -> None:
     path = written(tmp_path, OTHER_RUN_THEN_UNBOUNDED)
     assert located(GATE.unbounded(path)) == [f"{path}:5"]
 
@@ -122,7 +128,9 @@ def test_the_unbounded_urlopen_is_named_and_the_bounded_one_above_it_is_not(
     ],
     ids=["bare and unbounded is named", "bare with timeout is not"],
 )
-def test_a_bare_urlopen_is_named_by_its_dotted_spelling(tmp_path: Path, source: str, lines: list[int]) -> None:
+def test_a_bare_urlopen_is_named_by_its_dotted_spelling(
+    tmp_path: Path, source: str, lines: list[int]
+) -> None:
     path = written(tmp_path, source)
     assert located(GATE.unbounded(path)) == [f"{path}:{line}" for line in lines]
 
@@ -139,18 +147,31 @@ def test_a_bare_urlopen_is_named_by_its_dotted_spelling(tmp_path: Path, source: 
     ids=["timeout stated passes", "nothing stated refuses at the call"],
 )
 def test_a_tree_that_bounds_every_wait_prints_the_clean_line(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str], source: str, code: int, lines: list[int]
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    source: str,
+    code: int,
+    lines: list[int],
 ) -> None:
     path = written(tmp_path, source)
     exit_code = GATE.check([path])
-    printed = [line for line in capsys.readouterr().out.splitlines() if line.startswith(f"{path}:")]
+    printed = [
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith(f"{path}:")
+    ]
     assert (exit_code, located(printed)) == (code, [f"{path}:{line}" for line in lines])
 
 
-def test_one_unbounded_call_prints_its_line_and_the_refusal(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_one_unbounded_call_prints_its_line_and_the_refusal(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     path = written(tmp_path, UNBOUNDED_RUN)
     code = GATE.check([path])
-    assert (code, capsys.readouterr().out) == (1, RUN_FAULT.format(path=path, line=3) + "\n" + REFUSAL_TAIL)
+    assert (code, capsys.readouterr().out) == (
+        1,
+        RUN_FAULT.format(path=path, line=3) + "\n" + REFUSAL_TAIL,
+    )
 
 
 # --- behavior 3: argv names the files, and its absence names the tree --------
@@ -158,7 +179,9 @@ def test_one_unbounded_call_prints_its_line_and_the_refusal(tmp_path: Path, caps
 
 def findings_under(root: Path, out: str) -> list[str]:
     """The ``path:line`` of every printed line naming a file under ``root``."""
-    return located([line for line in out.splitlines() if line.startswith(f"{root}{os.sep}")])
+    return located(
+        [line for line in out.splitlines() if line.startswith(f"{root}{os.sep}")]
+    )
 
 
 @pytest.mark.parametrize(
@@ -167,7 +190,10 @@ def findings_under(root: Path, out: str) -> list[str]:
         (BOUNDED_URLOPEN, 0, []),
         (UNBOUNDED_URLOPEN, 1, [3]),
     ],
-    ids=["timeout stated in the argv file passes", "nothing stated in the argv file is named there"],
+    ids=[
+        "timeout stated in the argv file passes",
+        "nothing stated in the argv file is named there",
+    ],
 )
 def test_main_names_the_call_in_the_file_argv_gave(
     tmp_path: Path,
@@ -199,7 +225,10 @@ def test_main_names_the_call_in_the_file_argv_gave(
         (BOUNDED, 0, []),
         (UNBOUNDED_RUN, 1, [3]),
     ],
-    ids=["timeout stated in the package module passes", "nothing stated in the package module is named there"],
+    ids=[
+        "timeout stated in the package module passes",
+        "nothing stated in the package module is named there",
+    ],
 )
 def test_main_with_no_argv_names_the_call_in_the_package(
     tmp_path: Path,

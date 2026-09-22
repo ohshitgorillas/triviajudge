@@ -49,7 +49,9 @@ ONE_PROBLEM_REMEDY = (
 )
 
 #: What the gate prints when one file is clean.
-ONE_CLEAN_FILE = "[ok] 1 package file(s) import the standard library and triviajudge only\n"
+ONE_CLEAN_FILE = (
+    "[ok] 1 package file(s) import the standard library and triviajudge only\n"
+)
 
 
 def written(tmp_path: Path, source: str) -> Path:
@@ -69,9 +71,18 @@ def refusal(path: Path, line: int, name: str) -> str:
 
 @pytest.mark.parametrize(
     "source",
-    [STDLIB_IMPORT, STDLIB_FROM, SUBMODULE_OF_THE_STDLIB, SELF_IMPORT, SELF_IMPORT_PLAIN, RELATIVE_IMPORT],
+    [
+        STDLIB_IMPORT,
+        STDLIB_FROM,
+        SUBMODULE_OF_THE_STDLIB,
+        SELF_IMPORT,
+        SELF_IMPORT_PLAIN,
+        RELATIVE_IMPORT,
+    ],
 )
-def test_an_import_of_the_standard_library_or_the_package_itself_is_no_fault(tmp_path: Path, source: str) -> None:
+def test_an_import_of_the_standard_library_or_the_package_itself_is_no_fault(
+    tmp_path: Path, source: str
+) -> None:
     assert GATE.foreign(written(tmp_path, source)) == []
 
 
@@ -83,22 +94,30 @@ def test_a_plain_third_party_import_is_refused_by_name_and_line(tmp_path: Path) 
     assert GATE.foreign(path) == [refusal(path, 1, "pytest")]
 
 
-def test_a_third_party_from_import_is_refused_by_the_module_it_reads_from(tmp_path: Path) -> None:
+def test_a_third_party_from_import_is_refused_by_the_module_it_reads_from(
+    tmp_path: Path,
+) -> None:
     path = written(tmp_path, THIRD_PARTY_FROM)
     assert GATE.foreign(path) == [refusal(path, 1, "pytest")]
 
 
-def test_a_dotted_third_party_import_is_refused_under_its_root_name(tmp_path: Path) -> None:
+def test_a_dotted_third_party_import_is_refused_under_its_root_name(
+    tmp_path: Path,
+) -> None:
     path = written(tmp_path, THIRD_PARTY_SUBMODULE)
     assert GATE.foreign(path) == [refusal(path, 1, "pytest")]
 
 
-def test_two_foreign_names_on_one_line_are_both_refused_on_that_line(tmp_path: Path) -> None:
+def test_two_foreign_names_on_one_line_are_both_refused_on_that_line(
+    tmp_path: Path,
+) -> None:
     path = written(tmp_path, TWO_FOREIGN_NAMES_ON_ONE_LINE)
     assert GATE.foreign(path) == [refusal(path, 1, "pytest"), refusal(path, 1, "yaml")]
 
 
-def test_an_import_inside_a_function_is_refused_on_the_line_it_sits_on(tmp_path: Path) -> None:
+def test_an_import_inside_a_function_is_refused_on_the_line_it_sits_on(
+    tmp_path: Path,
+) -> None:
     path = written(tmp_path, IMPORT_IN_A_FUNCTION)
     assert GATE.foreign(path) == [refusal(path, 2, "pytest")]
 
@@ -118,7 +137,10 @@ def test_one_third_party_import_prints_the_refusal_and_the_remedy(
 ) -> None:
     path = written(tmp_path, THIRD_PARTY_IMPORT)
     code = GATE.check([path])
-    assert (code, capsys.readouterr().out) == (1, refusal(path, 1, "pytest") + "\n" + ONE_PROBLEM_REMEDY)
+    assert (code, capsys.readouterr().out) == (
+        1,
+        refusal(path, 1, "pytest") + "\n" + ONE_PROBLEM_REMEDY,
+    )
 
 
 # --- behavior 4: argv names the files, and its absence names the package -----
@@ -130,7 +152,10 @@ def test_main_refuses_the_file_argv_names(
     path = written(tmp_path, THIRD_PARTY_FROM)
     monkeypatch.setattr(sys, "argv", ["check_stdlib_only.py", str(path)])
     code = GATE.main()
-    assert (code, capsys.readouterr().out) == (1, refusal(path, 1, "pytest") + "\n" + ONE_PROBLEM_REMEDY)
+    assert (code, capsys.readouterr().out) == (
+        1,
+        refusal(path, 1, "pytest") + "\n" + ONE_PROBLEM_REMEDY,
+    )
 
 
 def test_main_with_no_argv_refuses_a_package_file_it_found_itself(
@@ -142,4 +167,7 @@ def test_main_with_no_argv_refuses_a_package_file_it_found_itself(
     monkeypatch.setattr(GATE, "ROOT", tmp_path)
     monkeypatch.setattr(sys, "argv", ["check_stdlib_only.py"])
     code = GATE.main()
-    assert (code, capsys.readouterr().out) == (1, refusal(path, 1, "pytest") + "\n" + ONE_PROBLEM_REMEDY)
+    assert (code, capsys.readouterr().out) == (
+        1,
+        refusal(path, 1, "pytest") + "\n" + ONE_PROBLEM_REMEDY,
+    )

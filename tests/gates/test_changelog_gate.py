@@ -17,7 +17,9 @@ import pytest
 #: Line 1 titles the file and line 3 opens the section, so a section body starts on line 5.
 OPENING = "# Changelog\n\n## [Unreleased]\n\n"
 
-IN_SHAPE = "### Internal\n\n- **A gate holds the section's shape.** It makes no model call.\n"
+IN_SHAPE = (
+    "### Internal\n\n- **A gate holds the section's shape.** It makes no model call.\n"
+)
 
 #: The same body as ``IN_SHAPE`` with its bold lead struck, and nothing else changed.
 LEAD_STRUCK = IN_SHAPE.replace("**", "")
@@ -30,10 +32,16 @@ ADDRESSED = "### Internal\n\n- **A gate holds the shape.** It refuses your bulle
 OVER_THE_CAP = "### Internal\n\n- **A gate holds the shape.** " + ("word " * 80) + "\n"
 
 #: Five words of lead and 70 more, the cap exactly, behind a code span the cap must not price.
-BEHIND_A_SPAN = "### Internal\n\n- **A gate holds the shape.** `one two three four five` " + ("word " * 70) + "\n"
+BEHIND_A_SPAN = (
+    "### Internal\n\n- **A gate holds the shape.** `one two three four five` "
+    + ("word " * 70)
+    + "\n"
+)
 
 #: Both prose rules broken on one bullet, to pin the order the findings print in.
-UNLED_AND_ADDRESSED = "### Internal\n\n- A gate holds the shape, and refuses your bullet.\n"
+UNLED_AND_ADDRESSED = (
+    "### Internal\n\n- A gate holds the shape, and refuses your bullet.\n"
+)
 
 TWICE = "### Added\n\n- **One thing lands.** With a reason.\n\n### Added\n\n- **A second thing lands.** Also.\n"
 
@@ -62,7 +70,9 @@ def verdict(path: Path, capsys: pytest.CaptureFixture[str]) -> tuple[int, list[s
     """The gate's exit code over ``path``, with every finding it printed under that path."""
     code = GATE.check(path)
     printed = capsys.readouterr().out.splitlines()
-    return code, [line.removeprefix(f"{path}:") for line in printed if line.startswith(f"{path}:")]
+    return code, [
+        line.removeprefix(f"{path}:") for line in printed if line.startswith(f"{path}:")
+    ]
 
 
 def numbers(finding: str) -> list[int]:
@@ -70,7 +80,9 @@ def numbers(finding: str) -> list[int]:
     return [int(found) for found in re.findall(r"\d+", finding)]
 
 
-def flagged_lines(path: Path, capsys: pytest.CaptureFixture[str]) -> tuple[int, list[int]]:
+def flagged_lines(
+    path: Path, capsys: pytest.CaptureFixture[str]
+) -> tuple[int, list[int]]:
     """The gate's exit code over ``path``, with the line each of its findings opens on."""
     code, findings = verdict(path, capsys)
     return code, [numbers(finding)[0] for finding in findings]
@@ -152,8 +164,12 @@ def test_a_heading_naming_no_kind_names_its_line_and_the_kinds_it_could_name(
 def test_a_released_section_breaking_three_rules_draws_no_finding(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code, lines = flagged_lines(changelog(tmp_path / "unreleased", THREE_RULES_BROKEN), capsys)
-    shipped = flagged_lines(changelog(tmp_path / "released", IN_SHAPE, RELEASED), capsys)
+    code, lines = flagged_lines(
+        changelog(tmp_path / "unreleased", THREE_RULES_BROKEN), capsys
+    )
+    shipped = flagged_lines(
+        changelog(tmp_path / "released", IN_SHAPE, RELEASED), capsys
+    )
     assert ((code, sorted(set(lines))), shipped) == ((1, [5, 7]), (0, []))
 
 

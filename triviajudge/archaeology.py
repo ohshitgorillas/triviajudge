@@ -63,7 +63,14 @@ import sys
 import tokenize
 from pathlib import Path
 
-from triviajudge.core import NotARepositoryError, added_lines, git, git_diff, inner_session, root
+from triviajudge.core import (
+    NotARepositoryError,
+    added_lines,
+    git,
+    git_diff,
+    inner_session,
+    root,
+)
 
 PRAGMA = "history-ok:"
 
@@ -114,7 +121,10 @@ PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         "process archaeology",
     ),
     (
-        re.compile(rf"\b{_PAST}\b[^.;]{{0,60}}{_LENGTH}|{_LENGTH}[^.;]{{0,60}}\b{_PAST}\b", re.IGNORECASE),
+        re.compile(
+            rf"\b{_PAST}\b[^.;]{{0,60}}{_LENGTH}|{_LENGTH}[^.;]{{0,60}}\b{_PAST}\b",
+            re.IGNORECASE,
+        ),
         "measurement archaeology",
     ),
 )
@@ -141,7 +151,9 @@ def python_comment_lines(text: str) -> list[tuple[int, str]]:
     for tok in tokenize.generate_tokens(io.StringIO(text).readline):
         if tok.type == tokenize.COMMENT:
             out.append((tok.start[0], tok.string))
-        elif tok.type == tokenize.STRING and tok.string.lstrip("rbuRBU").startswith(('"""', "'''")):
+        elif tok.type == tokenize.STRING and tok.string.lstrip("rbuRBU").startswith(
+            ('"""', "'''")
+        ):
             for offset, line in enumerate(tok.string.splitlines()):
                 out.append((tok.start[0] + offset, line))
     return out
@@ -191,7 +203,11 @@ def line_complaints(path: Path, lineno: int, text: str) -> list[str]:
     if EXEMPT.search(text):
         return []
     found = [(pattern.search(text), label) for pattern, label in PATTERNS]
-    return [f'{path}:{lineno}: {label} ("{match.group(0)}")' for match, label in found if match]
+    return [
+        f'{path}:{lineno}: {label} ("{match.group(0)}")'
+        for match, label in found
+        if match
+    ]
 
 
 def check_file(path: Path, only: set[int] | None = None) -> list[str]:
@@ -289,9 +305,17 @@ def checked(names: list[str]) -> list[str]:
 
 def main() -> int:
     """Refuse a comment narrating the code's history instead of a constraint that holds now."""
-    parser = argparse.ArgumentParser(description=__doc__ or "", formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("files", nargs="*", help="source files to check whole (pre-commit)")
-    parser.add_argument("--post-tool-use", action="store_true", help="read a PostToolUse payload on stdin")
+    parser = argparse.ArgumentParser(
+        description=__doc__ or "", formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "files", nargs="*", help="source files to check whole (pre-commit)"
+    )
+    parser.add_argument(
+        "--post-tool-use",
+        action="store_true",
+        help="read a PostToolUse payload on stdin",
+    )
     args = parser.parse_args()
     if args.post_tool_use:
         return post_tool_use()

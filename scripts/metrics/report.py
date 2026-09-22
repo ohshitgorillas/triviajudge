@@ -15,7 +15,11 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get("TRIVIAJUDGE_METRICS_DIR", Path.home() / ".local/share/triviajudge-metrics"))
+DATA_DIR = Path(
+    os.environ.get(
+        "TRIVIAJUDGE_METRICS_DIR", Path.home() / ".local/share/triviajudge-metrics"
+    )
+)
 WINDOW = 30
 
 
@@ -60,18 +64,26 @@ def main() -> int:
     # Unique cloners cannot be added across days: the same person recurs, once
     # per day they cloned. The peak day is the honest single number.
     peak = max((number(row["unique_cloners"]) for row in traffic), default=0)
-    print(f"\npeak daily unique cloners: {peak} (days do not add up; the same person recurs)")
+    print(
+        f"\npeak daily unique cloners: {peak} (days do not add up; the same person recurs)"
+    )
     print(f"pypi downloads, mirrors excluded: {sum(pypi.values())}")
 
     dependents_rows = read("dependents.csv")
     if dependents_rows:
         latest = dependents_rows[-1]
-        print(f"dependent repositories: {latest['repositories']} (as of {latest['snapshot_date']})")
+        print(
+            f"dependent repositories: {latest['repositories']} (as of {latest['snapshot_date']})"
+        )
 
     releases = read("releases.csv")
     if releases:
         stamp = releases[-1]["snapshot_date"]
-        total = sum(number(row["download_count"]) for row in releases if row["snapshot_date"] == stamp)
+        total = sum(
+            number(row["download_count"])
+            for row in releases
+            if row["snapshot_date"] == stamp
+        )
         print(f"release asset downloads: {total} (cumulative, as of {stamp})")
 
     return 0

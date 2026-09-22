@@ -65,30 +65,42 @@ def test_a_sleep_on_a_real_clock_is_named_by_its_line() -> None:
 
 
 def test_a_zero_sleep_passes_and_only_the_waiting_sleep_below_it_is_named() -> None:
-    assert GATE.faults(NAME, YIELD_THEN_SLEEP) == [SLEEP_FAULT.format(name=NAME, line=4)]
+    assert GATE.faults(NAME, YIELD_THEN_SLEEP) == [
+        SLEEP_FAULT.format(name=NAME, line=4)
+    ]
 
 
 def test_a_sleep_on_a_name_is_named_by_its_line_as_a_literal_one_is() -> None:
     assert GATE.faults(NAME, ON_A_NAME) == [SLEEP_FAULT.format(name=NAME, line=4)]
 
 
-def test_a_sleep_on_a_seam_the_test_owns_passes_and_only_the_real_clock_is_named() -> None:
-    assert GATE.faults(NAME, ON_A_FAKE_THEN_SLEEP) == [SLEEP_FAULT.format(name=NAME, line=4)]
+def test_a_sleep_on_a_seam_the_test_owns_passes_and_only_the_real_clock_is_named() -> (
+    None
+):
+    assert GATE.faults(NAME, ON_A_FAKE_THEN_SLEEP) == [
+        SLEEP_FAULT.format(name=NAME, line=4)
+    ]
 
 
 # --- behavior 2: a deadline the code waits out ------------------------------
 
 
 def test_a_deadline_under_half_a_second_names_its_keyword_and_line() -> None:
-    assert GATE.faults(NAME, DEADLINE) == [KEYWORD_FAULT.format(name=NAME, line=1, arg="timeout")]
+    assert GATE.faults(NAME, DEADLINE) == [
+        KEYWORD_FAULT.format(name=NAME, line=1, arg="timeout")
+    ]
 
 
 def test_a_deadline_in_seconds_passes_and_only_the_fraction_below_it_is_named() -> None:
-    assert GATE.faults(NAME, CEILING_THEN_DEADLINE) == [KEYWORD_FAULT.format(name=NAME, line=2, arg="timeout")]
+    assert GATE.faults(NAME, CEILING_THEN_DEADLINE) == [
+        KEYWORD_FAULT.format(name=NAME, line=2, arg="timeout")
+    ]
 
 
 def test_a_suffixed_keyword_is_named_by_the_keyword_it_was_spelled_with() -> None:
-    assert GATE.faults(NAME, NAMED_DEADLINE) == [KEYWORD_FAULT.format(name=NAME, line=1, arg="read_timeout")]
+    assert GATE.faults(NAME, NAMED_DEADLINE) == [
+        KEYWORD_FAULT.format(name=NAME, line=1, arg="read_timeout")
+    ]
 
 
 def test_a_mapping_key_is_named_by_the_key_it_was_spelled_with() -> None:
@@ -98,15 +110,22 @@ def test_a_mapping_key_is_named_by_the_key_it_was_spelled_with() -> None:
 # --- behavior 3: what the run prints is the verdict over the files handed over
 
 
-def test_a_file_reading_no_clock_prints_the_clean_line(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_file_reading_no_clock_prints_the_clean_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     code = GATE.check([written(tmp_path, CLEAN)])
     assert (code, capsys.readouterr().out) == (0, CLEAN_LINE)
 
 
-def test_one_real_clock_prints_its_line_and_the_refusal(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_one_real_clock_prints_its_line_and_the_refusal(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     path = written(tmp_path, SLEEPS)
     code = GATE.check([path])
-    assert (code, capsys.readouterr().out) == (1, SLEEP_FAULT.format(name=path, line=3) + "\n" + REFUSAL_TAIL)
+    assert (code, capsys.readouterr().out) == (
+        1,
+        SLEEP_FAULT.format(name=path, line=3) + "\n" + REFUSAL_TAIL,
+    )
 
 
 # --- behavior 4: argv names the files ----------------------------------------
@@ -118,4 +137,7 @@ def test_main_names_the_clock_in_the_file_argv_gave(
     path = written(tmp_path, ON_A_NAME)
     monkeypatch.setattr(sys, "argv", ["check_test_clocks.py", path])
     code = GATE.main()
-    assert (code, capsys.readouterr().out) == (1, SLEEP_FAULT.format(name=path, line=4) + "\n" + REFUSAL_TAIL)
+    assert (code, capsys.readouterr().out) == (
+        1,
+        SLEEP_FAULT.format(name=path, line=4) + "\n" + REFUSAL_TAIL,
+    )

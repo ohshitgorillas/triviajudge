@@ -98,7 +98,9 @@ def covered(
     if not missing:
         return flags
     again = ask(missing, prompt, model, timeout, exhaustive=True)
-    still = [{"id": line.id, "reason": NO_VERDICT} for line in unanswered(missing, again)]
+    still = [
+        {"id": line.id, "reason": NO_VERDICT} for line in unanswered(missing, again)
+    ]
     return flags + flagging(again) + still
 
 
@@ -118,7 +120,9 @@ def asked(
 
 
 def spread(
-    one: Callable[[list[Line]], list[dict[str, str]]], groups: list[list[Line]], at_once: int
+    one: Callable[[list[Line]], list[dict[str, str]]],
+    groups: list[list[Line]],
+    at_once: int,
 ) -> list[list[dict[str, str]]]:
     """Every chunk's answer, run concurrently where there is more than one chunk and room for it."""
     if at_once > 1 and len(groups) > 1:
@@ -146,7 +150,9 @@ def verdicts(  # noqa: PLR0913 — every argument is one knob a caller sets inde
     groups = chunked(lines, batch)
     if not groups:
         return []
-    one = partial(asked, prompt=prompt, exhaustive=exhaustive, model=model, timeout=timeout)
+    one = partial(
+        asked, prompt=prompt, exhaustive=exhaustive, model=model, timeout=timeout
+    )
     answers = spread(one, groups, workers(parallel))
     return [flag for answer in answers for flag in answer]
 
@@ -164,7 +170,13 @@ def run(args: argparse.Namespace, gate: Gate) -> int:
     return screened(args, gate, lines, complaints, out)
 
 
-def screened(args: argparse.Namespace, gate: Gate, lines: list[Line], complaints: list[str], out: TextIO) -> int:
+def screened(
+    args: argparse.Namespace,
+    gate: Gate,
+    lines: list[Line],
+    complaints: list[str],
+    out: TextIO,
+) -> int:
     """Print what the pattern screen refused, then judge whatever it left."""
     for complaint in complaints:
         print(complaint, file=out)

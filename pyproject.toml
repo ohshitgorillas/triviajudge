@@ -1,6 +1,6 @@
 [project]
 name = "triviajudge"
-version = "0.4.0"
+version = "0.5.0"
 description = "Gates that hold added markdown and comments to what holds now, not what happened"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
@@ -80,7 +80,7 @@ filterwarnings = ["error"]
 xfail_strict = true
 
 [tool.ruff]
-line-length = 120
+line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
@@ -131,6 +131,11 @@ ignore = [
     # directory sits in" — and that is one voice across every module. D401 asks
     # for the imperative instead, which splits the voice rather than sharpens it.
     "D401",
+    # The formatter owns line length. It wraps what it can reach — code — at
+    # `line-length`, and it never reflows a comment or a docstring, so E501 on
+    # top of it polices prose alone and its only repair is rewrapping prose by
+    # hand. Width is a formatter setting here, not a lint.
+    "E501",
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -220,6 +225,7 @@ containers = ["triviajudge"]
 layers = [
     "sweep",
     "md_trivia | comment_trivia | changelog_trivia",
+    "changelog_prompts",
     "gate",
     "archaeology",
     "core",

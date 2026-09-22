@@ -46,12 +46,16 @@ WATCH_LINE = 400
 #: file shrinks — the gate insists on it. Do not raise one; that is the crawl
 #: this table exists to refuse.
 ALLOWANCE: dict[str, int] = {
-    # Two prompts and the wordlists they restate, both of which are the gate's
-    # own text: the entry question and the pre-release question are asked of the
-    # same bullets by the same screen, and neither reads without the rules above
-    # it. A split would put a prompt in one file and the rules it names in
-    # another.
-    "triviajudge/changelog_trivia.py": 465,
+    # One screen and the five modes that decide which bullets to run it over.
+    # The wordlists are that screen's rules spelled out, so they belong beside
+    # it: a bullet the screen refuses never reaches a judge at all. The two
+    # judge prompts live in triviajudge/changelog_prompts.py.
+    "triviajudge/changelog_trivia.py": 447,
+    # The module every other one imports: the Line record, the git helpers, the
+    # cache and the transport to the judge. Splitting it would put the record in
+    # one file and the readers of it in another, and every module here imports
+    # both halves.
+    "triviajudge/core.py": 444,
 }
 
 
@@ -107,9 +111,13 @@ def stale(allowance: dict[str, int]) -> list[str]:
         if not path.is_file():
             problems.append(f"ALLOWANCE[{name!r}]: names no file")
         elif not ratcheted(name):
-            problems.append(f"ALLOWANCE[{name!r}]: names a test path, which the ratchet does not govern")
+            problems.append(
+                f"ALLOWANCE[{name!r}]: names a test path, which the ratchet does not govern"
+            )
         elif measure(name) <= WATCH_LINE:
-            problems.append(f"ALLOWANCE[{name!r}]: file is back under the {WATCH_LINE}-line watch line — drop it")
+            problems.append(
+                f"ALLOWANCE[{name!r}]: file is back under the {WATCH_LINE}-line watch line — drop it"
+            )
     return problems
 
 
@@ -123,7 +131,11 @@ def check(names: list[str], allowance: dict[str, int] | None = None) -> int:
     problems = []
     for name in names:
         lines = measure(name)
-        problems += [fault for fault in (cap_fault(name, lines), ratchet_fault(name, lines, allowance)) if fault]
+        problems += [
+            fault
+            for fault in (cap_fault(name, lines), ratchet_fault(name, lines, allowance))
+            if fault
+        ]
     problems += stale(allowance)
 
     for problem in problems:

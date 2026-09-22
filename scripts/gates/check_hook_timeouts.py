@@ -112,9 +112,13 @@ def faults(root: Path, path: Path) -> list[str]:
     for event, gate, timeout in commands(table):
         reach = longest(root, gate)
         if reach is None:
-            found.append(f"{path}: {event} hook {gate} names no module under {PACKAGE}/")
+            found.append(
+                f"{path}: {event} hook {gate} names no module under {PACKAGE}/"
+            )
         elif timeout < reach[1]:
-            found.append(f"{path}: {event} hook {gate} has timeout {timeout:g}s, under {reach[0]} at {reach[1]:g}s")
+            found.append(
+                f"{path}: {event} hook {gate} has timeout {timeout:g}s, under {reach[0]} at {reach[1]:g}s"
+            )
     return found
 
 
@@ -124,8 +128,12 @@ def check(root: Path, path: Path | None = None) -> int:
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} hook(s) undercut a wait they can make. Raise the timeout to the constant,")
-        print("or lower the constant: a killed hook prints no line about the call that was waiting.")
+        print(
+            f"\n{len(problems)} hook(s) undercut a wait they can make. Raise the timeout to the constant,"
+        )
+        print(
+            "or lower the constant: a killed hook prints no line about the call that was waiting."
+        )
         return 1
     print("[ok] every hook timeout covers the longest wait its module can make")
     return 0

@@ -32,7 +32,9 @@ CLEAN = "fix(core): bound the git call\n\nAn unbounded call wedges the commit wi
 
 DATED = "fix(core): bound the git call\n\nThe call was bounded on 2026-07-04.\n"
 
-ITERATION = "fix(core): bound the git call\n\nThe first attempt raised instead of returning.\n"
+ITERATION = (
+    "fix(core): bound the git call\n\nThe first attempt raised instead of returning.\n"
+)
 
 DISCOVERY = "fix(core): bound the git call\n\nIt turned out the call never answers.\n"
 
@@ -41,7 +43,9 @@ PROCESS = "fix(core): bound the git call\n\nThe reviewer flagged the unbounded c
 TALLY = "fix(core): bound the git call\n\nThis is the fourth such call in the history of the module.\n"
 
 #: Narration in the subject as well as the body, to pin which line each finding names.
-TWO_LINES = "fix(core): drop the earlier draft\n\nThe reviewer flagged the unbounded call.\n"
+TWO_LINES = (
+    "fix(core): drop the earlier draft\n\nThe reviewer flagged the unbounded call.\n"
+)
 
 EXEMPTED = "fix(core): bound the git call\n\nThe first attempt is named here. history-ok: the bug needs its tense\n"
 
@@ -49,17 +53,23 @@ BARE = "fix(core): bound the git call\n\nThe first attempt is named here. histor
 
 COMMENTED = "fix(core): bound the git call\n\n# It turned out the call never answers.\n"
 
-TRAILERED = "fix(core): bound the git call\n\nSee: it turned out the call never answers\n"
-
-TRAILERED_PAST_BLANKS = "fix(core): bound the git call\n\nSee: it turned out the call never answers\n\n\n"
-
-#: A comment, a body line, a trailer and trailing blank lines in one message.
-MIXED = (
-    "fix(core): bound the git call\n\n# please enter the commit message\nThe call is bounded now.\nSee: a link\n\n\n"
+TRAILERED = (
+    "fix(core): bound the git call\n\nSee: it turned out the call never answers\n"
 )
 
+TRAILERED_PAST_BLANKS = (
+    "fix(core): bound the git call\n\nSee: it turned out the call never answers\n\n\n"
+)
+
+#: A comment, a body line, a trailer and trailing blank lines in one message.
+MIXED = "fix(core): bound the git call\n\n# please enter the commit message\nThe call is bounded now.\nSee: a link\n\n\n"
+
 #: What ``scanned_lines`` keeps of ``MIXED``: the comment, the trailer and the blanks are gone.
-MIXED_SCANNED = [(1, "fix(core): bound the git call"), (2, ""), (3, "The call is bounded now.")]
+MIXED_SCANNED = [
+    (1, "fix(core): bound the git call"),
+    (2, ""),
+    (3, "The call is bounded now."),
+]
 
 
 # --- behavior 1: each labelled class of narration is named on its own line ---

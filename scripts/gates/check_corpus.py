@@ -68,7 +68,9 @@ def unparsed(path: Path) -> list[str]:
 def texts(path: Path) -> dict[str, list[int]]:
     """Every text the file files, to the line numbers filing it."""
     found: dict[str, list[int]] = defaultdict(list)
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         if (text := record(line)) is not None:
             found[text].append(number)
     return found
@@ -86,13 +88,25 @@ def contradictions(directory: Path, trivia: str, clean: str) -> list[str]:
 
 def check(directory: Path) -> int:
     """Refuse a corpus that does not parse, or that files one text under both labels."""
-    problems = [problem for path in sorted(directory.glob("*.txt")) for problem in unparsed(path)]
-    problems += [problem for trivia, clean in PAIRS for problem in contradictions(directory, trivia, clean)]
+    problems = [
+        problem
+        for path in sorted(directory.glob("*.txt"))
+        for problem in unparsed(path)
+    ]
+    problems += [
+        problem
+        for trivia, clean in PAIRS
+        for problem in contradictions(directory, trivia, clean)
+    ]
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} problem(s) in {directory}. A dropped record shrinks the corpus in silence,")
-        print("and a text under both labels scores the judge wrong whichever verdict it gives.")
+        print(
+            f"\n{len(problems)} problem(s) in {directory}. A dropped record shrinks the corpus in silence,"
+        )
+        print(
+            "and a text under both labels scores the judge wrong whichever verdict it gives."
+        )
         return 1
     print(f"[ok] {directory} parses whole, and every text holds one verdict")
     return 0

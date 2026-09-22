@@ -76,7 +76,13 @@ def child_environment(tmp_path: Path) -> dict[str, str]:
 
 def git_run(root: Path, env: dict[str, str], *args: str) -> None:
     """Run one git command in the throwaway checkout, resolving git from that environment's PATH."""
-    subprocess.run(["/usr/bin/env", "git", *args], cwd=root, env=env, check=True, capture_output=True)
+    subprocess.run(
+        ["/usr/bin/env", "git", *args],
+        cwd=root,
+        env=env,
+        check=True,
+        capture_output=True,
+    )
 
 
 def write(root: Path, files: dict[str, str]) -> None:
@@ -87,7 +93,9 @@ def write(root: Path, files: dict[str, str]) -> None:
         path.write_text(text, encoding="utf-8")
 
 
-def committed_repo(tmp_path: Path, files: dict[str, str]) -> tuple[Path, dict[str, str]]:
+def committed_repo(
+    tmp_path: Path, files: dict[str, str]
+) -> tuple[Path, dict[str, str]]:
     """A throwaway checkout, a different work tree from the package's own, holding ``files`` in one commit."""
     if GIT is None:
         pytest.skip("git is not on PATH, so no checkout can be presented to the gate")
@@ -130,21 +138,37 @@ def gate_run(
 def test_a_dated_comment_the_working_tree_adds_is_refused(tmp_path: Path) -> None:
     root, env = committed_repo(tmp_path, {"src/sample.py": CLEAN_COMMENT})
     write(root, {"src/sample.py": CLEAN_COMMENT + DATED_COMMENT})
-    finished = gate_run("archaeology", ["--post-tool-use"], root, env, payload_for(root, "src/sample.py"))
+    finished = gate_run(
+        "archaeology",
+        ["--post-tool-use"],
+        root,
+        env,
+        payload_for(root, "src/sample.py"),
+    )
     assert finished.returncode == 2
 
 
 def test_a_dated_comment_in_an_untracked_file_is_refused(tmp_path: Path) -> None:
     root, env = committed_repo(tmp_path, {})
     write(root, {"src/fresh.py": DATED_COMMENT})
-    finished = gate_run("archaeology", ["--post-tool-use"], root, env, payload_for(root, "src/fresh.py"))
+    finished = gate_run(
+        "archaeology", ["--post-tool-use"], root, env, payload_for(root, "src/fresh.py")
+    )
     assert finished.returncode == 2
 
 
-def test_a_dated_comment_already_in_head_is_not_the_running_turns_to_answer_for(tmp_path: Path) -> None:
+def test_a_dated_comment_already_in_head_is_not_the_running_turns_to_answer_for(
+    tmp_path: Path,
+) -> None:
     root, env = committed_repo(tmp_path, {"src/sample.py": DATED_COMMENT})
     write(root, {"src/sample.py": DATED_COMMENT + CLEAN_COMMENT})
-    finished = gate_run("archaeology", ["--post-tool-use"], root, env, payload_for(root, "src/sample.py"))
+    finished = gate_run(
+        "archaeology",
+        ["--post-tool-use"],
+        root,
+        env,
+        payload_for(root, "src/sample.py"),
+    )
     assert finished.returncode == 0
 
 
@@ -155,12 +179,18 @@ def test_a_dated_comment_already_in_head_is_not_the_running_turns_to_answer_for(
 def test_a_file_outside_the_gates_reach_is_passed(tmp_path: Path, name: str) -> None:
     root, env = committed_repo(tmp_path, {})
     write(root, {name: DATED_COMMENT})
-    finished = gate_run("archaeology", ["--post-tool-use"], root, env, payload_for(root, name))
+    finished = gate_run(
+        "archaeology", ["--post-tool-use"], root, env, payload_for(root, name)
+    )
     assert finished.returncode == 0
 
 
-@pytest.mark.parametrize("stdin", ["", "not json at all", '{"hook_event_name": "PostToolUse"}'])
-def test_a_payload_naming_no_readable_file_is_passed(tmp_path: Path, stdin: str) -> None:
+@pytest.mark.parametrize(
+    "stdin", ["", "not json at all", '{"hook_event_name": "PostToolUse"}']
+)
+def test_a_payload_naming_no_readable_file_is_passed(
+    tmp_path: Path, stdin: str
+) -> None:
     root, env = committed_repo(tmp_path, {})
     finished = gate_run("archaeology", ["--post-tool-use"], root, env, stdin)
     assert finished.returncode == 0
@@ -168,14 +198,22 @@ def test_a_payload_naming_no_readable_file_is_passed(tmp_path: Path, stdin: str)
 
 def test_a_payload_naming_a_file_that_is_not_there_is_passed(tmp_path: Path) -> None:
     root, env = committed_repo(tmp_path, {})
-    finished = gate_run("archaeology", ["--post-tool-use"], root, env, payload_for(root, "src/absent.py"))
+    finished = gate_run(
+        "archaeology",
+        ["--post-tool-use"],
+        root,
+        env,
+        payload_for(root, "src/absent.py"),
+    )
     assert finished.returncode == 0
 
 
 # --- behavior 3: the judge's own session runs no hook mode -------------------
 
 
-def test_the_judge_sets_the_guard_in_the_environment_of_its_own_call(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_judge_sets_the_guard_in_the_environment_of_its_own_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     seen: dict[str, str] = {}
 
     class Finished:
@@ -202,15 +240,21 @@ def test_a_stop_gate_under_the_guard_does_nothing(tmp_path: Path, module: str) -
     assert (finished.returncode, finished.stderr) == (0, "")
 
 
-def test_the_archaeology_payload_mode_under_the_guard_does_nothing(tmp_path: Path) -> None:
+def test_the_archaeology_payload_mode_under_the_guard_does_nothing(
+    tmp_path: Path,
+) -> None:
     root, env = committed_repo(tmp_path, {})
     write(root, {"src/sample.py": DATED_COMMENT})
     stdin = payload_for(root, "src/sample.py")
-    finished = gate_run("archaeology", ["--post-tool-use"], root, {**env, core.INNER: "1"}, stdin)
+    finished = gate_run(
+        "archaeology", ["--post-tool-use"], root, {**env, core.INNER: "1"}, stdin
+    )
     assert finished.returncode == 0
 
 
-def test_without_the_guard_the_markdown_gate_reaches_for_a_judge_it_cannot_find(tmp_path: Path) -> None:
+def test_without_the_guard_the_markdown_gate_reaches_for_a_judge_it_cannot_find(
+    tmp_path: Path,
+) -> None:
     root, env = committed_repo(tmp_path, {})
     write(root, {"notes.md": DATED_MARKDOWN})
     finished = gate_run("md_trivia", ["--stop"], root, env, "{}")
@@ -220,7 +264,9 @@ def test_without_the_guard_the_markdown_gate_reaches_for_a_judge_it_cannot_find(
 # --- behavior 4: the markdown judge at Stop is the repository's switch --------
 
 
-def test_the_markdown_gate_makes_no_call_at_stop_when_the_repository_turns_it_off(tmp_path: Path) -> None:
+def test_the_markdown_gate_makes_no_call_at_stop_when_the_repository_turns_it_off(
+    tmp_path: Path,
+) -> None:
     root, env = committed_repo(tmp_path, {SETTINGS_FILE: "md_judge_at_stop = false\n"})
     write(root, {"notes.md": DATED_MARKDOWN})
     finished = gate_run("md_trivia", ["--stop"], root, env, "{}")

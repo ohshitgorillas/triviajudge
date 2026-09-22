@@ -39,7 +39,11 @@ TIMEOUT = "timeout"
 
 def on_subprocess(func: ast.expr) -> bool:
     """Whether the call spells its own module, which is what tells ``subprocess.run`` from any other ``run``."""
-    return isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == "subprocess"
+    return (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "subprocess"
+    )
 
 
 def called(node: ast.Call) -> str | None:
@@ -65,7 +69,9 @@ def unbounded(path: Path) -> list[str]:
             continue
         name = called(node)
         if name and not any(keyword.arg == TIMEOUT for keyword in node.keywords):
-            found.append(f"{path}:{node.lineno}: {name} with no {TIMEOUT}=, so the call may wait forever")
+            found.append(
+                f"{path}:{node.lineno}: {name} with no {TIMEOUT}=, so the call may wait forever"
+            )
     return found
 
 
@@ -75,7 +81,9 @@ def check(paths: list[Path]) -> int:
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} problem(s). Every subprocess.run and urlopen states timeout=;")
+        print(
+            f"\n{len(problems)} problem(s). Every subprocess.run and urlopen states timeout=;"
+        )
         print("timeout=None is how a call says out loud that it may wait forever.")
         return 1
     print(f"[ok] {len(paths)} file(s) bound every call that waits")
@@ -87,7 +95,10 @@ def main() -> int:
     args = [Path(arg) for arg in sys.argv[1:]]
     if args:
         return check(args)
-    return check(sorted((ROOT / "triviajudge").glob("*.py")) + sorted((ROOT / "scripts" / "gates").glob("*.py")))
+    return check(
+        sorted((ROOT / "triviajudge").glob("*.py"))
+        + sorted((ROOT / "scripts" / "gates").glob("*.py"))
+    )
 
 
 if __name__ == "__main__":

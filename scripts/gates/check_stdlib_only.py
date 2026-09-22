@@ -41,7 +41,9 @@ def roots(tree: ast.AST) -> list[tuple[int, str]]:
     found: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            found.extend((node.lineno, alias.name.split(".")[0]) for alias in node.names)
+            found.extend(
+                (node.lineno, alias.name.split(".")[0]) for alias in node.names
+            )
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             found.append((node.lineno, node.module.split(".")[0]))
     return found
@@ -63,10 +65,16 @@ def check(paths: list[Path]) -> int:
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} problem(s). The package is the standard library alone, which is what")
-        print("keeps `dependencies` in pyproject.toml empty. A third-party import belongs in the dev extra.")
+        print(
+            f"\n{len(problems)} problem(s). The package is the standard library alone, which is what"
+        )
+        print(
+            "keeps `dependencies` in pyproject.toml empty. A third-party import belongs in the dev extra."
+        )
         return 1
-    print(f"[ok] {len(paths)} package file(s) import the standard library and {PACKAGE} only")
+    print(
+        f"[ok] {len(paths)} package file(s) import the standard library and {PACKAGE} only"
+    )
     return 0
 
 

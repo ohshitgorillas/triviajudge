@@ -92,7 +92,9 @@ def ids_of(diff: str) -> list[str]:
         (A_REMOVAL_BESIDE_AN_ADDITION, ["doc.md:3"]),
     ],
 )
-def test_the_added_lines_of_a_diff_carry_their_new_file_numbers(diff: str, ids: list[str]) -> None:
+def test_the_added_lines_of_a_diff_carry_their_new_file_numbers(
+    diff: str, ids: list[str]
+) -> None:
     assert ids_of(diff) == ids
 
 
@@ -106,7 +108,9 @@ def test_the_same_text_at_two_addresses_has_one_digest() -> None:
 
 
 def test_different_text_has_a_different_digest() -> None:
-    assert core.digest(core.Line("a.md", 1, "one")) != core.digest(core.Line("a.md", 1, "two"))
+    assert core.digest(core.Line("a.md", 1, "one")) != core.digest(
+        core.Line("a.md", 1, "two")
+    )
 
 
 # --- behavior 3: an unreadable cache reads as empty, never as an error --------
@@ -137,13 +141,17 @@ def test_only_the_lines_the_judge_passed_reach_the_cache(tmp_path: Path) -> None
     cache = tmp_path / "nested" / "clean.json"
     passed = core.Line("doc.md", 1, "the rate the panel asks for")
     flagged = core.Line("doc.md", 2, "approved 2026-07-04")
-    core.remember_clean([passed, flagged], [{"id": "doc.md:2", "reason": "dated event"}], cache)
+    core.remember_clean(
+        [passed, flagged], [{"id": "doc.md:2", "reason": "dated event"}], cache
+    )
     assert json.loads(cache.read_text(encoding="utf-8")) == [core.digest(passed)]
 
 
 def test_the_cache_keeps_only_the_newest_entries(tmp_path: Path) -> None:
     cache = tmp_path / "clean.json"
-    cache.write_text(json.dumps([f"old-{n}" for n in range(core.CACHE_CAP)]) + "\n", encoding="utf-8")
+    cache.write_text(
+        json.dumps([f"old-{n}" for n in range(core.CACHE_CAP)]) + "\n", encoding="utf-8"
+    )
     core.remember_clean([core.Line("doc.md", 1, "a line the judge passed")], [], cache)
     assert len(json.loads(cache.read_text(encoding="utf-8"))) == core.CACHE_CAP
 
@@ -153,7 +161,9 @@ def test_the_cache_keeps_only_the_newest_entries(tmp_path: Path) -> None:
 
 def test_the_root_is_the_work_tree_the_directory_sits_in(tmp_path: Path) -> None:
     git = os.environ.get("GIT", "git")
-    subprocess.run([git, "init", "-q", str(tmp_path / "repo")], check=True, capture_output=True)
+    subprocess.run(
+        [git, "init", "-q", str(tmp_path / "repo")], check=True, capture_output=True
+    )
     inside = tmp_path / "repo" / "deep" / "deeper"
     inside.mkdir(parents=True)
     core.root.cache_clear()
@@ -166,7 +176,9 @@ def test_the_root_is_the_work_tree_the_directory_sits_in(tmp_path: Path) -> None
         core.root.cache_clear()
 
 
-def test_a_directory_in_no_work_tree_is_refused_rather_than_inferred(tmp_path: Path) -> None:
+def test_a_directory_in_no_work_tree_is_refused_rather_than_inferred(
+    tmp_path: Path,
+) -> None:
     outside = tmp_path / "bare"
     outside.mkdir()
     core.root.cache_clear()
@@ -185,8 +197,12 @@ def test_a_directory_in_no_work_tree_is_refused_rather_than_inferred(tmp_path: P
 
 def test_a_record_carries_the_path_the_number_and_the_text(tmp_path: Path) -> None:
     records = tmp_path / "lines.tsv"
-    records.write_text("docs/plan.md:12\tthe panel holds the staged rate\n", encoding="utf-8")
-    assert core.from_records(records) == [core.Line("docs/plan.md", 12, "the panel holds the staged rate")]
+    records.write_text(
+        "docs/plan.md:12\tthe panel holds the staged rate\n", encoding="utf-8"
+    )
+    assert core.from_records(records) == [
+        core.Line("docs/plan.md", 12, "the panel holds the staged rate")
+    ]
 
 
 # --- behavior 8: a call that does not answer is a refusal, never a pass ------
@@ -206,7 +222,9 @@ def refusing_run(**answer: object) -> object:
     return run
 
 
-def test_a_call_that_never_answers_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_call_that_never_answers_is_a_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def expire(*_args: object, **_kwargs: object) -> None:
         raise subprocess.TimeoutExpired(cmd="claude", timeout=600)
 
@@ -217,10 +235,15 @@ def test_a_call_that_never_answers_is_a_refusal(monkeypatch: pytest.MonkeyPatch)
         core.ask([core.Line("doc.md", 1, "a line")], "prompt", timeout=600)
 
 
-def test_a_call_that_exits_nonzero_is_a_refusal_naming_what_it_said(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_call_that_exits_nonzero_is_a_refusal_naming_what_it_said(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.core.binary", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr("triviajudge.core.root", Path.cwd)
-    monkeypatch.setattr("triviajudge.core.subprocess.run", refusing_run(returncode=1, stderr="no credit"))
+    monkeypatch.setattr(
+        "triviajudge.core.subprocess.run",
+        refusing_run(returncode=1, stderr="no credit"),
+    )
     with pytest.raises(RuntimeError, match="no credit"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
@@ -229,8 +252,14 @@ def test_a_call_that_exits_nonzero_is_a_refusal_naming_what_it_said(monkeypatch:
 
 
 def test_a_fenced_answer_is_read_as_the_flag_list_it_wraps() -> None:
-    envelope = json.dumps({"result": '```json\n[{"id": "doc.md:1", "reason": "narrates a decision"}]\n```'})
-    assert core.parsed(envelope) == [{"id": "doc.md:1", "reason": "narrates a decision"}]
+    envelope = json.dumps(
+        {
+            "result": '```json\n[{"id": "doc.md:1", "reason": "narrates a decision"}]\n```'
+        }
+    )
+    assert core.parsed(envelope) == [
+        {"id": "doc.md:1", "reason": "narrates a decision"}
+    ]
 
 
 def test_an_error_envelope_is_a_refusal() -> None:
@@ -246,12 +275,20 @@ def test_an_answer_that_is_not_a_list_is_a_refusal() -> None:
 # --- behavior 10: a flag naming no line is still printed -----------------------
 
 
-def test_a_flag_naming_no_line_is_printed_against_its_id(capsys: pytest.CaptureFixture[str]) -> None:
-    core.report([core.Line("doc.md", 1, "a line")], [{"id": "gone.md:9", "reason": "narrates"}], sys.stdout)
+def test_a_flag_naming_no_line_is_printed_against_its_id(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    core.report(
+        [core.Line("doc.md", 1, "a line")],
+        [{"id": "gone.md:9", "reason": "narrates"}],
+        sys.stdout,
+    )
     assert "?:gone.md:9: narrates" in capsys.readouterr().out
 
 
-def test_nothing_flagged_says_how_many_lines_hold_now(capsys: pytest.CaptureFixture[str]) -> None:
+def test_nothing_flagged_says_how_many_lines_hold_now(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     core.report([core.Line("doc.md", 1, "a line")], [], sys.stdout)
     assert "[ok] 1 line(s)" in capsys.readouterr().out
 
@@ -259,7 +296,10 @@ def test_nothing_flagged_says_how_many_lines_hold_now(capsys: pytest.CaptureFixt
 # --- behavior 11: a Stop payload that is not JSON is not a second run ---------
 
 
-@pytest.mark.parametrize(("stdin", "already"), [("", False), ("{}", False), ('{"stop_hook_active": true}', True)])
+@pytest.mark.parametrize(
+    ("stdin", "already"),
+    [("", False), ("{}", False), ('{"stop_hook_active": true}', True)],
+)
 def test_the_stop_payload_decides_whether_this_hook_already_blocked(
     stdin: str, already: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -272,7 +312,11 @@ def test_the_stop_payload_decides_whether_this_hook_already_blocked(
 
 def local_settings(**over: object) -> object:
     """A settings stand-in on the ``local`` backend, overridable per field."""
-    fields: dict[str, object] = {"backend": "local", "base_url": "http://127.0.0.1:8080", "api_key_env": ""}
+    fields: dict[str, object] = {
+        "backend": "local",
+        "base_url": "http://127.0.0.1:8080",
+        "api_key_env": "",
+    }
     fields.update(over)
     return lambda: Settings(**fields)  # type: ignore[arg-type]  # — the case names its own fields
 
@@ -316,11 +360,17 @@ def answering_post(body: str, sent: dict[str, object] | None = None) -> object:
 ONE_FLAG = '[{"id": "doc.md:1", "reason": "narrates a decision"}]'
 
 
-def local_call(monkeypatch: pytest.MonkeyPatch, body: str, sent: dict[str, object]) -> list[dict[str, str]]:
+def local_call(
+    monkeypatch: pytest.MonkeyPatch, body: str, sent: dict[str, object]
+) -> list[dict[str, str]]:
     """One ``ask`` over the local backend, keeping what the request carried in ``sent``."""
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
-    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post(body, sent))
-    return core.ask([core.Line("doc.md", 1, "a line")], "prompt", model="qwen3-4b", timeout=30)
+    monkeypatch.setattr(
+        "triviajudge.core.urllib.request.urlopen", answering_post(body, sent)
+    )
+    return core.ask(
+        [core.Line("doc.md", 1, "a line")], "prompt", model="qwen3-4b", timeout=30
+    )
 
 
 def sent_payload(sent: dict[str, object]) -> dict[str, object]:
@@ -328,68 +378,99 @@ def sent_payload(sent: dict[str, object]) -> dict[str, object]:
     return cast("dict[str, object]", sent["payload"])
 
 
-def test_the_local_backend_reads_the_array_back(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert local_call(monkeypatch, ONE_FLAG, {}) == [{"id": "doc.md:1", "reason": "narrates a decision"}]
+def test_the_local_backend_reads_the_array_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert local_call(monkeypatch, ONE_FLAG, {}) == [
+        {"id": "doc.md:1", "reason": "narrates a decision"}
+    ]
 
 
-def test_the_local_backend_posts_to_the_chat_completions_path(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_local_backend_posts_to_the_chat_completions_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     sent: dict[str, object] = {}
     local_call(monkeypatch, ONE_FLAG, sent)
     assert sent["url"] == "http://127.0.0.1:8080/v1/chat/completions"
 
 
-def test_the_timeout_the_caller_asked_for_reaches_the_call(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_timeout_the_caller_asked_for_reaches_the_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     sent: dict[str, object] = {}
     local_call(monkeypatch, ONE_FLAG, sent)
     assert sent["timeout"] == 30
 
 
-def test_the_payload_names_the_model_the_caller_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_payload_names_the_model_the_caller_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     sent: dict[str, object] = {}
     local_call(monkeypatch, ONE_FLAG, sent)
     assert sent_payload(sent)["model"] == "qwen3-4b"
 
 
-def test_the_payload_asks_the_server_for_a_schema_shaped_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_payload_asks_the_server_for_a_schema_shaped_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     sent: dict[str, object] = {}
     local_call(monkeypatch, ONE_FLAG, sent)
     assert sent_payload(sent)["response_format"]["type"] == "json_schema"  # type: ignore[index]  # — a JSON envelope
 
 
-def test_the_payload_carries_the_lines_to_judge(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_payload_carries_the_lines_to_judge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     sent: dict[str, object] = {}
     local_call(monkeypatch, ONE_FLAG, sent)
     assert "doc.md:1\ta line" in sent_payload(sent)["messages"][0]["content"]  # type: ignore[index]  # — as above
 
 
-def test_the_table_names_where_under_base_url_the_question_is_posted(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_table_names_where_under_base_url_the_question_is_posted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     sent: dict[str, object] = {}
     monkeypatch.setattr(
         "triviajudge.core.settings",
-        local_settings(base_url="https://example.invalid/v1beta/openai", chat_path="chat/completions"),
+        local_settings(
+            base_url="https://example.invalid/v1beta/openai",
+            chat_path="chat/completions",
+        ),
     )
-    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post("[]", sent))
+    monkeypatch.setattr(
+        "triviajudge.core.urllib.request.urlopen", answering_post("[]", sent)
+    )
     core.ask([core.Line("doc.md", 1, "a line")], "prompt")
     assert sent["url"] == "https://example.invalid/v1beta/openai/chat/completions"
 
 
-def test_a_fenced_local_answer_is_read_as_the_flag_list_it_wraps(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_fenced_local_answer_is_read_as_the_flag_list_it_wraps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
     monkeypatch.setattr(
         "triviajudge.core.urllib.request.urlopen",
         answering_post('```json\n[{"id": "doc.md:1", "reason": "narrates"}]\n```'),
     )
-    assert core.ask([core.Line("doc.md", 1, "a line")], "prompt") == [{"id": "doc.md:1", "reason": "narrates"}]
+    assert core.ask([core.Line("doc.md", 1, "a line")], "prompt") == [
+        {"id": "doc.md:1", "reason": "narrates"}
+    ]
 
 
-def test_a_local_answer_that_is_not_a_list_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_local_answer_that_is_not_a_list_is_a_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
-    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post('{"id": "doc.md:1"}'))
+    monkeypatch.setattr(
+        "triviajudge.core.urllib.request.urlopen", answering_post('{"id": "doc.md:1"}')
+    )
     with pytest.raises(TypeError, match="dict"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
-def test_a_non_200_is_a_refusal_naming_the_code(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_non_200_is_a_refusal_naming_the_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def refuse(*_args: object, **_kwargs: object) -> None:
         raise urllib.error.HTTPError(
             "http://127.0.0.1:8080/v1/chat/completions",
@@ -415,46 +496,70 @@ def test_a_dead_socket_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
-def test_an_envelope_carrying_an_error_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_envelope_carrying_an_error_is_a_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
     monkeypatch.setattr(
-        "triviajudge.core.urllib.request.urlopen", raw_post(json.dumps({"error": {"message": "context length"}}))
+        "triviajudge.core.urllib.request.urlopen",
+        raw_post(json.dumps({"error": {"message": "context length"}})),
     )
     with pytest.raises(RuntimeError, match="context length"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
-def test_an_envelope_carrying_no_choices_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_envelope_carrying_no_choices_is_a_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.core.settings", local_settings())
-    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", raw_post(json.dumps({})))
+    monkeypatch.setattr(
+        "triviajudge.core.urllib.request.urlopen", raw_post(json.dumps({}))
+    )
     with pytest.raises(RuntimeError, match="choices"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
-def test_the_token_variable_is_sent_as_a_bearer_header(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_token_variable_is_sent_as_a_bearer_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     sent: dict[str, object] = {}
     credential = "sk-local"
     monkeypatch.setenv("JUDGE_TOKEN", credential)
-    monkeypatch.setattr("triviajudge.core.settings", local_settings(api_key_env="JUDGE_TOKEN"))
-    monkeypatch.setattr("triviajudge.core.urllib.request.urlopen", answering_post("[]", sent))
+    monkeypatch.setattr(
+        "triviajudge.core.settings", local_settings(api_key_env="JUDGE_TOKEN")
+    )
+    monkeypatch.setattr(
+        "triviajudge.core.urllib.request.urlopen", answering_post("[]", sent)
+    )
     core.ask([core.Line("doc.md", 1, "a line")], "prompt")
-    assert cast("dict[str, str]", sent["headers"])["Authorization"] == f"Bearer {credential}"
+    assert (
+        cast("dict[str, str]", sent["headers"])["Authorization"]
+        == f"Bearer {credential}"
+    )
 
 
-def test_a_token_variable_that_is_unset_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_token_variable_that_is_unset_is_a_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("JUDGE_TOKEN", raising=False)
-    monkeypatch.setattr("triviajudge.core.settings", local_settings(api_key_env="JUDGE_TOKEN"))
+    monkeypatch.setattr(
+        "triviajudge.core.settings", local_settings(api_key_env="JUDGE_TOKEN")
+    )
     with pytest.raises(RuntimeError, match="JUDGE_TOKEN"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
-def test_the_local_backend_without_a_base_url_is_a_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_local_backend_without_a_base_url_is_a_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.core.settings", local_settings(base_url=""))
     with pytest.raises(RuntimeError, match="base_url"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")
 
 
-def test_an_unknown_backend_is_a_refusal_rather_than_the_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_unknown_backend_is_a_refusal_rather_than_the_cli(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.core.settings", lambda: Settings(backend="ollama"))
     with pytest.raises(RuntimeError, match="ollama"):
         core.ask([core.Line("doc.md", 1, "a line")], "prompt")

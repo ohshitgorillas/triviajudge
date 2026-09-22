@@ -52,7 +52,9 @@ BULLET = re.compile(r"^- ")
 INDENTED = re.compile(r"^[ \t]+\S")
 SPAN = re.compile(r"`[^`]*`")
 EMPHASIS = re.compile(r"[*_]")
-PERSON = re.compile(r"\b(?:you|your|yours|yourself|you're|you've|you'd|you'll)\b", re.IGNORECASE)
+PERSON = re.compile(
+    r"\b(?:you|your|yours|yourself|you're|you've|you'd|you'll)\b", re.IGNORECASE
+)
 
 #: The lead a bullet opens with: a bold clause, immediately.
 LEAD = "- **"
@@ -64,7 +66,11 @@ def body(lines: list[str]) -> list[tuple[int, str]]:
     if not opens:
         return []
     first = opens[0] + 1
-    closes = [index for index, line in enumerate(lines) if index > opens[0] and CLOSES.match(line)]
+    closes = [
+        index
+        for index, line in enumerate(lines)
+        if index > opens[0] and CLOSES.match(line)
+    ]
     last = closes[0] if closes else len(lines)
     return [(number + 1, lines[number]) for number in range(first, last)]
 
@@ -91,7 +97,9 @@ def length(text: str) -> int:
     comma, and pricing it as a word taxes the punctuation rather than the prose.
     """
     bare = EMPHASIS.sub("", SPAN.sub(" ", text))
-    return len([token for token in bare.split() if any(char.isalnum() for char in token)])
+    return len(
+        [token for token in bare.split() if any(char.isalnum() for char in token)]
+    )
 
 
 def bullet_faults(number: int, lines: list[str]) -> list[str]:
@@ -101,15 +109,23 @@ def bullet_faults(number: int, lines: list[str]) -> list[str]:
     if (count := length(text)) > CAP:
         found.append(f"line {number}: {count} words, and {CAP} is the cap")
     if not text.startswith(LEAD):
-        found.append(f"line {number}: no bold lead clause, which a bullet opens with as `{LEAD}…**`")
+        found.append(
+            f"line {number}: no bold lead clause, which a bullet opens with as `{LEAD}…**`"
+        )
     if reader := PERSON.search(text):
-        found.append(f"line {number}: {reader.group(0)!r} addresses the reader — state the change impersonally")
+        found.append(
+            f"line {number}: {reader.group(0)!r} addresses the reader — state the change impersonally"
+        )
     return found
 
 
 def kinds(section: list[tuple[int, str]]) -> list[tuple[int, str]]:
     """(line number, kind) for every ``###`` heading the section carries."""
-    return [(number, match.group(1)) for number, line in section if (match := KIND.match(line))]
+    return [
+        (number, match.group(1))
+        for number, line in section
+        if (match := KIND.match(line))
+    ]
 
 
 def repeated(found: list[tuple[int, str]]) -> list[str]:
@@ -118,7 +134,9 @@ def repeated(found: list[tuple[int, str]]) -> list[str]:
     faults = []
     for number, kind in found:
         if kind in above:
-            faults.append(f"line {number}: '### {kind}' repeats line {above[kind]} — one heading per kind, merged")
+            faults.append(
+                f"line {number}: '### {kind}' repeats line {above[kind]} — one heading per kind, merged"
+            )
         above.setdefault(kind, number)
     return faults
 
@@ -129,11 +147,15 @@ def misordered(found: list[tuple[int, str]]) -> list[str]:
     rank = -1
     for number, kind in found:
         if kind not in KINDS:
-            faults.append(f"line {number}: '### {kind}' names no kind — one of {list(KINDS)}")
+            faults.append(
+                f"line {number}: '### {kind}' names no kind — one of {list(KINDS)}"
+            )
             continue
         place = KINDS.index(kind)
         if place < rank:
-            faults.append(f"line {number}: '### {kind}' sits out of order — {list(KINDS)}")
+            faults.append(
+                f"line {number}: '### {kind}' sits out of order — {list(KINDS)}"
+            )
         rank = max(rank, place)
     return faults
 

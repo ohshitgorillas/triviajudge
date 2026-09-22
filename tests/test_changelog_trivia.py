@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 from test_hook_modes import child_environment, committed_repo, gate_run, git_run, write
 
+from triviajudge import changelog_prompts as PROMPTS
 from triviajudge import changelog_trivia as GATE
 from triviajudge import core
 
@@ -62,7 +63,11 @@ NO_BOLD_LEAD = "- the lane returns the staged model.\n"
 SECOND_PERSON = "- **your lane returns the staged model.**\n"
 MARKETING = "- **the lane simply returns the staged model.**\n"
 BY_NEGATION = "- **the lane returns the staged model, the panel untouched.**\n"
-OVER_THE_CAP = "- **the lane returns the staged model.** " + " ".join(["lane"] * (GATE.WORD_CAP + 1)) + "\n"
+OVER_THE_CAP = (
+    "- **the lane returns the staged model.** "
+    + " ".join(["lane"] * (GATE.WORD_CAP + 1))
+    + "\n"
+)
 CLEAN_ENTRY = "- **the lane returns the staged model.**\n"
 CODE_SPAN_ENTRY = "- **lane rate** `the code span here`"
 
@@ -71,9 +76,7 @@ STAGED_REFUSED = "## [Unreleased]\n\n### Fixed\n\n" + NO_BOLD_LEAD
 
 ALREADY_RAN = '{"stop_hook_active": true}'
 
-ONE_ADDED_BULLET = (
-    f"diff --git a/CHANGELOG.md b/CHANGELOG.md\n--- a/CHANGELOG.md\n+++ b/CHANGELOG.md\n@@ -0,0 +5 @@\n+{CLEAN_ENTRY}"
-)
+ONE_ADDED_BULLET = f"diff --git a/CHANGELOG.md b/CHANGELOG.md\n--- a/CHANGELOG.md\n+++ b/CHANGELOG.md\n@@ -0,0 +5 @@\n+{CLEAN_ENTRY}"
 
 
 def markers_in(text: str) -> tuple[str, ...]:
@@ -83,7 +86,13 @@ def markers_in(text: str) -> tuple[str, ...]:
 
 def namespace(**overrides: object) -> argparse.Namespace:
     """The arguments a gate run carries, with every mode the flags leave alone switched off."""
-    args: dict[str, object] = {"stop": False, "lines": None, "head": False, "files": [], "release": False}
+    args: dict[str, object] = {
+        "stop": False,
+        "lines": None,
+        "head": False,
+        "files": [],
+        "release": False,
+    }
     return argparse.Namespace(**{**args, **overrides})
 
 
@@ -93,7 +102,12 @@ def first_block(text: str) -> list[str]:
 
 
 def staged_run(
-    tmp_path: Path, text: str, flags: list[str], stdin: str = "{}", *, stage: bool = True
+    tmp_path: Path,
+    text: str,
+    flags: list[str],
+    stdin: str = "{}",
+    *,
+    stage: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     """Run the gate over a throwaway checkout carrying ``text`` as its changelog."""
     root, env = committed_repo(tmp_path, {})
@@ -107,11 +121,17 @@ def staged_run(
 
 
 def test_only_the_bullets_under_the_unreleased_heading_are_read() -> None:
-    assert [number for number, _kind, _block in GATE.bullets(GATE.section(SAMPLE))] == [7, 11]
+    assert [number for number, _kind, _block in GATE.bullets(GATE.section(SAMPLE))] == [
+        7,
+        11,
+    ]
 
 
 def test_each_bullet_carries_the_kind_it_sits_under() -> None:
-    assert [kind for _number, kind, _block in GATE.bullets(GATE.section(SAMPLE))] == ["Added", "Fixed"]
+    assert [kind for _number, kind, _block in GATE.bullets(GATE.section(SAMPLE))] == [
+        "Added",
+        "Fixed",
+    ]
 
 
 def test_a_continuation_line_arrives_joined_to_the_bullet_it_belongs_to() -> None:
@@ -153,7 +173,9 @@ def test_a_bullet_breaking_no_rule_draws_none() -> None:
         ([(5, "Added"), (9, "Fixed")], 0),
     ],
 )
-def test_the_heading_rules_answer_for_the_section_they_read(found: list[tuple[int, str]], count: int) -> None:
+def test_the_heading_rules_answer_for_the_section_they_read(
+    found: list[tuple[int, str]], count: int
+) -> None:
     assert len(GATE.heading_faults(found)) == count
 
 
@@ -166,7 +188,9 @@ def test_a_bullet_the_change_leaves_alone_does_not_reach_the_judge() -> None:
 
 
 def test_a_bullet_the_screen_refuses_is_answered_for_and_not_sent() -> None:
-    lines, complaints = GATE.screen("## [Unreleased]\n\n### Fixed\n\n" + NO_BOLD_LEAD, {5})
+    lines, complaints = GATE.screen(
+        "## [Unreleased]\n\n### Fixed\n\n" + NO_BOLD_LEAD, {5}
+    )
     assert (len(lines), len(complaints)) == (0, 1)
 
 
@@ -177,8 +201,12 @@ def test_the_records_mode_judges_the_bullets_the_file_addresses(tmp_path: Path) 
     assert [line.id for line in lines] == [f"{GATE.CHANGELOG}:7"]
 
 
-def test_the_head_mode_judges_the_bullets_the_last_commit_added(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("triviajudge.changelog_trivia.git_diff", lambda *_args: ONE_ADDED_BULLET)
+def test_the_head_mode_judges_the_bullets_the_last_commit_added(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "triviajudge.changelog_trivia.git_diff", lambda *_args: ONE_ADDED_BULLET
+    )
     monkeypatch.setattr("triviajudge.changelog_trivia.at", lambda _rev: STAGED_CLEAN)
     lines, _complaints = GATE.collect(namespace(head=True))
     assert [line.id for line in lines] == [f"{GATE.CHANGELOG}:5"]
@@ -188,7 +216,9 @@ def test_a_commit_naming_no_changelog_judges_nothing() -> None:
     assert GATE.collect(namespace(files=["notes.md"])) == ([], [])
 
 
-def test_a_revision_that_does_not_carry_the_changelog_reads_as_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_revision_that_does_not_carry_the_changelog_reads_as_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def refuse(*_args: str) -> str:
         raise subprocess.CalledProcessError(1, "git")
 
@@ -210,7 +240,7 @@ def test_a_bullet_reaches_the_release_judge_carrying_its_kind() -> None:
 
 
 def test_the_release_scope_asks_its_own_question() -> None:
-    assert GATE.gate(namespace(release=True)).prompt == GATE.RELEASE_PROMPT
+    assert GATE.gate(namespace(release=True)).prompt == PROMPTS.RELEASE_PROMPT
 
 
 def test_the_release_scope_keeps_no_cache() -> None:
@@ -236,32 +266,48 @@ def test_the_exit_code_over_a_checkout_with_no_judge_binary_on_path(
 
 
 @pytest.mark.parametrize(("stdin", "code"), [("{}", 2), (ALREADY_RAN, 0)])
-def test_the_working_tree_mode_reads_an_untracked_changelog_whole(tmp_path: Path, stdin: str, code: int) -> None:
+def test_the_working_tree_mode_reads_an_untracked_changelog_whole(
+    tmp_path: Path, stdin: str, code: int
+) -> None:
     finished = staged_run(tmp_path, SAMPLE, ["--stop"], stdin, stage=False)
     assert finished.returncode == code
 
 
 def test_the_release_scope_refuses_a_mode_it_does_not_fold_into(tmp_path: Path) -> None:
-    finished = gate_run("changelog_trivia", ["--release", "--head"], tmp_path, child_environment(tmp_path), "")
+    finished = gate_run(
+        "changelog_trivia",
+        ["--release", "--head"],
+        tmp_path,
+        child_environment(tmp_path),
+        "",
+    )
     assert GATE.RELEASE_ALONE in finished.stderr
 
 
 def test_a_directory_in_no_work_tree_is_refused(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
-    finished = gate_run("changelog_trivia", [], outside, child_environment(tmp_path), "")
+    finished = gate_run(
+        "changelog_trivia", [], outside, child_environment(tmp_path), ""
+    )
     assert finished.returncode == 1
 
 
-def test_the_working_tree_mode_reads_what_a_tracked_changelog_gains(tmp_path: Path) -> None:
+def test_the_working_tree_mode_reads_what_a_tracked_changelog_gains(
+    tmp_path: Path,
+) -> None:
     root, env = committed_repo(tmp_path, {GATE.CHANGELOG: STAGED_CLEAN})
     write(root, {GATE.CHANGELOG: STAGED_CLEAN + CLEAN_ENTRY})
     finished = gate_run("changelog_trivia", ["--stop"], root, env, "{}")
     assert (finished.returncode, MISSING_JUDGE in finished.stderr) == (2, True)
 
 
-def test_the_stop_mode_under_the_judges_own_session_does_nothing(tmp_path: Path) -> None:
+def test_the_stop_mode_under_the_judges_own_session_does_nothing(
+    tmp_path: Path,
+) -> None:
     root, env = committed_repo(tmp_path, {})
     write(root, {GATE.CHANGELOG: SAMPLE})
-    finished = gate_run("changelog_trivia", ["--stop"], root, {**env, core.INNER: "1"}, "{}")
+    finished = gate_run(
+        "changelog_trivia", ["--stop"], root, {**env, core.INNER: "1"}, "{}"
+    )
     assert (finished.returncode, finished.stderr) == (0, "")

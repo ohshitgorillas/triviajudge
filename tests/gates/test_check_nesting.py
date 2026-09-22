@@ -149,9 +149,15 @@ REASON = "the arms are one decision"
 DEEP_FINDING = "pkg/deep.py:2: f() nests 5 deep (max 4)"
 NAMED_FINDING = "pkg/named.py:2: f() nests 5 deep (max 4)"
 NO_FILE = "EXEMPT['pkg/gone.py::f']: names no file"
-NO_FUNCTION = "EXEMPT['pkg/deep.py::missing']: names no function in pkg/deep.py — drop it"
-WITHIN_LIMIT = "EXEMPT['pkg/shallow.py::f']: nests 1 deep, within the limit of 4 — drop it"
-SUMMARY = "1 problem(s). Flatten the function, or add an EXEMPT entry saying why it stands."
+NO_FUNCTION = (
+    "EXEMPT['pkg/deep.py::missing']: names no function in pkg/deep.py — drop it"
+)
+WITHIN_LIMIT = (
+    "EXEMPT['pkg/shallow.py::f']: nests 1 deep, within the limit of 4 — drop it"
+)
+SUMMARY = (
+    "1 problem(s). Flatten the function, or add an EXEMPT entry saying why it stands."
+)
 
 
 def refusal(finding: str) -> tuple[int, str]:

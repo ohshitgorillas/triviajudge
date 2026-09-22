@@ -62,15 +62,26 @@ def _is_prose(text: str) -> bool:
 
 
 def _strings(node: ast.AST) -> list[ast.Constant]:
-    return [n for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+    return [
+        n
+        for n in ast.walk(node)
+        if isinstance(n, ast.Constant) and isinstance(n.value, str)
+    ]
 
 
 def _skeleton(node: ast.JoinedStr) -> re.Pattern[str] | None:
     """Turn an f-string into an anchored pattern, holes as ``.*``; None when no part is prose."""
     parts = [
-        re.escape(v.value) if isinstance(v, ast.Constant) and isinstance(v.value, str) else ".*" for v in node.values
+        re.escape(v.value)
+        if isinstance(v, ast.Constant) and isinstance(v.value, str)
+        else ".*"
+        for v in node.values
     ]
-    literal = [v.value for v in node.values if isinstance(v, ast.Constant) and isinstance(v.value, str)]
+    literal = [
+        v.value
+        for v in node.values
+        if isinstance(v, ast.Constant) and isinstance(v.value, str)
+    ]
     if not any(_is_prose(text) for text in literal):
         return None
     return re.compile("".join(parts), re.DOTALL)
@@ -87,7 +98,9 @@ def _raises_match(node: ast.Call) -> ast.expr | None:
     return next((kw.value for kw in node.keywords if kw.arg == "match"), None)
 
 
-def _split(node: ast.AST, asserted: list[ast.Constant], handed: list[ast.Constant]) -> None:
+def _split(
+    node: ast.AST, asserted: list[ast.Constant], handed: list[ast.Constant]
+) -> None:
     """Sort the strings under an assertion into compared literals and plain-call inputs."""
     for child in ast.iter_child_nodes(node):
         if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
@@ -109,7 +122,9 @@ def _targets(tree: ast.Module) -> list[tuple[str, ast.AST]]:
     return targets
 
 
-def _asserted(tree: ast.Module) -> tuple[list[tuple[int, str, str]], set[int], list[str]]:
+def _asserted(
+    tree: ast.Module,
+) -> tuple[list[tuple[int, str, str]], set[int], list[str]]:
     """Return the compared literals as (lineno, category, text), their node ids, and the handed-over inputs."""
     found: list[tuple[int, str, str]] = []
     seen: set[int] = set()
@@ -127,7 +142,9 @@ def _asserted(tree: ast.Module) -> tuple[list[tuple[int, str, str]], set[int], l
 
 
 def _tests_root(path: Path) -> Path | None:
-    return next((parent for parent in path.resolve().parents if parent.name == "tests"), None)
+    return next(
+        (parent for parent in path.resolve().parents if parent.name == "tests"), None
+    )
 
 
 @cache
@@ -142,7 +159,9 @@ def _shared_pool(root: Path | None) -> Pool:
         seeds.update(str(n.value) for n in _strings(tree))
         skeletons.extend(_skeletons(tree))
     fixtures = root / "support" / "fixtures"
-    texts = tuple(f.read_text(errors="ignore") for f in sorted(fixtures.rglob("*")) if f.is_file())
+    texts = tuple(
+        f.read_text(errors="ignore") for f in sorted(fixtures.rglob("*")) if f.is_file()
+    )
     for text in texts:  # a fixture file is a literal too: whole, and line by line
         seeds.update(line.strip() for line in (text, *text.splitlines()))
     return Pool(frozenset(seeds), texts, tuple(skeletons))
@@ -154,7 +173,10 @@ def _composed(text: str, seeds: frozenset[str], pos: int = 0) -> bool:
     pos = glue.end() if glue else pos
     if pos == len(text):
         return True
-    return any(text.startswith(seed, pos) and _composed(text, seeds, pos + len(seed)) for seed in seeds)
+    return any(
+        text.startswith(seed, pos) and _composed(text, seeds, pos + len(seed))
+        for seed in seeds
+    )
 
 
 def _covered(text: str, pool: Pool) -> bool:
@@ -165,10 +187,14 @@ def _covered(text: str, pool: Pool) -> bool:
     return _composed(text, pool.seeds)
 
 
-def _file_pool(tree: ast.Module, seen: set[int], handed: list[str], shared: Pool) -> Pool:
+def _file_pool(
+    tree: ast.Module, seen: set[int], handed: list[str], shared: Pool
+) -> Pool:
     own = {str(n.value) for n in _strings(tree) if id(n) not in seen} | set(handed)
     seeds = frozenset(s for s in own | shared.seeds if PROSE.search(s))
-    return Pool(seeds, shared.texts + tuple(own), shared.skeletons + tuple(_skeletons(tree)))
+    return Pool(
+        seeds, shared.texts + tuple(own), shared.skeletons + tuple(_skeletons(tree))
+    )
 
 
 def check_file(path: Path) -> list[tuple[str, str]]:
@@ -186,7 +212,9 @@ def check_file(path: Path) -> list[tuple[str, str]]:
 def main(argv: list[str]) -> int:
     """Refuse a test asserting prose it did not seed; with --report, count and pass."""
     report = "--report" in argv
-    findings = [f for name in argv if name != "--report" for f in check_file(Path(name))]
+    findings = [
+        f for name in argv if name != "--report" for f in check_file(Path(name))
+    ]
     for _, line in findings:
         print(line)
     if report:

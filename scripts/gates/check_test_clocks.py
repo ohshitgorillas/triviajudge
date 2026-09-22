@@ -57,7 +57,11 @@ def waits(node: ast.Call) -> bool:
     if not node.args:
         return False
     first = node.args[0]
-    return not (isinstance(first, ast.Constant) and isinstance(first.value, int | float) and first.value == 0)
+    return not (
+        isinstance(first, ast.Constant)
+        and isinstance(first.value, int | float)
+        and first.value == 0
+    )
 
 
 def deadline(name: str | None, value: ast.expr) -> bool:
@@ -68,12 +72,20 @@ def deadline(name: str | None, value: ast.expr) -> bool:
     """
     if name is None or not (name == "timeout" or name.endswith("_timeout")):
         return False
-    return isinstance(value, ast.Constant) and isinstance(value.value, int | float) and 0 < value.value < SMALL
+    return (
+        isinstance(value, ast.Constant)
+        and isinstance(value.value, int | float)
+        and 0 < value.value < SMALL
+    )
 
 
 def call_faults(name: str, node: ast.Call) -> list[str]:
     """One line per real clock a call holds: its own wait, and its deadline keywords."""
-    found = [f"{name}:{node.lineno}: sleeps on a real clock"] if sleeps(node) and waits(node) else []
+    found = (
+        [f"{name}:{node.lineno}: sleeps on a real clock"]
+        if sleeps(node) and waits(node)
+        else []
+    )
     found += [
         f"{name}:{keyword.value.lineno}: {keyword.arg}= is a real deadline under {SMALL}s"
         for keyword in node.keywords
@@ -88,7 +100,9 @@ def mapping_faults(name: str, node: ast.Dict) -> list[str]:
     return [
         f"{name}:{key.lineno}: {key.value!r} is a real deadline under {SMALL}s"
         for key, value in pairs
-        if isinstance(key, ast.Constant) and isinstance(key.value, str) and deadline(key.value, value)
+        if isinstance(key, ast.Constant)
+        and isinstance(key.value, str)
+        and deadline(key.value, value)
     ]
 
 
@@ -105,11 +119,17 @@ def faults(name: str, source: str) -> list[str]:
 
 def check(names: list[str]) -> int:
     """Refuse a suite whose tests pace themselves against the machine's clock."""
-    problems = [problem for name in names for problem in faults(name, Path(name).read_text(encoding="utf-8"))]
+    problems = [
+        problem
+        for name in names
+        for problem in faults(name, Path(name).read_text(encoding="utf-8"))
+    ]
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} real clock(s) under tests/. A poll waits on a condition and a deadline")
+        print(
+            f"\n{len(problems)} real clock(s) under tests/. A poll waits on a condition and a deadline"
+        )
         print("comes from a seam the test controls; CONTRIBUTING.md is the rule.")
         return 1
     print(f"[ok] {len(names)} test file(s) read no real clock")

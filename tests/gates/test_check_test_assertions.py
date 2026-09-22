@@ -96,7 +96,9 @@ A_SWEEP_OVER_A_GENERATOR = """
 def test_all_of_them() -> None:
     assert all(n for n in (1, 2))
 """
-A_SWEEP_OVER_A_GENERATOR_FINDINGS: Expectation = [("loop", "FILE:2 test_all_of_them", 0)]
+A_SWEEP_OVER_A_GENERATOR_FINDINGS: Expectation = [
+    ("loop", "FILE:2 test_all_of_them", 0)
+]
 
 A_SWEEP_UNDER_A_NOT = """
 def test_none_of_them() -> None:
@@ -180,7 +182,9 @@ from pytest import mark
 def test_expected_red() -> None:
     assert 1 == 1
 """
-A_SKIPPED_TEST_BY_BARE_MARK_FINDINGS: Expectation = [("skip", "FILE:5 test_expected_red", 0)]
+A_SKIPPED_TEST_BY_BARE_MARK_FINDINGS: Expectation = [
+    ("skip", "FILE:5 test_expected_red", 0)
+]
 
 A_CONDITIONALLY_SKIPPED_TEST = """
 import pytest
@@ -206,7 +210,9 @@ import pytest
 def test_held() -> None:
     pass
 """
-A_SKIPPED_TEST_WITH_NO_ASSERTION_FINDINGS: Expectation = [("count", "FILE:5 test_held", 0)]
+A_SKIPPED_TEST_WITH_NO_ASSERTION_FINDINGS: Expectation = [
+    ("count", "FILE:5 test_held", 0)
+]
 
 AN_EXISTENCE_ASSERT_AND_A_SKIP = """
 import pytest
@@ -239,7 +245,10 @@ def written(tmp_path: Path, source: str, name: str = "test_sample.py") -> Path:
 
 def folded(findings: list[GATE.Finding], path: Path) -> Expectation:
     """Every finding with the written path folded to ``FILE``."""
-    return [(category, where.replace(str(path), FILE), count) for category, where, count in findings]
+    return [
+        (category, where.replace(str(path), FILE), count)
+        for category, where, count in findings
+    ]
 
 
 def verdict(tmp_path: Path, source: str, name: str = "test_sample.py") -> Expectation:
@@ -264,11 +273,15 @@ def verdict(tmp_path: Path, source: str, name: str = "test_sample.py") -> Expect
         A_PRIVATE_REACH_ON_SELF,
     ],
 )
-def test_a_test_holding_one_assertion_of_a_legal_shape_is_no_finding(tmp_path: Path, source: str) -> None:
+def test_a_test_holding_one_assertion_of_a_legal_shape_is_no_finding(
+    tmp_path: Path, source: str
+) -> None:
     assert verdict(tmp_path, source) == []
 
 
-def test_a_private_attribute_on_cls_is_the_test_reaching_its_own_state(tmp_path: Path) -> None:
+def test_a_private_attribute_on_cls_is_the_test_reaching_its_own_state(
+    tmp_path: Path,
+) -> None:
     assert verdict(tmp_path, A_PRIVATE_REACH_ON_CLS) == []
 
 
@@ -302,7 +315,9 @@ def test_a_test_not_holding_exactly_one_assertion_is_named_with_its_count(
         (A_SWEEP_UNDER_A_NOT, A_SWEEP_UNDER_A_NOT_FINDINGS),
     ],
 )
-def test_an_assertion_swept_over_cases_is_named_as_a_loop(tmp_path: Path, source: str, expected: Expectation) -> None:
+def test_an_assertion_swept_over_cases_is_named_as_a_loop(
+    tmp_path: Path, source: str, expected: Expectation
+) -> None:
     assert verdict(tmp_path, source) == expected
 
 
@@ -350,14 +365,18 @@ def test_an_assertion_pinning_mere_presence_is_named_as_existence(
         (A_CONDITIONALLY_SKIPPED_TEST, A_CONDITIONALLY_SKIPPED_TEST_FINDINGS),
     ],
 )
-def test_a_skip_marker_is_named_whatever_its_spelling(tmp_path: Path, source: str, expected: Expectation) -> None:
+def test_a_skip_marker_is_named_whatever_its_spelling(
+    tmp_path: Path, source: str, expected: Expectation
+) -> None:
     assert verdict(tmp_path, source) == expected
 
 
 # --- behavior 7: a private reach is the test knowing too much -----------------
 
 
-def test_a_single_underscore_attribute_on_anything_but_self_is_named_at_its_line(tmp_path: Path) -> None:
+def test_a_single_underscore_attribute_on_anything_but_self_is_named_at_its_line(
+    tmp_path: Path,
+) -> None:
     assert verdict(tmp_path, A_PRIVATE_REACH) == A_PRIVATE_REACH_FINDINGS
 
 
@@ -373,7 +392,9 @@ def test_an_exempt_key_silences_the_skip_it_names(tmp_path: Path) -> None:
     assert GATE.check_file(path, {f"{path}::test_held": "the owner said so"}) == []
 
 
-def test_an_exempt_key_silences_the_existence_assertion_it_names(tmp_path: Path) -> None:
+def test_an_exempt_key_silences_the_existence_assertion_it_names(
+    tmp_path: Path,
+) -> None:
     path = written(tmp_path, AN_EXISTENCE_ASSERT_AND_A_SKIP)
     assert GATE.check_file(path, {f"{path}::test_held": "the owner said so"}) == []
 
@@ -381,10 +402,15 @@ def test_an_exempt_key_silences_the_existence_assertion_it_names(tmp_path: Path)
 def test_a_count_finding_outlives_the_exemption_on_its_test(tmp_path: Path) -> None:
     path = written(tmp_path, A_SKIPPED_TEST_WITH_NO_ASSERTION)
     exempt = {f"{path}::test_held": "the owner said so"}
-    assert folded(GATE.check_file(path, exempt), path) == A_SKIPPED_TEST_WITH_NO_ASSERTION_FINDINGS
+    assert (
+        folded(GATE.check_file(path, exempt), path)
+        == A_SKIPPED_TEST_WITH_NO_ASSERTION_FINDINGS
+    )
 
 
-def test_the_module_table_is_what_an_unasked_check_reads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_module_table_is_what_an_unasked_check_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     path = written(tmp_path, A_SKIPPED_TEST)
     monkeypatch.setitem(GATE.EXEMPT, f"{path}::test_held", "the owner said so")
     assert GATE.check_file(path) == []
@@ -394,7 +420,10 @@ def test_the_module_table_is_what_an_unasked_check_reads(tmp_path: Path, monkeyp
 
 
 def test_findings_arrive_in_line_order(tmp_path: Path) -> None:
-    assert verdict(tmp_path, A_HELPER_ABOVE_A_COUNTLESS_TEST) == A_HELPER_ABOVE_A_COUNTLESS_TEST_FINDINGS
+    assert (
+        verdict(tmp_path, A_HELPER_ABOVE_A_COUNTLESS_TEST)
+        == A_HELPER_ABOVE_A_COUNTLESS_TEST_FINDINGS
+    )
 
 
 # --- behavior 10: the CLI prints the finding, and fails unless it is sizing ----
@@ -406,7 +435,10 @@ def test_a_finding_fails_the_run_and_prints_its_sentence(
     path = written(tmp_path, TWO_ASSERTIONS)
     monkeypatch.setattr("sys.argv", ["check_test_assertions.py", str(path)])
     code = GATE.main()
-    assert (code, capsys.readouterr().out.replace(str(path), FILE)) == (1, TWO_ASSERTIONS_SENTENCE)
+    assert (code, capsys.readouterr().out.replace(str(path), FILE)) == (
+        1,
+        TWO_ASSERTIONS_SENTENCE,
+    )
 
 
 def test_a_sizing_run_prints_the_same_sentence_and_passes(
@@ -415,7 +447,10 @@ def test_a_sizing_run_prints_the_same_sentence_and_passes(
     path = written(tmp_path, TWO_ASSERTIONS)
     monkeypatch.setattr("sys.argv", ["check_test_assertions.py", "--report", str(path)])
     code = GATE.main()
-    assert (code, capsys.readouterr().out.replace(str(path), FILE)) == (0, TWO_ASSERTIONS_SENTENCE)
+    assert (code, capsys.readouterr().out.replace(str(path), FILE)) == (
+        0,
+        TWO_ASSERTIONS_SENTENCE,
+    )
 
 
 def test_a_clean_file_passes_the_cli_saying_nothing(
@@ -433,4 +468,7 @@ def test_a_finding_that_carries_no_count_prints_its_category_and_fails(
     path = written(tmp_path, AN_ASSERT_IN_A_LOOP)
     monkeypatch.setattr("sys.argv", ["check_test_assertions.py", str(path)])
     code = GATE.main()
-    assert (code, capsys.readouterr().out.replace(str(path), FILE)) == (1, AN_ASSERT_IN_A_LOOP_SENTENCE)
+    assert (code, capsys.readouterr().out.replace(str(path), FILE)) == (
+        1,
+        AN_ASSERT_IN_A_LOOP_SENTENCE,
+    )

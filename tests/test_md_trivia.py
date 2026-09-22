@@ -29,9 +29,7 @@ FENCED = [
     Line("doc.md", 5, "the lane returns the staged model"),
 ]
 
-ONE_ADDED_LINE = (
-    "diff --git a/doc.md b/doc.md\n--- a/doc.md\n+++ b/doc.md\n@@ -0,0 +1 @@\n+the panel holds the staged rate\n"
-)
+ONE_ADDED_LINE = "diff --git a/doc.md b/doc.md\n--- a/doc.md\n+++ b/doc.md\n@@ -0,0 +1 @@\n+the panel holds the staged rate\n"
 
 
 def namespace(**overrides: object) -> argparse.Namespace:
@@ -70,13 +68,17 @@ def test_the_records_mode_judges_the_lines_the_file_addresses(tmp_path: Path) ->
     assert [line.id for line in lines] == ["doc.md:12"]
 
 
-def test_the_head_mode_judges_what_the_last_commit_added(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_head_mode_judges_what_the_last_commit_added(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.md_trivia.git_diff", lambda *_args: ONE_ADDED_LINE)
     lines, _complaints = md_trivia.collect(namespace(head=True))
     assert [line.id for line in lines] == ["doc.md:1"]
 
 
-def test_the_commit_mode_judges_what_the_named_files_stage(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_commit_mode_judges_what_the_named_files_stage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.md_trivia.git_diff", lambda *_args: ONE_ADDED_LINE)
     lines, _complaints = md_trivia.collect(namespace(files=["doc.md"]))
     assert [line.id for line in lines] == ["doc.md:1"]
@@ -97,4 +99,7 @@ def test_a_directory_in_no_work_tree_is_refused(
 
     monkeypatch.setattr("triviajudge.md_trivia.settings", outside)
     monkeypatch.setattr("sys.argv", ["triviajudge-md"])
-    assert (md_trivia.main(), "no git work tree" in capsys.readouterr().err) == (1, True)
+    assert (md_trivia.main(), "no git work tree" in capsys.readouterr().err) == (
+        1,
+        True,
+    )

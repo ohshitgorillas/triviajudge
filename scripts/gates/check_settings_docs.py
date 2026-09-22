@@ -87,7 +87,9 @@ def check(path: Path) -> int:
     """
     body = documented_block(path.read_text(encoding="utf-8"))
     if body is None:
-        print(f"{path}: no fenced block carrying {TABLE} — the settings are undocumented")
+        print(
+            f"{path}: no fenced block carrying {TABLE} — the settings are undocumented"
+        )
         return 1
 
     complaint = refused(body)
@@ -97,15 +99,21 @@ def check(path: Path) -> int:
 
     shown = documented(path)
     known = fields()
-    problems = [f"{name}: a Settings field {path.name} does not document" for name in sorted(known - shown)]
+    problems = [
+        f"{name}: a Settings field {path.name} does not document"
+        for name in sorted(known - shown)
+    ]
     problems += [
-        f"{name}: documented in {path.name}, and Settings carries no such field" for name in sorted(shown - known)
+        f"{name}: documented in {path.name}, and Settings carries no such field"
+        for name in sorted(shown - known)
     ]
 
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} problem(s). Every setting is in both {path.name} and Settings, or in neither.")
+        print(
+            f"\n{len(problems)} problem(s). Every setting is in both {path.name} and Settings, or in neither."
+        )
         return 1
     print(f"[ok] all {len(known)} settings are documented in {path.name}")
     return 0

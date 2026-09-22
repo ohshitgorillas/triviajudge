@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from triviajudge import changelog_trivia, comment_trivia, md_trivia
+from triviajudge import changelog_prompts, comment_trivia, md_trivia
 from triviajudge.core import from_records
 from triviajudge.gate import verdicts
 
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 PROMPTS = {
     "md": md_trivia.PROMPT,
     "comments": comment_trivia.PROMPT,
-    "changelog": changelog_trivia.PROMPT,
+    "changelog": changelog_prompts.PROMPT,
 }
 
 #: Lines per call. A corpus arrives in one file and the judge answers per call, so the
@@ -51,13 +51,23 @@ BATCH = 50
 TIMEOUT = 300.0
 
 
-def flagged(lines: list[Line], prompt: str, model: str | None, batch: int, *, exhaustive: bool) -> set[str]:
+def flagged(
+    lines: list[Line], prompt: str, model: str | None, batch: int, *, exhaustive: bool
+) -> set[str]:
     """The id of every line the judge flags, over as many calls as the batch size asks for.
 
     The chunking is the gate's own, so a calibration run measures the shape the
     gate runs rather than a second one written here.
     """
-    marked = verdicts(lines, prompt, exhaustive=exhaustive, batch=batch, parallel=1, model=model, timeout=TIMEOUT)
+    marked = verdicts(
+        lines,
+        prompt,
+        exhaustive=exhaustive,
+        batch=batch,
+        parallel=1,
+        model=model,
+        timeout=TIMEOUT,
+    )
     return {str(flag["id"]) for flag in marked}
 
 
@@ -95,12 +105,24 @@ def report(trivia: list[Line], clean: list[Line], marked: set[str]) -> int:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """The corpora, the gate whose prompt is asked, and the model that answers."""
-    parser = argparse.ArgumentParser(description="Measure the judge against a corpus whose verdict is known.")
-    parser.add_argument("--trivia", type=Path, help="records the judge is expected to flag")
-    parser.add_argument("--clean", type=Path, help="records the judge is expected to pass")
-    parser.add_argument("--gate", choices=sorted(PROMPTS), default="md", help="whose prompt to ask")
-    parser.add_argument("--model", default=None, help="the model to ask, over the configured one")
-    parser.add_argument("--batch", type=int, default=BATCH, help=f"lines per call (default {BATCH})")
+    parser = argparse.ArgumentParser(
+        description="Measure the judge against a corpus whose verdict is known."
+    )
+    parser.add_argument(
+        "--trivia", type=Path, help="records the judge is expected to flag"
+    )
+    parser.add_argument(
+        "--clean", type=Path, help="records the judge is expected to pass"
+    )
+    parser.add_argument(
+        "--gate", choices=sorted(PROMPTS), default="md", help="whose prompt to ask"
+    )
+    parser.add_argument(
+        "--model", default=None, help="the model to ask, over the configured one"
+    )
+    parser.add_argument(
+        "--batch", type=int, default=BATCH, help=f"lines per call (default {BATCH})"
+    )
     return parser.parse_args(argv)
 
 
@@ -111,7 +133,13 @@ def main() -> int:
     clean = corpus(args.clean)
     if not trivia and not clean:
         raise SystemExit("no corpus: name one with --trivia or --clean")
-    marked = flagged(trivia + clean, PROMPTS[args.gate], args.model, args.batch, exhaustive=args.gate == "md")
+    marked = flagged(
+        trivia + clean,
+        PROMPTS[args.gate],
+        args.model,
+        args.batch,
+        exhaustive=args.gate == "md",
+    )
     return report(trivia, clean, marked)
 
 

@@ -210,7 +210,9 @@ def seed(tmp_path: Path, name: str, body: str) -> None:
     path.write_text(dedent(body), encoding="utf-8")
 
 
-def reported(tmp_path: Path, source: str, name: str = "tests/test_sample.py") -> list[str]:
+def reported(
+    tmp_path: Path, source: str, name: str = "tests/test_sample.py"
+) -> list[str]:
     """Every finding for a source, as ``<line> <category>: <literal>``."""
     path = written(tmp_path, source, name)
     return [location.removeprefix(f"{path}:") for _, location in GATE.check_file(path)]
@@ -228,14 +230,20 @@ def test_a_match_pattern_is_reported_under_its_own_category(tmp_path: Path) -> N
 
 
 def test_a_raises_context_with_no_match_asserts_no_prose(tmp_path: Path) -> None:
-    assert reported(tmp_path, A_RAISES_WITH_NO_MATCH) == [A_RAISES_WITH_NO_MATCH_FINDING]
+    assert reported(tmp_path, A_RAISES_WITH_NO_MATCH) == [
+        A_RAISES_WITH_NO_MATCH_FINDING
+    ]
 
 
 # --- behavior 2: what the tests wrote, in any of the places they write it ------
 
 
-def test_prose_the_same_file_states_outside_an_assertion_is_seeded(tmp_path: Path) -> None:
-    assert reported(tmp_path, SEEDED_IN_THE_SAME_FILE) == [SEEDED_IN_THE_SAME_FILE_FINDING]
+def test_prose_the_same_file_states_outside_an_assertion_is_seeded(
+    tmp_path: Path,
+) -> None:
+    assert reported(tmp_path, SEEDED_IN_THE_SAME_FILE) == [
+        SEEDED_IN_THE_SAME_FILE_FINDING
+    ]
 
 
 def test_prose_a_support_module_states_is_seeded(tmp_path: Path) -> None:
@@ -249,11 +257,15 @@ def test_prose_lying_inside_a_fixture_file_is_seeded(tmp_path: Path) -> None:
 
 
 def test_prose_composed_of_seeded_pieces_is_seeded(tmp_path: Path) -> None:
-    assert reported(tmp_path, COMPOSED_OF_SEEDED_PIECES) == [COMPOSED_OF_SEEDED_PIECES_FINDING]
+    assert reported(tmp_path, COMPOSED_OF_SEEDED_PIECES) == [
+        COMPOSED_OF_SEEDED_PIECES_FINDING
+    ]
 
 
 def test_prose_matching_an_f_string_a_fake_writes_is_seeded(tmp_path: Path) -> None:
-    assert reported(tmp_path, MATCHING_AN_F_STRING_SKELETON) == [MATCHING_AN_F_STRING_SKELETON_FINDING]
+    assert reported(tmp_path, MATCHING_AN_F_STRING_SKELETON) == [
+        MATCHING_AN_F_STRING_SKELETON_FINDING
+    ]
 
 
 def test_an_f_string_a_support_module_writes_seeds_the_pool_too(tmp_path: Path) -> None:
@@ -262,22 +274,34 @@ def test_an_f_string_a_support_module_writes_seeds_the_pool_too(tmp_path: Path) 
 
 
 def test_an_f_string_holding_no_prose_seeds_nothing(tmp_path: Path) -> None:
-    assert reported(tmp_path, AN_F_STRING_WITH_NO_PROSE) == [AN_F_STRING_WITH_NO_PROSE_FINDING]
+    assert reported(tmp_path, AN_F_STRING_WITH_NO_PROSE) == [
+        AN_F_STRING_WITH_NO_PROSE_FINDING
+    ]
 
 
 # --- behavior 3: an input to the assertion is not a search for wording --------
 
 
-def test_prose_handed_to_a_plain_function_is_input_rather_than_copy(tmp_path: Path) -> None:
+def test_prose_handed_to_a_plain_function_is_input_rather_than_copy(
+    tmp_path: Path,
+) -> None:
     assert reported(tmp_path, HANDED_TO_A_PLAIN_FUNCTION) == [CONTROL_ON_LINE_6]
 
 
-def test_prose_handed_to_a_plain_function_by_keyword_is_input_too(tmp_path: Path) -> None:
-    assert reported(tmp_path, HANDED_TO_A_PLAIN_FUNCTION_BY_KEYWORD) == [CONTROL_ON_LINE_6]
+def test_prose_handed_to_a_plain_function_by_keyword_is_input_too(
+    tmp_path: Path,
+) -> None:
+    assert reported(tmp_path, HANDED_TO_A_PLAIN_FUNCTION_BY_KEYWORD) == [
+        CONTROL_ON_LINE_6
+    ]
 
 
-def test_prose_handed_to_a_method_on_the_value_is_still_a_search_for_wording(tmp_path: Path) -> None:
-    assert reported(tmp_path, SEARCHED_FOR_ON_THE_VALUE) == [SEARCHED_FOR_ON_THE_VALUE_FINDING]
+def test_prose_handed_to_a_method_on_the_value_is_still_a_search_for_wording(
+    tmp_path: Path,
+) -> None:
+    assert reported(tmp_path, SEARCHED_FOR_ON_THE_VALUE) == [
+        SEARCHED_FOR_ON_THE_VALUE_FINDING
+    ]
 
 
 # --- behavior 4: a wire shape is not prose, and neither is one word -----------
@@ -313,7 +337,9 @@ def test_a_file_in_no_tests_root_draws_on_its_own_strings_alone(tmp_path: Path) 
 # --- behavior 6: the CLI fails on a finding, and --report only sizes ----------
 
 
-def test_the_cli_prints_the_finding_it_refuses(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_the_cli_prints_the_finding_it_refuses(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     path = written(tmp_path, UNSEEDED_PROSE)
     code = GATE.main([str(path)])
     assert (code, capsys.readouterr().out) == (1, f"{path}:{UNSEEDED_PROSE_FINDING}\n")
@@ -324,7 +350,10 @@ def test_report_mode_prints_the_finding_with_a_count_and_passes(
 ) -> None:
     path = written(tmp_path, UNSEEDED_PROSE)
     code = GATE.main(["--report", str(path)])
-    assert (code, capsys.readouterr().out) == (0, f"{path}:{UNSEEDED_PROSE_FINDING}\n{REPORT_TAIL}")
+    assert (code, capsys.readouterr().out) == (
+        0,
+        f"{path}:{UNSEEDED_PROSE_FINDING}\n{REPORT_TAIL}",
+    )
 
 
 def test_a_suite_seeding_everything_it_asserts_passes_the_cli_in_silence(

@@ -70,7 +70,9 @@ def written(root: Path, text: str) -> Path:
 # --- behavior 1: this repository documents its own settings both ways ---------
 
 
-def test_this_repository_documents_every_setting_it_carries(capsys: pytest.CaptureFixture[str]) -> None:
+def test_this_repository_documents_every_setting_it_carries(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     GATE.check(GATE.README)
     assert capsys.readouterr().out == README_OK
 
@@ -78,7 +80,9 @@ def test_this_repository_documents_every_setting_it_carries(capsys: pytest.Captu
 # --- behavior 2: an undocumented surface is a refusal, not an empty pairing ---
 
 
-def test_a_document_with_no_settings_block_is_refused(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_document_with_no_settings_block_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     document = written(tmp_path, NO_TABLE)
     GATE.check(document)
     assert capsys.readouterr().out == f"{document}: {NO_BLOCK}\n"
@@ -110,7 +114,9 @@ def test_a_block_whose_value_will_not_coerce_is_refused_in_the_readers_words(
     assert capsys.readouterr().out == f"{document}: {REFUSED} {UNCOERCIBLE_SAID}\n"
 
 
-def test_a_block_the_reader_accepts_names_the_settings_it_states(tmp_path: Path) -> None:
+def test_a_block_the_reader_accepts_names_the_settings_it_states(
+    tmp_path: Path,
+) -> None:
     assert GATE.documented(written(tmp_path, fenced(ONE_SETTING))) == {"md_skip"}
 
 

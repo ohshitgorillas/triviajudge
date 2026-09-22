@@ -61,7 +61,12 @@ def git(*args: str) -> list[str]:
     if binary is None:
         return []
     finished = subprocess.run(  # noqa: S603 — argv is the git on PATH and this module's own flags
-        [binary, *args], cwd=ROOT, capture_output=True, text=True, check=False, timeout=GIT_TIMEOUT
+        [binary, *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=GIT_TIMEOUT,
     )
     if finished.returncode != 0:
         return []
@@ -91,7 +96,9 @@ def manifests(root: Path, version: str) -> list[str]:
         where = ".".join(keys)
         says = stated(root / name, keys)
         if says is None:
-            problems.append(f"{name}: no {where}, so nothing names the release it ships")
+            problems.append(
+                f"{name}: no {where}, so nothing names the release it ships"
+            )
         elif says != version:
             problems.append(f"{name}: {where} {says}, pyproject.toml version {version}")
     return problems
@@ -111,13 +118,19 @@ def check(root: Path) -> int:
     problems: list[str] = []
 
     if not sections:
-        problems.append("CHANGELOG.md: no released section, so nothing states what version is out")
+        problems.append(
+            "CHANGELOG.md: no released section, so nothing states what version is out"
+        )
     elif sections[0] != version:
-        problems.append(f"pyproject.toml: version {version}, newest CHANGELOG.md section [{sections[0]}]")
+        problems.append(
+            f"pyproject.toml: version {version}, newest CHANGELOG.md section [{sections[0]}]"
+        )
 
     problems.extend(manifests(root, version))
     problems.extend(
-        f"{tag}: tag on HEAD, version {version}" for tag in git("tag", "--points-at", "HEAD") if tag != f"v{version}"
+        f"{tag}: tag on HEAD, version {version}"
+        for tag in git("tag", "--points-at", "HEAD")
+        if tag != f"v{version}"
     )
     problems.extend(
         f"CHANGELOG.md: [{section}] is released and carries no v{section} tag"
@@ -128,10 +141,16 @@ def check(root: Path) -> int:
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} problem(s). The version, the plugin manifests, the newest changelog")
-        print("section and the tags name one release; a section older than the newest carries its tag.")
+        print(
+            f"\n{len(problems)} problem(s). The version, the plugin manifests, the newest changelog"
+        )
+        print(
+            "section and the tags name one release; a section older than the newest carries its tag."
+        )
         return 1
-    print(f"[ok] version {version} is the newest of {len(sections)} changelog section(s); manifests and tags agree")
+    print(
+        f"[ok] version {version} is the newest of {len(sections)} changelog section(s); manifests and tags agree"
+    )
     return 0
 
 

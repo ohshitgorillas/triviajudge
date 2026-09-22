@@ -35,12 +35,17 @@ def percentages(report: Path) -> dict[str, float]:
     """Return path -> percent covered, as coverage.py's JSON report carries it."""
     data: dict[str, Any] = json.loads(report.read_text(encoding="utf-8"))
     files: dict[str, Any] = data.get("files") or {}
-    return {path: float(entry["summary"]["percent_covered"]) for path, entry in files.items()}
+    return {
+        path: float(entry["summary"]["percent_covered"])
+        for path, entry in files.items()
+    }
 
 
 def below(measured: dict[str, float], floor: int, exempt: dict[str, str]) -> list[str]:
     """Return the non-exempt files under the floor, sorted worst first."""
-    failing = [path for path, pct in measured.items() if pct < floor and path not in exempt]
+    failing = [
+        path for path, pct in measured.items() if pct < floor and path not in exempt
+    ]
     return sorted(failing, key=lambda path: measured[path])
 
 
@@ -74,7 +79,9 @@ def check(report: Path, floor: int, exempt: dict[str, str] | None = None) -> int
         problems += 1
 
     if problems:
-        print(f"\n{problems} problem(s). Every file covers at least {floor}%, or carries a")
+        print(
+            f"\n{problems} problem(s). Every file covers at least {floor}%, or carries a"
+        )
         print("reason in EXEMPT saying what about it has no behavior to assert.")
         return 1
     print(f"[ok] all {len(measured)} files cover at least {floor}%")

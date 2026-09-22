@@ -24,9 +24,13 @@ OWN_CONSTANT = "CALL_TIMEOUT = 600\n"
 
 RUNNER = '"${CLAUDE_PLUGIN_ROOT}/hooks/run-gate.sh" md_trivia'
 
-ENGINE_FAULT = "{path}: Stop hook md_trivia has timeout 10s, under core.GIT_TIMEOUT at 30s"
+ENGINE_FAULT = (
+    "{path}: Stop hook md_trivia has timeout 10s, under core.GIT_TIMEOUT at 30s"
+)
 
-OWN_FAULT = "{path}: Stop hook md_trivia has timeout 120s, under md_trivia.CALL_TIMEOUT at 600s"
+OWN_FAULT = (
+    "{path}: Stop hook md_trivia has timeout 120s, under md_trivia.CALL_TIMEOUT at 600s"
+)
 
 NO_MODULE_FAULT = "{path}: Stop hook nowhere names no module under triviajudge/"
 
@@ -60,15 +64,21 @@ def tree(tmp_path: Path, module: str, gate: str, timeout: int) -> tuple[Path, Pa
 # --- behavior 1: the engine's constant binds every mode ---------------------
 
 
-def test_a_timeout_above_the_engine_s_constant_leaves_nothing_to_report(tmp_path: Path) -> None:
+def test_a_timeout_above_the_engine_s_constant_leaves_nothing_to_report(
+    tmp_path: Path,
+) -> None:
     assert GATE.faults(*tree(tmp_path, NO_CONSTANT, "md_trivia", 120)) == []
 
 
-def test_a_timeout_equal_to_the_engine_s_constant_leaves_nothing_to_report(tmp_path: Path) -> None:
+def test_a_timeout_equal_to_the_engine_s_constant_leaves_nothing_to_report(
+    tmp_path: Path,
+) -> None:
     assert GATE.faults(*tree(tmp_path, NO_CONSTANT, "md_trivia", 30)) == []
 
 
-def test_a_timeout_under_the_engine_s_constant_names_the_constant_it_undercuts(tmp_path: Path) -> None:
+def test_a_timeout_under_the_engine_s_constant_names_the_constant_it_undercuts(
+    tmp_path: Path,
+) -> None:
     root, path = tree(tmp_path, NO_CONSTANT, "md_trivia", 10)
     assert GATE.faults(root, path) == [ENGINE_FAULT.format(path=path)]
 
@@ -76,7 +86,9 @@ def test_a_timeout_under_the_engine_s_constant_names_the_constant_it_undercuts(t
 # --- behavior 2: the module's own constants count too -----------------------
 
 
-def test_a_constant_the_module_itself_states_is_the_one_the_finding_names(tmp_path: Path) -> None:
+def test_a_constant_the_module_itself_states_is_the_one_the_finding_names(
+    tmp_path: Path,
+) -> None:
     root, path = tree(tmp_path, OWN_CONSTANT, "md_trivia", 120)
     assert GATE.faults(root, path) == [OWN_FAULT.format(path=path)]
 
@@ -97,10 +109,15 @@ def test_a_hook_naming_no_module_is_reported_as_naming_none(tmp_path: Path) -> N
 # --- behavior 4: what the run prints is the verdict ------------------------
 
 
-def test_check_prints_the_undercut_line_and_the_refusal(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_check_prints_the_undercut_line_and_the_refusal(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     root, path = tree(tmp_path, NO_CONSTANT, "md_trivia", 10)
     code = GATE.check(root, path)
-    assert (code, capsys.readouterr().out) == (1, ENGINE_FAULT.format(path=path) + "\n" + REFUSAL_TAIL)
+    assert (code, capsys.readouterr().out) == (
+        1,
+        ENGINE_FAULT.format(path=path) + "\n" + REFUSAL_TAIL,
+    )
 
 
 def test_check_prints_the_clean_line_when_every_timeout_covers_its_module(
@@ -120,7 +137,10 @@ def test_main_names_the_undercut_hook_in_the_table_argv_gave(
     monkeypatch.setattr(GATE, "ROOT", root)
     monkeypatch.setattr(sys, "argv", ["check_hook_timeouts.py", str(path)])
     code = GATE.main()
-    assert (code, capsys.readouterr().out) == (1, OWN_FAULT.format(path=path) + "\n" + REFUSAL_TAIL)
+    assert (code, capsys.readouterr().out) == (
+        1,
+        OWN_FAULT.format(path=path) + "\n" + REFUSAL_TAIL,
+    )
 
 
 def test_main_with_no_argv_reads_the_table_under_the_root(
@@ -130,9 +150,14 @@ def test_main_with_no_argv_reads_the_table_under_the_root(
     monkeypatch.setattr(GATE, "ROOT", root)
     monkeypatch.setattr(sys, "argv", ["check_hook_timeouts.py"])
     code = GATE.main()
-    assert (code, capsys.readouterr().out) == (1, ENGINE_FAULT.format(path=path) + "\n" + REFUSAL_TAIL)
+    assert (code, capsys.readouterr().out) == (
+        1,
+        ENGINE_FAULT.format(path=path) + "\n" + REFUSAL_TAIL,
+    )
 
 
-def test_this_repository_s_hooks_cover_the_waits_their_modules_make(capsys: pytest.CaptureFixture[str]) -> None:
+def test_this_repository_s_hooks_cover_the_waits_their_modules_make(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     code = GATE.check(GATE.ROOT)
     assert (code, capsys.readouterr().out) == (0, CLEAN_LINE)

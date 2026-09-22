@@ -61,8 +61,16 @@ FORWARDER_EXEMPT: dict[str, str] = {}
 
 def named_all(node: ast.stmt) -> bool:
     """Report whether a statement assigns ``__all__``, which manifests a re-export rather than defining anything."""
-    targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
-    return any(isinstance(target, ast.Name) and target.id == "__all__" for target in targets)
+    targets = (
+        node.targets
+        if isinstance(node, ast.Assign)
+        else [node.target]
+        if isinstance(node, ast.AnnAssign)
+        else []
+    )
+    return any(
+        isinstance(target, ast.Name) and target.id == "__all__" for target in targets
+    )
 
 
 def defines_something(tree: ast.Module) -> bool:
@@ -99,7 +107,11 @@ def sole_return(func: ast.FunctionDef | ast.AsyncFunctionDef) -> ast.expr | None
     and its presence says nothing about what the function does.
     """
     body = func.body
-    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+    if (
+        body
+        and isinstance(body[0], ast.Expr)
+        and isinstance(body[0].value, ast.Constant)
+    ):
         body = body[1:]
     if len(body) != 1 or not isinstance(body[0], ast.Return) or body[0].value is None:
         return None
@@ -125,7 +137,9 @@ def parameters(func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
     return [arg.arg for arg in func.args.posonlyargs + func.args.args]
 
 
-def passes_through(func: ast.FunctionDef | ast.AsyncFunctionDef, call: ast.Call) -> bool:
+def passes_through(
+    func: ast.FunctionDef | ast.AsyncFunctionDef, call: ast.Call
+) -> bool:
     """Report whether a call hands on exactly this function's own parameters, in order.
 
     The receiver is dropped when the chain is rooted at the first parameter, so
@@ -145,7 +159,11 @@ def is_forwarder(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """Report whether a function is a bare pass-through to somewhere else."""
     returned = sole_return(func)
     call = called(returned) if returned is not None else None
-    if call is None or not isinstance(call.func, ast.Attribute) or chain_root(call.func) is None:
+    if (
+        call is None
+        or not isinstance(call.func, ast.Attribute)
+        or chain_root(call.func) is None
+    ):
         return False
     return passes_through(func, call)
 
@@ -162,16 +180,21 @@ def forwarders(name: str, tree: ast.Module) -> list[str]:
     return [
         f"{name}::{node.name}"
         for node in walked
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and is_forwarder(node)
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        and is_forwarder(node)
     ]
 
 
-def faults(name: str, exempt: dict[str, str], module_exempt: dict[str, str]) -> list[str]:
+def faults(
+    name: str, exempt: dict[str, str], module_exempt: dict[str, str]
+) -> list[str]:
     """Return one file's problems."""
     tree = ast.parse(Path(name).read_text(encoding="utf-8"))
     problems = []
     if is_reexport(name, tree) and name not in module_exempt:
-        problems.append(f"{name}: imports and defines nothing — a re-export module is not a split")
+        problems.append(
+            f"{name}: imports and defines nothing — a re-export module is not a split"
+        )
     if in_forwarder_scope(name):
         problems += [
             f"{key}: returns a call on its own arguments — move the callers, not the method"
@@ -189,7 +212,9 @@ def stale_modules(module_exempt: dict[str, str]) -> list[str]:
         if tree is None:
             problems.append(f"MODULE_EXEMPT[{name!r}]: names no file")
         elif not is_reexport(name, tree):
-            problems.append(f"MODULE_EXEMPT[{name!r}]: the module defines something, so it needs no exemption")
+            problems.append(
+                f"MODULE_EXEMPT[{name!r}]: the module defines something, so it needs no exemption"
+            )
     return problems
 
 
@@ -206,7 +231,11 @@ def stale_forwarders(exempt: dict[str, str]) -> list[str]:
     return problems
 
 
-def check(names: list[str], exempt: dict[str, str] | None = None, module_exempt: dict[str, str] | None = None) -> int:
+def check(
+    names: list[str],
+    exempt: dict[str, str] | None = None,
+    module_exempt: dict[str, str] | None = None,
+) -> int:
     """Refuse files that were shortened by leaving a shell behind."""
     if exempt is None:
         exempt = FORWARDER_EXEMPT
@@ -220,7 +249,9 @@ def check(names: list[str], exempt: dict[str, str] | None = None, module_exempt:
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} problem(s). A split that changed no caller did not happen.")
+        print(
+            f"\n{len(problems)} problem(s). A split that changed no caller did not happen."
+        )
         return 1
     return 0
 

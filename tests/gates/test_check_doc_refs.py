@@ -59,9 +59,15 @@ A_STEP_CITATION = "# (GUIDE.md step 12)\n"
 A_ROUND_CITATION_WITH_WORDS_BETWEEN = "# (GUIDE.md sweep pass round 3)\n"
 AN_UNKNOWN_DOCUMENT = '# (ELSEWHERE.md "a heading nobody indexes")\n'
 A_STRING_LITERAL_NAMING_A_DOCUMENT = '(OUT / "GUIDE.md").write_text(body)\n'
-EXEMPT_ON_THE_LINE = '# (GUIDE.md "nothing of the sort")  # doc-ref-exempt: the fixture spells it out\n'
-EXEMPT_ON_THE_LINE_ABOVE = '# doc-ref-exempt: the fixture spells it out\n# (GUIDE.md "nothing of the sort")\n'
-TWO_BROKEN_CITATIONS = '# (GUIDE.md "nothing of the sort")\n# (GUIDE.md "or this either")\n'
+EXEMPT_ON_THE_LINE = (
+    '# (GUIDE.md "nothing of the sort")  # doc-ref-exempt: the fixture spells it out\n'
+)
+EXEMPT_ON_THE_LINE_ABOVE = (
+    '# doc-ref-exempt: the fixture spells it out\n# (GUIDE.md "nothing of the sort")\n'
+)
+TWO_BROKEN_CITATIONS = (
+    '# (GUIDE.md "nothing of the sort")\n# (GUIDE.md "or this either")\n'
+)
 #: a citation the gate would report, in bytes no text decoder accepts
 UNDECODABLE_WITH_A_BROKEN_CITATION = b'\xff\xfe# (GUIDE.md "nothing of the sort")\n'
 
@@ -78,7 +84,9 @@ def docs(tmp_path: Path) -> dict[str, list[str]]:
     (tmp_path / "GUIDE.md").write_text(dedent(GUIDE), encoding="utf-8")
     (tmp_path / "NOTES.md").write_text(dedent(NOTES), encoding="utf-8")
     (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "plan.md").write_text(dedent(A_PLAN_UNDER_DOCS), encoding="utf-8")
+    (tmp_path / "docs" / "plan.md").write_text(
+        dedent(A_PLAN_UNDER_DOCS), encoding="utf-8"
+    )
     return GATE.doc_set(tmp_path)
 
 
@@ -134,27 +142,39 @@ def test_a_citation_naming_a_heading_that_exists_resolves(
     assert GATE.check(citing(tmp_path, body), docs) == []
 
 
-def test_the_index_answers_to_the_stem_and_to_the_filename(docs: dict[str, list[str]]) -> None:
+def test_the_index_answers_to_the_stem_and_to_the_filename(
+    docs: dict[str, list[str]],
+) -> None:
     assert (docs["GUIDE"], docs["GUIDE.md"]) == (GUIDE_HEADINGS, GUIDE_HEADINGS)
 
 
 # --- behavior 2: a citation that resolves to nothing, or to two things, fails --
 
 
-def test_a_citation_matching_no_heading_names_the_heading_it_wanted(tmp_path: Path, docs: dict[str, list[str]]) -> None:
+def test_a_citation_matching_no_heading_names_the_heading_it_wanted(
+    tmp_path: Path, docs: dict[str, list[str]]
+) -> None:
     resolving = GATE.check(citing(tmp_path, RESOLVING), docs)
     path = citing(tmp_path, NO_SUCH_HEADING)
     assert (resolving, located(GATE.check(path, docs), path)) == ([], [1])
 
 
-def test_a_prefix_matching_two_headings_says_how_many_it_matched(tmp_path: Path, docs: dict[str, list[str]]) -> None:
+def test_a_prefix_matching_two_headings_says_how_many_it_matched(
+    tmp_path: Path, docs: dict[str, list[str]]
+) -> None:
     resolving = GATE.check(citing(tmp_path, RESOLVING_BY_PREFIX), docs)
     path = citing(tmp_path, AMBIGUOUS_PREFIX)
     ambiguous = GATE.check(path, docs)
-    assert (resolving, located(ambiguous, path), counted(ambiguous, path)) == ([], [1], [[2]])
+    assert (resolving, located(ambiguous, path), counted(ambiguous, path)) == (
+        [],
+        [1],
+        [[2]],
+    )
 
 
-def test_every_broken_citation_is_reported_against_its_own_line(tmp_path: Path, docs: dict[str, list[str]]) -> None:
+def test_every_broken_citation_is_reported_against_its_own_line(
+    tmp_path: Path, docs: dict[str, list[str]]
+) -> None:
     path = citing(tmp_path, NO_SUCH_HEADING)
     one = located(GATE.check(path, docs), path)
     path = citing(tmp_path, TWO_BROKEN_CITATIONS)
@@ -180,14 +200,18 @@ def test_a_citation_of_a_position_rather_than_a_heading_is_refused(
 # --- behavior 4: what the gate leaves alone -----------------------------------
 
 
-@pytest.mark.parametrize("body", [AN_UNKNOWN_DOCUMENT, A_STRING_LITERAL_NAMING_A_DOCUMENT])
+@pytest.mark.parametrize(
+    "body", [AN_UNKNOWN_DOCUMENT, A_STRING_LITERAL_NAMING_A_DOCUMENT]
+)
 def test_a_line_the_gate_has_no_business_with_is_left_alone(
     tmp_path: Path, docs: dict[str, list[str]], body: str
 ) -> None:
     assert GATE.check(citing(tmp_path, body), docs) == []
 
 
-def test_a_broken_citation_in_a_file_that_is_not_text_is_skipped(tmp_path: Path, docs: dict[str, list[str]]) -> None:
+def test_a_broken_citation_in_a_file_that_is_not_text_is_skipped(
+    tmp_path: Path, docs: dict[str, list[str]]
+) -> None:
     binary = tmp_path / "held.py"
     binary.write_bytes(UNDECODABLE_WITH_A_BROKEN_CITATION)
     assert GATE.check(binary, docs) == []
@@ -197,7 +221,9 @@ def test_a_broken_citation_in_a_file_that_is_not_text_is_skipped(tmp_path: Path,
 
 
 @pytest.mark.parametrize("body", [EXEMPT_ON_THE_LINE, EXEMPT_ON_THE_LINE_ABOVE])
-def test_a_line_carrying_the_pragma_is_not_judged(tmp_path: Path, docs: dict[str, list[str]], body: str) -> None:
+def test_a_line_carrying_the_pragma_is_not_judged(
+    tmp_path: Path, docs: dict[str, list[str]], body: str
+) -> None:
     assert GATE.check(citing(tmp_path, body), docs) == []
 
 

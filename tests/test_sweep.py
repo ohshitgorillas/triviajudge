@@ -46,7 +46,9 @@ LINES = [Line("doc.md", number, f"line {number}") for number in range(1, 8)]
 
 
 @pytest.mark.parametrize(("size", "sizes"), [(3, [3, 3, 1]), (7, [7]), (100, [7])])
-def test_candidates_are_split_into_calls_of_at_most_the_batch_size(size: int, sizes: list[int]) -> None:
+def test_candidates_are_split_into_calls_of_at_most_the_batch_size(
+    size: int, sizes: list[int]
+) -> None:
     batches = sweep.batched(sweep.MD, "prompt", LINES, size)
     assert [len(batch.lines) for batch in batches] == sizes
 
@@ -73,14 +75,18 @@ def test_no_candidates_is_no_calls() -> None:
         ("docs/plan.md", ("src/", "docs/"), True),
     ],
 )
-def test_a_path_is_judged_when_it_sits_under_a_named_prefix(path: str, prefixes: tuple[str, ...], kept: bool) -> None:
+def test_a_path_is_judged_when_it_sits_under_a_named_prefix(
+    path: str, prefixes: tuple[str, ...], kept: bool
+) -> None:
     assert sweep.wanted(path, prefixes) is kept
 
 
 # --- behavior 3: concurrency is capped at half the host's cores --------------
 
 
-def test_concurrency_is_at_least_one_and_at_most_half_the_cores(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_concurrency_is_at_least_one_and_at_most_half_the_cores(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.gate.os.cpu_count", lambda: 8)
     assert [sweep.workers(asked) for asked in (0, 1, 4, 64)] == [1, 1, 4, 4]
 
@@ -88,9 +94,15 @@ def test_concurrency_is_at_least_one_and_at_most_half_the_cores(monkeypatch: pyt
 # --- behavior 4: a failed batch is reported and the run continues ------------
 
 
-def reported(capsys: pytest.CaptureFixture[str]) -> tuple[list[dict[str, str]], list[Line], str]:
+def reported(
+    capsys: pytest.CaptureFixture[str],
+) -> tuple[list[dict[str, str]], list[Line], str]:
     """One ``report`` over a batch that answered beside a batch whose call failed."""
-    lines = [Line("a.md", 1, "first"), Line("a.md", 2, "second"), Line("b.md", 1, "third")]
+    lines = [
+        Line("a.md", 1, "first"),
+        Line("a.md", 2, "second"),
+        Line("b.md", 1, "third"),
+    ]
     good, bad = sweep.batched(sweep.MD, "prompt", lines, 2)
     results: list[sweep.Result] = [
         (good, [{"id": "a.md:2", "reason": "dated event"}], ""),
@@ -100,12 +112,19 @@ def reported(capsys: pytest.CaptureFixture[str]) -> tuple[list[dict[str, str]], 
     return flags, passed, capsys.readouterr().err
 
 
-def test_a_failed_batch_costs_the_run_its_own_lines_and_nothing_else(capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_failed_batch_costs_the_run_its_own_lines_and_nothing_else(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     flags, passed, _err = reported(capsys)
-    assert ([flag["id"] for flag in flags], [line.id for line in passed]) == (["a.md:2"], ["a.md:1"])
+    assert ([flag["id"] for flag in flags], [line.id for line in passed]) == (
+        ["a.md:2"],
+        ["a.md:1"],
+    )
 
 
-def test_a_failed_batch_is_named_for_rerun_with_the_files_it_covers(capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_failed_batch_is_named_for_rerun_with_the_files_it_covers(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     _flags, _passed, err = reported(capsys)
     assert "--paths b.md" in err
 
@@ -121,7 +140,10 @@ def test_the_baseline_adds_passed_digests_without_dropping_the_ones_already_ther
     monkeypatch.setattr(sweep, "cache_path", lambda _name: cache)
     line = Line("a.md", 1, "the rate the panel asks for")
     sweep.write_baseline([line, line])
-    assert json.loads(cache.read_text(encoding="utf-8")) == ["already-here", digest(line)]
+    assert json.loads(cache.read_text(encoding="utf-8")) == [
+        "already-here",
+        digest(line),
+    ]
 
 
 # --- behavior 6: the candidates are the tracked tree, screened by each gate ---
@@ -132,7 +154,9 @@ DATED_COMMENT = "value = 1  # added 2025-11-04 for the resampler panel\n"
 CLEAN_COMMENT = "value = 2  # the lane returns the staged model\n"
 
 
-def tracked(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, files: dict[str, str]) -> None:
+def tracked(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, files: dict[str, str]
+) -> None:
     """Point the sweep at a throwaway tree whose tracked list is exactly ``files``."""
     for rel, text in files.items():
         path = tmp_path / rel
@@ -141,7 +165,9 @@ def tracked(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, files: dict[str, st
 
     def fake_git(*args: str) -> str:
         pattern = args[-1] if args[-2:-1] == ("--",) else None
-        return "\n".join(rel for rel in sorted(files) if pattern is None or fnmatch(rel, pattern))
+        return "\n".join(
+            rel for rel in sorted(files) if pattern is None or fnmatch(rel, pattern)
+        )
 
     monkeypatch.setattr("triviajudge.sweep.git", fake_git)
     monkeypatch.setattr("triviajudge.sweep.root", lambda: tmp_path)
@@ -150,14 +176,22 @@ def tracked(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, files: dict[str, st
 def test_the_markdown_candidates_are_the_prose_lines_of_the_tracked_markdown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN, "src/sample.py": CLEAN_COMMENT})
+    tracked(
+        monkeypatch,
+        tmp_path,
+        {"docs/plan.md": PROSE_MARKDOWN, "src/sample.py": CLEAN_COMMENT},
+    )
     assert [line.id for line in sweep.md_candidates(())] == ["docs/plan.md:1"]
 
 
 def test_a_prefix_keeps_the_markdown_outside_it_out_of_the_candidates(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN, "notes/plan.md": PROSE_MARKDOWN})
+    tracked(
+        monkeypatch,
+        tmp_path,
+        {"docs/plan.md": PROSE_MARKDOWN, "notes/plan.md": PROSE_MARKDOWN},
+    )
     assert [line.id for line in sweep.md_candidates(("notes/",))] == ["notes/plan.md:1"]
 
 
@@ -181,10 +215,19 @@ def test_a_file_the_sweep_cannot_read_is_named_and_the_run_goes_on(
 # --- behavior 7: the run is asked for, and an unanswered question is a no -----
 
 
-@pytest.mark.parametrize(("answer", "asked"), [("y", True), ("YES", True), ("", False), ("n", False)])
-def test_the_run_starts_only_on_a_yes(answer: str, asked: bool, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("answer", "asked"), [("y", True), ("YES", True), ("", False), ("n", False)]
+)
+def test_the_run_starts_only_on_a_yes(
+    answer: str, asked: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr("builtins.input", lambda _prompt: answer)
-    assert sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 50), "a-model", 1, assumed=False) is asked
+    assert (
+        sweep.consent(
+            sweep.batched(sweep.MD, "prompt", LINES, 50), "a-model", 1, assumed=False
+        )
+        is asked
+    )
 
 
 def test_a_closed_stdin_is_a_no(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -192,13 +235,24 @@ def test_a_closed_stdin_is_a_no(monkeypatch: pytest.MonkeyPatch) -> None:
         raise EOFError
 
     monkeypatch.setattr("builtins.input", closed)
-    assert sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 50), "a-model", 1, assumed=False) is False
+    assert (
+        sweep.consent(
+            sweep.batched(sweep.MD, "prompt", LINES, 50), "a-model", 1, assumed=False
+        )
+        is False
+    )
 
 
-def assumed_consent(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> str:
+def assumed_consent(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> str:
     """What ``consent`` prints when the answer is assumed, with the question left unasked."""
-    monkeypatch.setattr("builtins.input", lambda _prompt: pytest.fail("the question was asked"))
-    sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 3), "a-model", 4, assumed=True)
+    monkeypatch.setattr(
+        "builtins.input", lambda _prompt: pytest.fail("the question was asked")
+    )
+    sweep.consent(
+        sweep.batched(sweep.MD, "prompt", LINES, 3), "a-model", 4, assumed=True
+    )
     return capsys.readouterr().out
 
 
@@ -218,16 +272,21 @@ def test_the_consent_line_names_what_the_configured_backend_spends(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(
-        "triviajudge.sweep.settings", lambda: Settings(backend="local", base_url="http://127.0.0.1:8080")
+        "triviajudge.sweep.settings",
+        lambda: Settings(backend="local", base_url="http://127.0.0.1:8080"),
     )
-    sweep.consent(sweep.batched(sweep.MD, "prompt", LINES, 3), "a-model", 4, assumed=True)
+    sweep.consent(
+        sweep.batched(sweep.MD, "prompt", LINES, 3), "a-model", 4, assumed=True
+    )
     assert "http://127.0.0.1:8080" in capsys.readouterr().out
 
 
 # --- behavior 8: a failed call costs its batch, not the run ------------------
 
 
-def test_a_call_that_raises_answers_with_no_flags_and_the_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_call_that_raises_answers_with_no_flags_and_the_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def refuse(*_args: object, **_kwargs: object) -> list[dict[str, str]]:
         raise RuntimeError("claude exited 1")
 
@@ -236,10 +295,14 @@ def test_a_call_that_raises_answers_with_no_flags_and_the_reason(monkeypatch: py
     assert sweep.judge(batch, "a-model") == (batch, None, "claude exited 1")
 
 
-def test_every_batch_is_asked_when_the_calls_run_concurrently(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_every_batch_is_asked_when_the_calls_run_concurrently(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("triviajudge.sweep.verdicts", lambda *_args, **_kwargs: [])
     batches = sweep.batched(sweep.MD, "prompt", LINES, 2)
-    assert [batch.name for batch, _flags, _why in sweep.run_batches(batches, "a-model", 4)] == [
+    assert [
+        batch.name for batch, _flags, _why in sweep.run_batches(batches, "a-model", 4)
+    ] == [
         "md#1",
         "md#2",
         "md#3",
@@ -298,7 +361,9 @@ def scrubbed_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pat
     return bin_dir
 
 
-def committed_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, files: dict[str, str]) -> Path:
+def committed_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, files: dict[str, str]
+) -> Path:
     """A real throwaway checkout tracking exactly ``files`` in one commit, entered as the working directory."""
     root = tmp_path / "repo"
     root.mkdir()
@@ -314,7 +379,9 @@ def committed_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, files: d
 
 
 @pytest.fixture
-def checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[dict[str, str]], Path]]:
+def checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[Callable[[dict[str, str]], Path]]:
     """A builder of real checkouts, with the cached root forgotten on either side of the test."""
     scrubbed_environment(tmp_path, monkeypatch)
     core.root.cache_clear()
@@ -334,17 +401,29 @@ def lines_handed_over(limit: int) -> int:
     return sum(len(batch.lines) for batch in batches)
 
 
-def test_markdown_only_asks_no_comment_batches(checkout: Callable[[dict[str, str]], Path]) -> None:
+def test_markdown_only_asks_no_comment_batches(
+    checkout: Callable[[dict[str, str]], Path],
+) -> None:
     checkout({"docs/plan.md": PROSE_MARKDOWN, "src/sample.py": CLEAN_COMMENT})
-    assert (gates_of(namespace(md=True)), gates_of(namespace())) == ({sweep.MD}, {sweep.MD, sweep.COMMENTS})
+    assert (gates_of(namespace(md=True)), gates_of(namespace())) == (
+        {sweep.MD},
+        {sweep.MD, sweep.COMMENTS},
+    )
 
 
-def test_comments_only_asks_no_markdown_batches(checkout: Callable[[dict[str, str]], Path]) -> None:
+def test_comments_only_asks_no_markdown_batches(
+    checkout: Callable[[dict[str, str]], Path],
+) -> None:
     checkout({"docs/plan.md": PROSE_MARKDOWN, "src/sample.py": CLEAN_COMMENT})
-    assert (gates_of(namespace(comments=True)), gates_of(namespace())) == ({sweep.COMMENTS}, {sweep.MD, sweep.COMMENTS})
+    assert (gates_of(namespace(comments=True)), gates_of(namespace())) == (
+        {sweep.COMMENTS},
+        {sweep.MD, sweep.COMMENTS},
+    )
 
 
-def test_the_limit_caps_what_one_gate_hands_over(checkout: Callable[[dict[str, str]], Path]) -> None:
+def test_the_limit_caps_what_one_gate_hands_over(
+    checkout: Callable[[dict[str, str]], Path],
+) -> None:
     checkout({"docs/plan.md": THREE_PROSE_LINES})
     assert (lines_handed_over(2), lines_handed_over(3)) == (2, 3)
 
@@ -358,40 +437,63 @@ def sweep_run(monkeypatch: pytest.MonkeyPatch, flags: list[str]) -> int:
     return sweep.main()
 
 
-def test_a_tree_with_nothing_to_judge_asks_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_tree_with_nothing_to_judge_asks_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tracked(monkeypatch, tmp_path, {})
-    monkeypatch.setattr("triviajudge.sweep.verdicts", lambda *_args, **_kwargs: pytest.fail("a call was made"))
+    monkeypatch.setattr(
+        "triviajudge.sweep.verdicts",
+        lambda *_args, **_kwargs: pytest.fail("a call was made"),
+    )
     assert sweep_run(monkeypatch, ["--md", "--yes"]) == 0
 
 
-def test_a_declined_question_asks_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_declined_question_asks_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     monkeypatch.setattr("builtins.input", lambda _prompt: "n")
-    monkeypatch.setattr("triviajudge.sweep.verdicts", lambda *_args, **_kwargs: pytest.fail("a call was made"))
+    monkeypatch.setattr(
+        "triviajudge.sweep.verdicts",
+        lambda *_args, **_kwargs: pytest.fail("a call was made"),
+    )
     assert sweep_run(monkeypatch, ["--md"]) == 0
 
 
-def test_a_flagged_line_fails_the_run_under_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_flagged_line_fails_the_run_under_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     monkeypatch.setattr(
         "triviajudge.sweep.verdicts",
-        lambda *_args, **_kwargs: [{"id": "docs/plan.md:1", "reason": "narrates a decision"}],
+        lambda *_args, **_kwargs: [
+            {"id": "docs/plan.md:1", "reason": "narrates a decision"}
+        ],
     )
     assert sweep_run(monkeypatch, ["--md", "--yes", "--check"]) == 1
 
 
-def test_the_out_file_carries_the_flags_the_run_printed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_out_file_carries_the_flags_the_run_printed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     monkeypatch.setattr(
         "triviajudge.sweep.verdicts",
-        lambda *_args, **_kwargs: [{"id": "docs/plan.md:1", "reason": "narrates a decision"}],
+        lambda *_args, **_kwargs: [
+            {"id": "docs/plan.md:1", "reason": "narrates a decision"}
+        ],
     )
     out = tmp_path / "flags.json"
     sweep_run(monkeypatch, ["--md", "--yes", "--out", str(out)])
-    assert json.loads(out.read_text(encoding="utf-8"))["flags"][0]["id"] == "docs/plan.md:1"
+    assert (
+        json.loads(out.read_text(encoding="utf-8"))["flags"][0]["id"]
+        == "docs/plan.md:1"
+    )
 
 
-def test_the_baseline_remembers_the_lines_no_judge_flagged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_baseline_remembers_the_lines_no_judge_flagged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     cache = tmp_path / sweep.CACHE_NAME
     monkeypatch.setattr(sweep, "cache_path", lambda _name: cache)
@@ -429,7 +531,9 @@ def exit_code(monkeypatch: pytest.MonkeyPatch, flags: list[str]) -> int:
 
 
 def test_a_directory_in_no_work_tree_is_refused_rather_than_swept(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, checkout: Callable[[dict[str, str]], Path]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout: Callable[[dict[str, str]], Path],
 ) -> None:
     fake_claude(tmp_path / "bin", NO_FLAGS_ENVELOPE)
     bare = tmp_path / "bare"

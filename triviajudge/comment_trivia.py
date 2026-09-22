@@ -52,7 +52,14 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from triviajudge.archaeology import BARE_PRAGMA, EXEMPT, PATTERNS, PRAGMA, block_comment_lines, python_comment_lines
+from triviajudge.archaeology import (
+    BARE_PRAGMA,
+    EXEMPT,
+    PATTERNS,
+    PRAGMA,
+    block_comment_lines,
+    python_comment_lines,
+)
 from triviajudge.config import settings
 from triviajudge.core import (
     Gate,
@@ -133,7 +140,11 @@ def docstring_spans(text: str) -> list[tuple[int, int]]:
         if not isinstance(node, holders) or not node.body:
             continue
         first = node.body[0]
-        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
             spans.append((first.lineno, first.end_lineno or first.lineno))
     return spans
 
@@ -141,7 +152,11 @@ def docstring_spans(text: str) -> list[tuple[int, int]]:
 def comment_entries(path: str, text: str) -> list[tuple[int, str]]:
     """Line and text of every comment in the file, read the way its suffix demands."""
     if path.endswith(".py"):
-        return [(number, body) for number, body in python_comment_lines(text) if body.lstrip().startswith("#")]
+        return [
+            (number, body)
+            for number, body in python_comment_lines(text)
+            if body.lstrip().startswith("#")
+        ]
     return block_comment_lines(text, line_comments=path.endswith(".js"))
 
 

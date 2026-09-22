@@ -66,7 +66,10 @@ FLAGS_SCHEMA = {
         "additionalProperties": False,
     },
 }
-FLAGS_FORMAT = {"type": "json_schema", "json_schema": {"name": "flags", "strict": True, "schema": FLAGS_SCHEMA}}
+FLAGS_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {"name": "flags", "strict": True, "schema": FLAGS_SCHEMA},
+}
 
 #: The exhaustive answer's shape, one object per input id. ``strict`` is what makes the
 #: sparse schema above unusable here: it forbids the ``verdict`` key outright, so a gate
@@ -75,7 +78,11 @@ VERDICTS_SCHEMA = {
     "type": "array",
     "items": {
         "type": "object",
-        "properties": {"id": {"type": "string"}, "verdict": {"type": "string"}, "reason": {"type": "string"}},
+        "properties": {
+            "id": {"type": "string"},
+            "verdict": {"type": "string"},
+            "reason": {"type": "string"},
+        },
         "required": ["id", "verdict", "reason"],
         "additionalProperties": False,
     },
@@ -130,7 +137,9 @@ def root() -> Path:
         cmd, capture_output=True, text=True, check=False, timeout=GIT_TIMEOUT
     )
     if proc.returncode != 0:
-        raise NotARepositoryError(f"{Path.cwd()} is in no git work tree; every input mode reads git objects")
+        raise NotARepositoryError(
+            f"{Path.cwd()} is in no git work tree; every input mode reads git objects"
+        )
     return Path(proc.stdout.strip())
 
 
@@ -177,7 +186,12 @@ def from_records(path: Path) -> list[Line]:
 
 
 def ask(
-    lines: list[Line], prompt: str, model: str | None = None, timeout: float | None = None, *, exhaustive: bool = False
+    lines: list[Line],
+    prompt: str,
+    model: str | None = None,
+    timeout: float | None = None,
+    *,
+    exhaustive: bool = False,
 ) -> list[dict[str, str]]:
     """One call for every line; the parsed JSON array it answers with.
 
@@ -192,16 +206,24 @@ def ask(
     refusal rather than a fallback to the CLI: a judge nobody asked for is not
     the judge the repository asked for.
     """
-    body = prompt + "\n\nLINES:\n" + "\n".join(f"{line.id}\t{line.text}" for line in lines)
+    body = (
+        prompt + "\n\nLINES:\n" + "\n".join(f"{line.id}\t{line.text}" for line in lines)
+    )
     backend = settings().backend
     if backend == CLAUDE_BACKEND:
         return _ask_cli(body, model, timeout)
     if backend == LOCAL_BACKEND:
-        return _ask_http(body, model, timeout, VERDICTS_FORMAT if exhaustive else FLAGS_FORMAT)
-    raise RuntimeError(f"unknown backend {backend!r}; it is {CLAUDE_BACKEND!r} or {LOCAL_BACKEND!r}")
+        return _ask_http(
+            body, model, timeout, VERDICTS_FORMAT if exhaustive else FLAGS_FORMAT
+        )
+    raise RuntimeError(
+        f"unknown backend {backend!r}; it is {CLAUDE_BACKEND!r} or {LOCAL_BACKEND!r}"
+    )
 
 
-def _ask_cli(body: str, model: str | None, timeout: float | None) -> list[dict[str, str]]:
+def _ask_cli(
+    body: str, model: str | None, timeout: float | None
+) -> list[dict[str, str]]:
     """Ask the ``claude`` CLI in print mode and parse the envelope it prints."""
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {INNER: "1"}
     try:
@@ -218,7 +240,9 @@ def _ask_cli(body: str, model: str | None, timeout: float | None) -> list[dict[s
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"claude did not answer within {timeout}s") from exc
     if proc.returncode != 0:
-        raise RuntimeError(f"claude exited {proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}")
+        raise RuntimeError(
+            f"claude exited {proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}"
+        )
     return parsed(proc.stdout)
 
 
@@ -234,12 +258,17 @@ def _headers(api_key_env: str) -> dict[str, str]:
 
 
 def _ask_http(
-    body: str, model: str | None, timeout: float | None, answer_format: Mapping[str, object]
+    body: str,
+    model: str | None,
+    timeout: float | None,
+    answer_format: Mapping[str, object],
 ) -> list[dict[str, str]]:
     """Ask an OpenAI-compatible server for a schema-constrained answer and parse what it sends."""
     conf = settings()
     if not conf.base_url:
-        raise RuntimeError(f"backend {LOCAL_BACKEND!r} needs base_url, and the table names none")
+        raise RuntimeError(
+            f"backend {LOCAL_BACKEND!r} needs base_url, and the table names none"
+        )
     url = conf.base_url.rstrip("/") + "/" + conf.chat_path.lstrip("/")
     payload = {
         "model": model or conf.model,
@@ -248,14 +277,19 @@ def _ask_http(
         "response_format": answer_format,
     }
     request = urllib.request.Request(  # noqa: S310 — base_url is the judged repository's own table, not input
-        url, data=json.dumps(payload).encode("utf-8"), headers=_headers(conf.api_key_env), method="POST"
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=_headers(conf.api_key_env),
+        method="POST",
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 — as above
             envelope = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         with exc:  # the error is itself the response, so reading its body also closes the handle
-            raise RuntimeError(f"{url} answered {exc.code}: {exc.read().decode(errors='replace')[:200]}") from exc
+            raise RuntimeError(
+                f"{url} answered {exc.code}: {exc.read().decode(errors='replace')[:200]}"
+            ) from exc
     except OSError as exc:
         raise RuntimeError(f"{url} did not answer: {exc}") from exc
     return flags_from(_answer(envelope))
@@ -320,7 +354,10 @@ def report(lines: list[Line], flags: list[dict[str, str]], out: TextIO) -> bool:
         if line:
             print(f"    {line.text.strip()}", file=out)
     if flags:
-        print(f"\n{len(flags)} line(s) narrate history. State what holds now, or delete the remark.", file=out)
+        print(
+            f"\n{len(flags)} line(s) narrate history. State what holds now, or delete the remark.",
+            file=out,
+        )
     else:
         print(f"[ok] {len(lines)} line(s) state what holds now", file=out)
     return bool(flags)
@@ -337,7 +374,9 @@ def stop_already_ran() -> bool:
 
 def digest(line: Line) -> str:
     """Hash of the line's text alone, so a passed line stays passed wherever it moves."""
-    return hashlib.sha1(line.text.strip().encode("utf-8"), usedforsecurity=False).hexdigest()
+    return hashlib.sha1(
+        line.text.strip().encode("utf-8"), usedforsecurity=False
+    ).hexdigest()
 
 
 def clean_cache(cache_path: Path) -> list[str]:
@@ -349,7 +388,9 @@ def clean_cache(cache_path: Path) -> list[str]:
     return [str(item) for item in seen] if isinstance(seen, list) else []
 
 
-def remember_clean(lines: list[Line], flags: list[dict[str, str]], cache_path: Path) -> None:
+def remember_clean(
+    lines: list[Line], flags: list[dict[str, str]], cache_path: Path
+) -> None:
     """Append every line the judge passed to the cache, capped at the newest ``CACHE_CAP``."""
     flagged = {str(flag.get("id")) for flag in flags}
     seen = clean_cache(cache_path)
@@ -386,10 +427,18 @@ class Gate:
 
 def parse_args(doc: str, noun: str) -> argparse.Namespace:
     """Read the five input modes both trivia gates take."""
-    parser = argparse.ArgumentParser(description=doc, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=doc, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("files", nargs="*", help=f"staged {noun} (pre-commit)")
-    parser.add_argument("--head", action="store_true", help=f"judge the {noun} HEAD added")
-    parser.add_argument("--stop", action="store_true", help="judge the working tree; reads a Stop payload on stdin")
+    parser.add_argument(
+        "--head", action="store_true", help=f"judge the {noun} HEAD added"
+    )
+    parser.add_argument(
+        "--stop",
+        action="store_true",
+        help="judge the working tree; reads a Stop payload on stdin",
+    )
     parser.add_argument("--lines", help="calibration records, path:line<TAB>text")
     parser.add_argument("--out", help="write the judge's raw answer here")
     return parser.parse_args()

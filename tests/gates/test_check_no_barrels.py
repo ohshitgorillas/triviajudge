@@ -133,7 +133,9 @@ REASON = "the collaborator has no other route in"
 REEXPORT = "{}: imports and defines nothing — a re-export module is not a split"
 FORWARDS = "{}: returns a call on its own arguments — move the callers, not the method"
 MODULE_NO_FILE = "MODULE_EXEMPT[{!r}]: names no file"
-MODULE_DEFINES = "MODULE_EXEMPT[{!r}]: the module defines something, so it needs no exemption"
+MODULE_DEFINES = (
+    "MODULE_EXEMPT[{!r}]: the module defines something, so it needs no exemption"
+)
 FORWARDER_NO_FILE = "FORWARDER_EXEMPT[{!r}]: names no file"
 FORWARDER_NO_MATCH = "FORWARDER_EXEMPT[{!r}]: matches no forwarder"
 SUMMARY = "\n{} problem(s). A split that changed no caller did not happen.\n"
@@ -149,7 +151,13 @@ MOD_MISSING = "triviajudge/mod.py::missing"
 
 #: What ``check`` prints end to end: every finding, then the count.
 ONE_PROBLEM_REPORT = REEXPORT.format(BARREL) + "\n" + SUMMARY.format(1)
-TWO_PROBLEM_REPORT = REEXPORT.format(BARREL) + "\n" + FORWARDER_NO_FILE.format(GONE_F) + "\n" + SUMMARY.format(2)
+TWO_PROBLEM_REPORT = (
+    REEXPORT.format(BARREL)
+    + "\n"
+    + FORWARDER_NO_FILE.format(GONE_F)
+    + "\n"
+    + SUMMARY.format(2)
+)
 
 
 # --- behavior 1: a file of imports alone is a re-export, unless it is __init__ ---
@@ -160,7 +168,11 @@ TWO_PROBLEM_REPORT = REEXPORT.format(BARREL) + "\n" + FORWARDER_NO_FILE.format(G
     [
         (BARREL, IMPORTS_ALONE, [REEXPORT.format(BARREL)]),
         ("triviajudge/__init__.py", IMPORTS_ALONE, []),
-        ("triviajudge/manifest.py", MANIFEST_ONLY, [REEXPORT.format("triviajudge/manifest.py")]),
+        (
+            "triviajudge/manifest.py",
+            MANIFEST_ONLY,
+            [REEXPORT.format("triviajudge/manifest.py")],
+        ),
         (
             "triviajudge/annotated_manifest.py",
             ANNOTATED_MANIFEST,
@@ -173,7 +185,11 @@ TWO_PROBLEM_REPORT = REEXPORT.format(BARREL) + "\n" + FORWARDER_NO_FILE.format(G
     ],
 )
 def test_a_module_passes_only_while_it_defines_something_of_its_own(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, source: str, problems: list[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    source: str,
+    problems: list[str],
 ) -> None:
     monkeypatch.chdir(tmp_path)
     assert GATE.faults(written(name, source), {}, {}) == problems
@@ -279,8 +295,18 @@ def test_a_module_exemption_stands_only_while_its_module_re_exports(
     [
         (MOD, FORWARDER, {MOD_F: REASON}, []),
         (None, FORWARDER, {GONE_F: REASON}, [FORWARDER_NO_FILE.format(GONE_F)]),
-        (MOD, FORWARDER, {MOD_MISSING: REASON}, [FORWARDER_NO_MATCH.format(MOD_MISSING)]),
-        ("triviajudge/plain.py", PLAIN_CALL, {PLAIN_F: REASON}, [FORWARDER_NO_MATCH.format(PLAIN_F)]),
+        (
+            MOD,
+            FORWARDER,
+            {MOD_MISSING: REASON},
+            [FORWARDER_NO_MATCH.format(MOD_MISSING)],
+        ),
+        (
+            "triviajudge/plain.py",
+            PLAIN_CALL,
+            {PLAIN_F: REASON},
+            [FORWARDER_NO_MATCH.format(PLAIN_F)],
+        ),
     ],
 )
 def test_a_forwarder_exemption_stands_only_while_it_matches_a_forwarder(
@@ -317,7 +343,10 @@ def test_check_prints_nothing_when_every_file_is_clean(
     assert (code, capsys.readouterr().out) == (0, "")
 
 
-@pytest.mark.parametrize(("source", "code", "out"), [(CONSTANT, 0, ""), (IMPORTS_ALONE, 1, ONE_PROBLEM_REPORT)])
+@pytest.mark.parametrize(
+    ("source", "code", "out"),
+    [(CONSTANT, 0, ""), (IMPORTS_ALONE, 1, ONE_PROBLEM_REPORT)],
+)
 def test_the_command_line_checks_the_files_it_names(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

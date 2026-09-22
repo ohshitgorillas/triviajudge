@@ -55,7 +55,11 @@ _SELVES = frozenset({"self", "cls"})
 def _is_raises(node: ast.With | ast.AsyncWith) -> bool:
     for item in node.items:
         call = item.context_expr
-        if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == "raises":
+        if (
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "raises"
+        ):
             return True
     return False
 
@@ -68,7 +72,11 @@ def _root(expr: ast.expr) -> ast.expr:
 
 
 def _is_sweep(expr: ast.expr) -> bool:
-    return isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name) and expr.func.id in _SWEEPS
+    return (
+        isinstance(expr, ast.Call)
+        and isinstance(expr.func, ast.Name)
+        and expr.func.id in _SWEEPS
+    )
 
 
 def _weight(node: ast.Assert) -> tuple[int, bool]:
@@ -79,7 +87,9 @@ def _weight(node: ast.Assert) -> tuple[int, bool]:
     return 1, _is_sweep(root)
 
 
-def _count_assertions(body: list[ast.stmt], *, in_loop: bool = False) -> tuple[int, bool]:
+def _count_assertions(
+    body: list[ast.stmt], *, in_loop: bool = False
+) -> tuple[int, bool]:
     """Return (assertion count, any-inside-loop-or-sweep) for a statement body.
 
     Does not descend into nested function definitions.
@@ -110,7 +120,11 @@ def _is_none(expr: ast.expr) -> bool:
 
 
 def _is_len(expr: ast.expr) -> bool:
-    return isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name) and expr.func.id == "len"
+    return (
+        isinstance(expr, ast.Call)
+        and isinstance(expr.func, ast.Name)
+        and expr.func.id == "len"
+    )
 
 
 def _is_existence(test: ast.expr) -> bool:
@@ -119,7 +133,12 @@ def _is_existence(test: ast.expr) -> bool:
         op, right = test.ops[0], test.comparators[0]
         if isinstance(op, ast.IsNot) and _is_none(right):
             return True
-        return isinstance(op, ast.Gt) and _is_len(test.left) and isinstance(right, ast.Constant) and right.value == 0
+        return (
+            isinstance(op, ast.Gt)
+            and _is_len(test.left)
+            and isinstance(right, ast.Constant)
+            and right.value == 0
+        )
     return _is_len(test)
 
 
@@ -142,7 +161,9 @@ def _own_nodes(node: ast.AST) -> Iterator[ast.AST]:
         yield from _own_nodes(child)
 
 
-def _test_findings(path: Path, fn: ast.FunctionDef | ast.AsyncFunctionDef, exempt: dict[str, str]) -> list[Finding]:
+def _test_findings(
+    path: Path, fn: ast.FunctionDef | ast.AsyncFunctionDef, exempt: dict[str, str]
+) -> list[Finding]:
     where = f"{path}:{fn.lineno} {fn.name}"
     findings: list[Finding] = []
     count, looped = _count_assertions(fn.body)
@@ -152,15 +173,24 @@ def _test_findings(path: Path, fn: ast.FunctionDef | ast.AsyncFunctionDef, exemp
         findings.append(("loop", where, 0))
     if f"{path}::{fn.name}" in exempt:
         return findings
-    if any(isinstance(node, ast.Assert) and _is_existence(node.test) for node in _own_nodes(fn)):
+    if any(
+        isinstance(node, ast.Assert) and _is_existence(node.test)
+        for node in _own_nodes(fn)
+    ):
         findings.append(("existence", where, 0))
     if any(_is_skip_mark(decorator) for decorator in fn.decorator_list):
         findings.append(("skip", where, 0))
     return findings
 
 
-def _outside_findings(path: Path, fn: ast.FunctionDef | ast.AsyncFunctionDef) -> list[Finding]:
-    return [("outside", f"{path}:{node.lineno} {fn.name}", 0) for node in ast.walk(fn) if isinstance(node, ast.Assert)]
+def _outside_findings(
+    path: Path, fn: ast.FunctionDef | ast.AsyncFunctionDef
+) -> list[Finding]:
+    return [
+        ("outside", f"{path}:{node.lineno} {fn.name}", 0)
+        for node in ast.walk(fn)
+        if isinstance(node, ast.Assert)
+    ]
 
 
 def _is_private_reach(node: ast.Attribute) -> bool:
@@ -170,7 +200,11 @@ def _is_private_reach(node: ast.Attribute) -> bool:
 
 
 def _private_reaches(path: Path, scope: ast.AST, name: str) -> list[Finding]:
-    reaches = (node for node in _own_nodes(scope) if isinstance(node, ast.Attribute) and _is_private_reach(node))
+    reaches = (
+        node
+        for node in _own_nodes(scope)
+        if isinstance(node, ast.Attribute) and _is_private_reach(node)
+    )
     return [("private", f"{path}:{node.lineno} {name}", 0) for node in reaches]
 
 
@@ -220,7 +254,11 @@ def main() -> int:
     """Refuse on any finding; with ``--report`` first, print the findings and return 0."""
     args = sys.argv[1:]
     report = args[:1] == ["--report"]
-    findings = [finding for name in (args[1:] if report else args) for finding in check_file(Path(name))]
+    findings = [
+        finding
+        for name in (args[1:] if report else args)
+        for finding in check_file(Path(name))
+    ]
     for finding in findings:
         print(_describe(finding))
     return 0 if report or not findings else 1

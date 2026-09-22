@@ -30,11 +30,15 @@ CAP_OVER_TESTS = "tests/test_over_the_cap.py: 801 lines (max 800) — split it"
 
 RATCHET_NO_ENTRY = "pkg/watched.py: 437 lines, over the 400-line watch line — add an ALLOWANCE entry of 437"
 RATCHET_OVER_ENTRY = "pkg/watched.py: 450 lines, over its allowance of 421 — split it, the allowance does not rise"
-RATCHET_UNDER_ENTRY = "pkg/watched.py: 412 lines, under its allowance of 455 — lower the entry to 412"
+RATCHET_UNDER_ENTRY = (
+    "pkg/watched.py: 412 lines, under its allowance of 455 — lower the entry to 412"
+)
 
 STALE_NO_FILE = "ALLOWANCE['pkg/gone.py']: names no file"
 STALE_TEST_PATH = "ALLOWANCE['tests/test_watched.py']: names a test path, which the ratchet does not govern"
-STALE_UNDER_WATCH_LINE = "ALLOWANCE['pkg/shrunk.py']: file is back under the 400-line watch line — drop it"
+STALE_UNDER_WATCH_LINE = (
+    "ALLOWANCE['pkg/shrunk.py']: file is back under the 400-line watch line — drop it"
+)
 
 ARGV_CAP = "pkg/named.py: 501 lines (max 500) — split it"
 ARGV_NO_ENTRY = "pkg/named.py: 501 lines, over the 400-line watch line — add an ALLOWANCE entry of 501"
@@ -46,7 +50,9 @@ def written(name: str, lines: int) -> str:
     """Write a file of ``lines`` lines at ``name``, relative to the current directory."""
     path = Path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("".join(f"# {number}\n" for number in range(lines)), encoding="utf-8")
+    path.write_text(
+        "".join(f"# {number}\n" for number in range(lines)), encoding="utf-8"
+    )
     return name
 
 
@@ -57,7 +63,10 @@ def printed(capsys: pytest.CaptureFixture[str]) -> str:
 
 def refusal(*findings: str) -> str:
     """The full text the gate prints for ``findings``: each one, then the count and the rule."""
-    return "".join(f"{finding}\n" for finding in findings) + f"\n{len(findings)} problem(s). {SUMMARY}\n"
+    return (
+        "".join(f"{finding}\n" for finding in findings)
+        + f"\n{len(findings)} problem(s). {SUMMARY}\n"
+    )
 
 
 # --- behavior 1: the cap refuses a file outright, at its own limit per tree ---
@@ -75,7 +84,9 @@ def test_a_source_file_over_the_cap_is_named_with_its_length_and_the_cap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    code = GATE.check([written("pkg/over_the_cap.py", 501)], {"pkg/over_the_cap.py": 501})
+    code = GATE.check(
+        [written("pkg/over_the_cap.py", 501)], {"pkg/over_the_cap.py": 501}
+    )
     assert (code, printed(capsys)) == (1, refusal(CAP_OVER_SOURCE))
 
 
@@ -192,7 +203,9 @@ def test_the_command_line_passes_a_file_no_rule_touches(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(GATE, "ALLOWANCE", {})
-    monkeypatch.setattr(sys, "argv", ["check_file_length.py", written("pkg/named.py", 10)])
+    monkeypatch.setattr(
+        sys, "argv", ["check_file_length.py", written("pkg/named.py", 10)]
+    )
     assert (GATE.main(), printed(capsys)) == PASSED
 
 
@@ -201,5 +214,7 @@ def test_the_command_line_reports_every_rule_the_file_it_names_breaks(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(GATE, "ALLOWANCE", {})
-    monkeypatch.setattr(sys, "argv", ["check_file_length.py", written("pkg/named.py", 501)])
+    monkeypatch.setattr(
+        sys, "argv", ["check_file_length.py", written("pkg/named.py", 501)]
+    )
     assert (GATE.main(), printed(capsys)) == (1, refusal(ARGV_CAP, ARGV_NO_ENTRY))

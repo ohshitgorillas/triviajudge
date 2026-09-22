@@ -65,7 +65,9 @@ def css_comment(text: str) -> str:
 
 # Phrases that carry no history in them at all.
 CLEAN_PY = '"""Read the staged config and hand back the panel model."""\n\nvalue = 1  # keep in sync with the schema\n'
-CLEAN_JS = "// the poll interval the API contract fixes at two seconds\nconst value = 1;\n"
+CLEAN_JS = (
+    "// the poll interval the API contract fixes at two seconds\nconst value = 1;\n"
+)
 CLEAN_CSS = "/* the shared text-input rule is 28rem */\n.panel { margin: 0; }\n"
 
 A_REASON = "history-ok: the wire format pins this and the daemon rejects anything else"
@@ -95,34 +97,62 @@ MEASUREMENT_PHRASES = [
 
 
 def test_an_iso_date_in_a_python_comment_is_refused(tmp_path: Path) -> None:
-    assert refuses(tmp_path, "sample.py", py_comment("added 2025-11-04 for the resampler panel"))
+    assert refuses(
+        tmp_path, "sample.py", py_comment("added 2025-11-04 for the resampler panel")
+    )
 
 
-def test_a_past_tense_narration_verb_in_a_javascript_comment_is_refused(tmp_path: Path) -> None:
-    assert refuses(tmp_path, "sample.js", js_line_comment("this used to read the signal directly"))
+def test_a_past_tense_narration_verb_in_a_javascript_comment_is_refused(
+    tmp_path: Path,
+) -> None:
+    assert refuses(
+        tmp_path, "sample.js", js_line_comment("this used to read the signal directly")
+    )
 
 
-def test_a_conventional_commit_citation_in_a_css_comment_is_refused(tmp_path: Path) -> None:
-    assert refuses(tmp_path, "sample.css", css_comment("fix(live): the panel lost its margin"))
+def test_a_conventional_commit_citation_in_a_css_comment_is_refused(
+    tmp_path: Path,
+) -> None:
+    assert refuses(
+        tmp_path, "sample.css", css_comment("fix(live): the panel lost its margin")
+    )
 
 
 def test_a_python_docstring_narrating_the_past_is_refused(tmp_path: Path) -> None:
-    assert refuses(tmp_path, "sample.py", py_docstring("This used to live beside the lane module."))
+    assert refuses(
+        tmp_path, "sample.py", py_docstring("This used to live beside the lane module.")
+    )
 
 
-def test_a_javascript_block_comment_narrating_the_past_is_refused(tmp_path: Path) -> None:
-    assert refuses(tmp_path, "sample.js", js_block_comment("the store used to poll on its own timer"))
+def test_a_javascript_block_comment_narrating_the_past_is_refused(
+    tmp_path: Path,
+) -> None:
+    assert refuses(
+        tmp_path,
+        "sample.js",
+        js_block_comment("the store used to poll on its own timer"),
+    )
 
 
 # --- existing behavior: the pragma --------------------------------------------
 
 
-def test_a_refused_phrase_carrying_a_history_ok_reason_is_allowed(tmp_path: Path) -> None:
-    assert not refuses(tmp_path, "sample.py", py_comment(f"added 2025-11-04 for the resampler panel  {A_REASON}"))
+def test_a_refused_phrase_carrying_a_history_ok_reason_is_allowed(
+    tmp_path: Path,
+) -> None:
+    assert not refuses(
+        tmp_path,
+        "sample.py",
+        py_comment(f"added 2025-11-04 for the resampler panel  {A_REASON}"),
+    )
 
 
 def test_a_bare_history_ok_pragma_with_no_reason_is_refused(tmp_path: Path) -> None:
-    assert refuses(tmp_path, "sample.py", py_comment("added 2025-11-04 for the resampler panel  history-ok:"))
+    assert refuses(
+        tmp_path,
+        "sample.py",
+        py_comment("added 2025-11-04 for the resampler panel  history-ok:"),
+    )
 
 
 # --- existing behavior: clean files and code that is not a comment ------------
@@ -132,32 +162,48 @@ def test_a_bare_history_ok_pragma_with_no_reason_is_refused(tmp_path: Path) -> N
     ("name", "source"),
     [("sample.py", CLEAN_PY), ("sample.js", CLEAN_JS), ("sample.css", CLEAN_CSS)],
 )
-def test_a_file_whose_comments_narrate_nothing_produces_no_complaints(tmp_path: Path, name: str, source: str) -> None:
+def test_a_file_whose_comments_narrate_nothing_produces_no_complaints(
+    tmp_path: Path, name: str, source: str
+) -> None:
     assert not refuses(tmp_path, name, source)
 
 
-def test_a_refused_phrase_inside_a_python_string_literal_is_not_refused(tmp_path: Path) -> None:
+def test_a_refused_phrase_inside_a_python_string_literal_is_not_refused(
+    tmp_path: Path,
+) -> None:
     assert not refuses(tmp_path, "sample.py", 'label = "this used to be 2025-11-04"\n')
 
 
-def test_a_refused_phrase_appearing_as_a_css_property_value_is_not_refused(tmp_path: Path) -> None:
-    assert not refuses(tmp_path, "sample.css", '.panel::after { content: "this used to be 2025-11-04"; }\n')
+def test_a_refused_phrase_appearing_as_a_css_property_value_is_not_refused(
+    tmp_path: Path,
+) -> None:
+    assert not refuses(
+        tmp_path,
+        "sample.css",
+        '.panel::after { content: "this used to be 2025-11-04"; }\n',
+    )
 
 
 # --- added behavior: refactor archaeology in either preposition ---------------
 
 
 @pytest.mark.parametrize("phrase", REFACTOR_PHRASES)
-def test_refactor_archaeology_is_refused_in_a_css_comment(tmp_path: Path, phrase: str) -> None:
+def test_refactor_archaeology_is_refused_in_a_css_comment(
+    tmp_path: Path, phrase: str
+) -> None:
     assert refuses(tmp_path, "sample.css", css_comment(f"The panel rule, {phrase}."))
 
 
 @pytest.mark.parametrize("phrase", REFACTOR_PHRASES)
-def test_refactor_archaeology_is_refused_in_a_python_comment(tmp_path: Path, phrase: str) -> None:
+def test_refactor_archaeology_is_refused_in_a_python_comment(
+    tmp_path: Path, phrase: str
+) -> None:
     assert refuses(tmp_path, "sample.py", py_comment(f"the helper below, {phrase}"))
 
 
-def test_refactor_archaeology_capitalized_at_the_start_of_a_comment_is_refused(tmp_path: Path) -> None:
+def test_refactor_archaeology_capitalized_at_the_start_of_a_comment_is_refused(
+    tmp_path: Path,
+) -> None:
     assert refuses(tmp_path, "sample.css", css_comment("Split out of app.css"))
 
 
@@ -165,12 +211,16 @@ def test_refactor_archaeology_capitalized_at_the_start_of_a_comment_is_refused(t
 
 
 @pytest.mark.parametrize("phrase", REPLACEMENT_PHRASES)
-def test_replacement_narration_is_refused_in_a_css_comment(tmp_path: Path, phrase: str) -> None:
+def test_replacement_narration_is_refused_in_a_css_comment(
+    tmp_path: Path, phrase: str
+) -> None:
     assert refuses(tmp_path, "sample.css", css_comment(phrase))
 
 
 @pytest.mark.parametrize("phrase", REPLACEMENT_PHRASES)
-def test_replacement_narration_is_refused_in_a_javascript_comment(tmp_path: Path, phrase: str) -> None:
+def test_replacement_narration_is_refused_in_a_javascript_comment(
+    tmp_path: Path, phrase: str
+) -> None:
     assert refuses(tmp_path, "sample.js", js_line_comment(phrase))
 
 
@@ -178,54 +228,84 @@ def test_replacement_narration_is_refused_in_a_javascript_comment(tmp_path: Path
 
 
 @pytest.mark.parametrize("phrase", MEASUREMENT_PHRASES)
-def test_a_past_tense_verb_beside_a_css_length_is_refused(tmp_path: Path, phrase: str) -> None:
+def test_a_past_tense_verb_beside_a_css_length_is_refused(
+    tmp_path: Path, phrase: str
+) -> None:
     assert refuses(tmp_path, "sample.css", css_comment(phrase))
 
 
 @pytest.mark.parametrize("phrase", MEASUREMENT_PHRASES)
-def test_a_past_tense_verb_beside_a_css_length_is_refused_in_a_javascript_comment(tmp_path: Path, phrase: str) -> None:
+def test_a_past_tense_verb_beside_a_css_length_is_refused_in_a_javascript_comment(
+    tmp_path: Path, phrase: str
+) -> None:
     assert refuses(tmp_path, "sample.js", js_line_comment(phrase))
 
 
 def test_a_live_measurement_with_no_past_tense_verb_is_allowed(tmp_path: Path) -> None:
-    assert not refuses(tmp_path, "sample.css", css_comment("the shared text-input rule is 28rem"))
+    assert not refuses(
+        tmp_path, "sample.css", css_comment("the shared text-input rule is 28rem")
+    )
 
 
-def test_a_live_measurement_with_no_past_tense_verb_is_allowed_in_a_python_comment(tmp_path: Path) -> None:
-    assert not refuses(tmp_path, "sample.py", py_comment("the shared text-input rule is 28rem"))
+def test_a_live_measurement_with_no_past_tense_verb_is_allowed_in_a_python_comment(
+    tmp_path: Path,
+) -> None:
+    assert not refuses(
+        tmp_path, "sample.py", py_comment("the shared text-input rule is 28rem")
+    )
 
 
 # --- added behavior: settled-state narration ----------------------------------
 
 
 def test_as_it_always_was_is_refused_in_a_python_comment(tmp_path: Path) -> None:
-    assert refuses(tmp_path, "sample.py", py_comment("the lane returns the staged model, as it always was"))
+    assert refuses(
+        tmp_path,
+        "sample.py",
+        py_comment("the lane returns the staged model, as it always was"),
+    )
 
 
 def test_as_it_always_was_is_refused_in_a_css_comment(tmp_path: Path) -> None:
-    assert refuses(tmp_path, "sample.css", css_comment("the panel keeps its margin, as it always was"))
+    assert refuses(
+        tmp_path,
+        "sample.css",
+        css_comment("the panel keeps its margin, as it always was"),
+    )
 
 
 # --- added behavior: every new refusal is exemptible --------------------------
 
 
 @pytest.mark.parametrize("phrase", REFACTOR_PHRASES)
-def test_refactor_archaeology_carrying_a_history_ok_reason_is_allowed(tmp_path: Path, phrase: str) -> None:
-    assert not refuses(tmp_path, "sample.css", css_comment(f"The panel rule, {phrase}. {A_REASON}"))
+def test_refactor_archaeology_carrying_a_history_ok_reason_is_allowed(
+    tmp_path: Path, phrase: str
+) -> None:
+    assert not refuses(
+        tmp_path, "sample.css", css_comment(f"The panel rule, {phrase}. {A_REASON}")
+    )
 
 
 @pytest.mark.parametrize("phrase", REPLACEMENT_PHRASES)
-def test_replacement_narration_carrying_a_history_ok_reason_is_allowed(tmp_path: Path, phrase: str) -> None:
+def test_replacement_narration_carrying_a_history_ok_reason_is_allowed(
+    tmp_path: Path, phrase: str
+) -> None:
     assert not refuses(tmp_path, "sample.css", css_comment(f"{phrase}. {A_REASON}"))
 
 
 @pytest.mark.parametrize("phrase", MEASUREMENT_PHRASES)
-def test_measurement_archaeology_carrying_a_history_ok_reason_is_allowed(tmp_path: Path, phrase: str) -> None:
+def test_measurement_archaeology_carrying_a_history_ok_reason_is_allowed(
+    tmp_path: Path, phrase: str
+) -> None:
     assert not refuses(tmp_path, "sample.css", css_comment(f"{phrase}. {A_REASON}"))
 
 
-def test_as_it_always_was_carrying_a_history_ok_reason_is_allowed(tmp_path: Path) -> None:
-    comment = py_comment(f"the lane returns the staged model, as it always was  {A_REASON}")
+def test_as_it_always_was_carrying_a_history_ok_reason_is_allowed(
+    tmp_path: Path,
+) -> None:
+    comment = py_comment(
+        f"the lane returns the staged model, as it always was  {A_REASON}"
+    )
     assert not refuses(tmp_path, "sample.py", comment)
 
 
@@ -243,7 +323,9 @@ def test_a_block_comment_spanning_lines_is_read_to_its_close(tmp_path: Path) -> 
     assert len(complaints_for(tmp_path, "sample.js", MULTILINE_BLOCK)) == 1
 
 
-def test_a_line_comment_after_a_closed_block_is_read_in_javascript(tmp_path: Path) -> None:
+def test_a_line_comment_after_a_closed_block_is_read_in_javascript(
+    tmp_path: Path,
+) -> None:
     assert len(complaints_for(tmp_path, "sample.js", LINE_COMMENT_AFTER_BLOCK)) == 1
 
 
@@ -252,7 +334,9 @@ def test_a_line_comment_is_not_a_comment_in_css(tmp_path: Path) -> None:
 
 
 def test_a_suffix_with_no_comment_syntax_is_read_whole(tmp_path: Path) -> None:
-    assert len(complaints_for(tmp_path, "notes.txt", f"the panel model\n{DATED}\n")) == 1
+    assert (
+        len(complaints_for(tmp_path, "notes.txt", f"the panel model\n{DATED}\n")) == 1
+    )
 
 
 # --- added behavior: the file list mode skips the modules holding the rules ----
@@ -274,7 +358,9 @@ def test_a_name_that_is_no_file_is_checked_as_nothing(tmp_path: Path) -> None:
     assert GATE.checked([str(tmp_path / "absent.py")]) == []
 
 
-def test_the_file_list_mode_refuses_a_dated_comment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_file_list_mode_refuses_a_dated_comment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     path = tmp_path / "sample.py"
     path.write_text(py_comment(DATED), encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["triviajudge-archaeology", str(path)])
@@ -284,7 +370,9 @@ def test_the_file_list_mode_refuses_a_dated_comment(tmp_path: Path, monkeypatch:
 # --- added behavior: a file git cannot speak for is read whole ----------------
 
 
-def test_a_path_git_refuses_to_list_is_read_as_entirely_added(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_path_git_refuses_to_list_is_read_as_entirely_added(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def refuse(*_args: str) -> str:
         raise subprocess.CalledProcessError(1, "git")
 
@@ -292,7 +380,9 @@ def test_a_path_git_refuses_to_list_is_read_as_entirely_added(monkeypatch: pytes
     assert GATE.added("src/sample.py") is None
 
 
-def test_a_payload_naming_a_file_outside_the_work_tree_is_passed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_payload_naming_a_file_outside_the_work_tree_is_passed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def outside() -> Path:
         raise NotARepositoryError("no git work tree")
 

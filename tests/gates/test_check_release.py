@@ -60,7 +60,9 @@ UNTAGGED = "CHANGELOG.md: [0.1.0] is released and carries no v0.1.0 tag"
 
 def run_git(cwd: Path, *args: str) -> None:
     """Run one ``git`` command in ``cwd``, insisting it succeed."""
-    subprocess.run([GIT, *args], cwd=cwd, check=True, capture_output=True, timeout=GIT_TIMEOUT)
+    subprocess.run(
+        [GIT, *args], cwd=cwd, check=True, capture_output=True, timeout=GIT_TIMEOUT
+    )
 
 
 def tree(
@@ -72,29 +74,61 @@ def tree(
     """A checkout stating ``version``, the changelog sections given, and a manifest version."""
     root = tmp_path / "repo"
     (root / ".claude-plugin").mkdir(parents=True)
-    (root / "pyproject.toml").write_text(f'[project]\nname = "held"\nversion = "{version}"\n', encoding="utf-8")
+    (root / "pyproject.toml").write_text(
+        f'[project]\nname = "held"\nversion = "{version}"\n', encoding="utf-8"
+    )
     heads = "".join(f"## [{name}]\n\nheld\n\n" for name in sections)
-    (root / "CHANGELOG.md").write_text(f"# Changelog\n\n## [Unreleased]\n\nheld\n\n{heads}", encoding="utf-8")
+    (root / "CHANGELOG.md").write_text(
+        f"# Changelog\n\n## [Unreleased]\n\nheld\n\n{heads}", encoding="utf-8"
+    )
     shown = version if manifests is None else manifests
-    (root / ".claude-plugin" / "plugin.json").write_text(json.dumps({"version": shown}), encoding="utf-8")
+    (root / ".claude-plugin" / "plugin.json").write_text(
+        json.dumps({"version": shown}), encoding="utf-8"
+    )
     marketplace = {"metadata": {"version": shown}}
-    (root / ".claude-plugin" / "marketplace.json").write_text(json.dumps(marketplace), encoding="utf-8")
+    (root / ".claude-plugin" / "marketplace.json").write_text(
+        json.dumps(marketplace), encoding="utf-8"
+    )
     return root
 
 
 def committed(root: Path, tags: tuple[str, ...] = (), head: str | None = None) -> Path:
     """Turn a checkout into a repository, tagging an empty first commit and then ``HEAD``."""
     run_git(root, "init", "-q")
-    run_git(root, "-c", "user.email=held@held", "-c", "user.name=held", "commit", "-q", "--allow-empty", "-m", "one")
+    run_git(
+        root,
+        "-c",
+        "user.email=held@held",
+        "-c",
+        "user.name=held",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "one",
+    )
     for tag in tags:
         run_git(root, "tag", tag)
-    run_git(root, "-c", "user.email=held@held", "-c", "user.name=held", "commit", "-q", "--allow-empty", "-m", "two")
+    run_git(
+        root,
+        "-c",
+        "user.email=held@held",
+        "-c",
+        "user.name=held",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "two",
+    )
     if head is not None:
         run_git(root, "tag", head)
     return root
 
 
-def verdict(root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> list[str]:
+def verdict(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> list[str]:
     """The lines the gate printed over this checkout, with ``git`` pointed at it."""
     monkeypatch.setattr(GATE, "ROOT", root)
     GATE.check(root)
@@ -124,7 +158,9 @@ def test_an_untagged_head_is_no_disagreement(
 def test_a_version_no_changelog_section_names_is_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    root = committed(tree(tmp_path, version="0.3.0", sections=("0.2.0",), manifests="0.3.0"))
+    root = committed(
+        tree(tmp_path, version="0.3.0", sections=("0.2.0",), manifests="0.3.0")
+    )
     assert NEWEST in verdict(root, monkeypatch, capsys)
 
 
@@ -151,7 +187,10 @@ def test_a_manifest_naming_another_version_is_refused(
 
 @pytest.mark.parametrize("body", ["{}", '{"metadata": {}}', '{"metadata": "held"}'])
 def test_a_manifest_missing_its_version_key_is_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], body: str
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    body: str,
 ) -> None:
     root = committed(tree(tmp_path))
     (root / ".claude-plugin" / "marketplace.json").write_text(body, encoding="utf-8")
@@ -159,7 +198,10 @@ def test_a_manifest_missing_its_version_key_is_refused(
 
 
 def test_both_manifests_are_reported_when_both_disagree(tmp_path: Path) -> None:
-    assert GATE.manifests(tree(tmp_path, manifests="0.1.0"), "0.2.0") == [PLUGIN, MARKETPLACE]
+    assert GATE.manifests(tree(tmp_path, manifests="0.1.0"), "0.2.0") == [
+        PLUGIN,
+        MARKETPLACE,
+    ]
 
 
 # --- behavior 4: the tags name the same release as the tree ------------------
@@ -175,21 +217,29 @@ def test_a_tag_on_head_naming_another_version_is_refused(
 def test_an_older_released_section_with_no_tag_is_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    root = committed(tree(tmp_path, version="0.2.0", sections=("0.2.0", "0.1.0")), head="v0.2.0")
+    root = committed(
+        tree(tmp_path, version="0.2.0", sections=("0.2.0", "0.1.0")), head="v0.2.0"
+    )
     assert UNTAGGED in verdict(root, monkeypatch, capsys)
 
 
 def test_an_older_released_section_carrying_its_tag_passes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    root = committed(tree(tmp_path, version="0.2.0", sections=("0.2.0", "0.1.0")), tags=("v0.1.0",), head="v0.2.0")
+    root = committed(
+        tree(tmp_path, version="0.2.0", sections=("0.2.0", "0.1.0")),
+        tags=("v0.1.0",),
+        head="v0.2.0",
+    )
     assert verdict(root, monkeypatch, capsys) == [OK_TWO]
 
 
 # --- behavior 5: git that cannot answer answers with nothing ----------------
 
 
-def test_a_refused_git_command_yields_no_lines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_refused_git_command_yields_no_lines(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(GATE, "ROOT", committed(tree(tmp_path)))
     assert GATE.git("tag", "--points-at", "v0.0.0-absent") == []
 

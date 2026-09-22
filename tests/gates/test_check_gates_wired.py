@@ -64,7 +64,11 @@ PRECOMMIT_WITHOUT_JSCPD = f".pre-commit-config.yaml: no live line invokes `{JSCP
 
 def recipe(*names: str, duplication: str = INVOKES) -> str:
     """A Makefile target invoking each named script on a line of its own."""
-    return duplication + "lint:\n" + "".join(f"\t.venv/bin/python scripts/gates/{name}\n" for name in names)
+    return (
+        duplication
+        + "lint:\n"
+        + "".join(f"\t.venv/bin/python scripts/gates/{name}\n" for name in names)
+    )
 
 
 def hooks(*names: str, duplication: str = HOOK) -> str:
@@ -77,8 +81,20 @@ def hooks(*names: str, duplication: str = HOOK) -> str:
 def committed(root: Path) -> Path:
     """Put the written tree under git, so the files in it are files git tracks."""
     git = ["/usr/bin/env", "git"]
-    subprocess.run([*git, "init", "-q"], cwd=root, check=True, capture_output=True, timeout=GIT_TIMEOUT)
-    subprocess.run([*git, "add", "-A"], cwd=root, check=True, capture_output=True, timeout=GIT_TIMEOUT)
+    subprocess.run(
+        [*git, "init", "-q"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        timeout=GIT_TIMEOUT,
+    )
+    subprocess.run(
+        [*git, "add", "-A"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        timeout=GIT_TIMEOUT,
+    )
     return root
 
 
@@ -99,14 +115,18 @@ def tree(root: Path, gates: list[str], makefile: str, precommit: str) -> Path:
     return root
 
 
-def verdict(root: Path, exempt: dict[str, str], capsys: pytest.CaptureFixture[str]) -> tuple[int, list[str]]:
+def verdict(
+    root: Path, exempt: dict[str, str], capsys: pytest.CaptureFixture[str]
+) -> tuple[int, list[str]]:
     """The exit code and the lines the gate printed before its closing summary."""
     code = GATE.check(root, exempt)
     printed = capsys.readouterr().out.splitlines()
     return code, list(takewhile(bool, printed))
 
 
-def addressed(root: Path, gates: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, list[str]]:
+def addressed(
+    root: Path, gates: list[str], capsys: pytest.CaptureFixture[str]
+) -> tuple[int, list[str]]:
     """The exit code and the path of each written script a printed line is addressed to."""
     code = GATE.check(root, {})
     printed = capsys.readouterr().out.splitlines()
@@ -114,59 +134,101 @@ def addressed(root: Path, gates: list[str], capsys: pytest.CaptureFixture[str]) 
     return code, [path for line in printed for path in paths if path in line]
 
 
-def counted(root: Path, gates: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, int, set[int]]:
+def counted(
+    root: Path, gates: list[str], capsys: pytest.CaptureFixture[str]
+) -> tuple[int, int, set[int]]:
     """The exit code, how many lines are addressed to a written script, and every number printed."""
     code = GATE.check(root, {})
     out = capsys.readouterr().out
     paths = [f"scripts/gates/{name}" for name in gates]
-    findings = [line for line in out.splitlines() if any(path in line for path in paths)]
+    findings = [
+        line for line in out.splitlines() if any(path in line for path in paths)
+    ]
     return code, len(findings), {int(digits) for digits in re.findall(r"\d+", out)}
 
 
 # --- behavior 1: a gate runs in the Makefile and in pre-commit, or says why not ---
 
 
-def test_a_gate_in_both_wirings_passes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    two = counted(tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO)), [ONE, TWO], capsys)
+def test_a_gate_in_both_wirings_passes(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    two = counted(
+        tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO)),
+        [ONE, TWO],
+        capsys,
+    )
     three = counted(
-        tree(tmp_path, [ONE, TWO, THREE], recipe(ONE, TWO, THREE), hooks(ONE, TWO, THREE)), [ONE, TWO, THREE], capsys
+        tree(
+            tmp_path, [ONE, TWO, THREE], recipe(ONE, TWO, THREE), hooks(ONE, TWO, THREE)
+        ),
+        [ONE, TWO, THREE],
+        capsys,
     )
     assert (two, three) == ((0, 0, {2}), (0, 0, {3}))
 
 
-def test_a_gate_no_makefile_target_invokes_is_named(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_gate_no_makefile_target_invokes_is_named(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     root = tree(tmp_path, [ONE, TWO], recipe(ONE), hooks(ONE, TWO))
     assert verdict(root, {}, capsys) == (1, [NO_MAKEFILE_TARGET])
 
 
-def test_a_gate_missing_from_precommit_is_named(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    present = addressed(tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO)), [ONE, TWO], capsys)
-    dropped = addressed(tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE)), [ONE, TWO], capsys)
+def test_a_gate_missing_from_precommit_is_named(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    present = addressed(
+        tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO)),
+        [ONE, TWO],
+        capsys,
+    )
+    dropped = addressed(
+        tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE)), [ONE, TWO], capsys
+    )
     assert (present, dropped) == ((0, []), (1, [f"scripts/gates/{TWO}"]))
 
 
-def test_a_gate_commented_out_of_the_makefile_is_named(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    live = addressed(tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO)), [ONE, TWO], capsys)
-    muted = addressed(tree(tmp_path, [ONE, TWO], recipe(ONE) + commented(TWO), hooks(ONE, TWO)), [ONE, TWO], capsys)
+def test_a_gate_commented_out_of_the_makefile_is_named(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    live = addressed(
+        tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO)),
+        [ONE, TWO],
+        capsys,
+    )
+    muted = addressed(
+        tree(tmp_path, [ONE, TWO], recipe(ONE) + commented(TWO), hooks(ONE, TWO)),
+        [ONE, TWO],
+        capsys,
+    )
     assert (live, muted) == ((0, []), (1, [f"scripts/gates/{TWO}"]))
 
 
-def test_a_gate_commented_out_of_precommit_is_named(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_gate_commented_out_of_precommit_is_named(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE) + commented(TWO))
     assert verdict(root, {}, capsys) == (1, [NOT_IN_PRECOMMIT])
 
 
-def test_an_exempt_gate_may_stay_off_the_commit_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_an_exempt_gate_may_stay_off_the_commit_path(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE))
     assert verdict(root, {TWO: REASON}, capsys) == (0, [WIRED])
 
 
-def test_an_exemption_excuses_nothing_in_the_makefile(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_an_exemption_excuses_nothing_in_the_makefile(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     root = tree(tmp_path, [ONE, TWO], recipe(ONE), hooks(ONE))
     assert verdict(root, {TWO: REASON}, capsys) == (1, [NO_MAKEFILE_TARGET])
 
 
-def test_an_exemption_naming_no_gate_script_is_named(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_an_exemption_naming_no_gate_script_is_named(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO))
     assert verdict(root, {GHOST: REASON}, capsys) == (1, [STALE_EXEMPTION])
 
@@ -185,21 +247,30 @@ def test_the_gates_are_every_script_in_the_directory(tmp_path: Path) -> None:
 def test_a_makefile_that_never_invokes_the_duplication_gate_is_named(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO, duplication=SILENT), hooks(ONE, TWO))
+    root = tree(
+        tmp_path, [ONE, TWO], recipe(ONE, TWO, duplication=SILENT), hooks(ONE, TWO)
+    )
     assert verdict(root, {}, capsys) == (1, [MAKEFILE_WITHOUT_JSCPD])
 
 
 def test_a_precommit_config_that_never_invokes_the_duplication_gate_is_named(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO, duplication=NO_HOOK))
+    root = tree(
+        tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO, duplication=NO_HOOK)
+    )
     assert verdict(root, {}, capsys) == (1, [PRECOMMIT_WITHOUT_JSCPD])
 
 
 def test_a_commented_out_duplication_invocation_wires_nothing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO, duplication=INVOKES_COMMENTED), hooks(ONE, TWO))
+    root = tree(
+        tmp_path,
+        [ONE, TWO],
+        recipe(ONE, TWO, duplication=INVOKES_COMMENTED),
+        hooks(ONE, TWO),
+    )
     assert verdict(root, {}, capsys) == (1, [MAKEFILE_WITHOUT_JSCPD])
 
 
@@ -210,7 +281,9 @@ def test_a_duplication_path_the_tree_tracks_nothing_under_is_named(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO))
-    (root / GATE.CONFIG).write_text(json.dumps({GATE.PATHS: [NOWHERE]}), encoding="utf-8")
+    (root / GATE.CONFIG).write_text(
+        json.dumps({GATE.PATHS: [NOWHERE]}), encoding="utf-8"
+    )
     assert verdict(root, {}, capsys) == (1, [UNTRACKED_PATH])
 
 
@@ -218,14 +291,21 @@ def test_a_duplication_path_the_tree_tracks_a_file_under_is_clean(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = tree(tmp_path, [ONE, TWO], recipe(ONE, TWO), hooks(ONE, TWO))
-    (root / GATE.CONFIG).write_text(json.dumps({GATE.PATHS: [SOMEWHERE]}), encoding="utf-8")
+    (root / GATE.CONFIG).write_text(
+        json.dumps({GATE.PATHS: [SOMEWHERE]}), encoding="utf-8"
+    )
     assert verdict(committed(root), {}, capsys) == (0, [WIRED])
 
 
 # --- behavior 5: this repository wires every gate it ships --------------------
 
 
-def test_this_repository_wires_every_gate_of_its_own(capsys: pytest.CaptureFixture[str]) -> None:
+def test_this_repository_wires_every_gate_of_its_own(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     shipped = GATE.gate_scripts(GATE.ROOT / "scripts" / "gates")
     code = GATE.main()
-    assert (code, capsys.readouterr().out.splitlines()) == (0, [OK.format(count=len(shipped))])
+    assert (code, capsys.readouterr().out.splitlines()) == (
+        0,
+        [OK.format(count=len(shipped))],
+    )

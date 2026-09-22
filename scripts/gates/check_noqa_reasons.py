@@ -36,7 +36,9 @@ import tokenize
 from pathlib import Path
 
 #: A ruff suppression and its codes, with whatever follows them.
-NOQA = re.compile(r"#\s*noqa:\s*(?P<codes>[A-Z]+[0-9]+(?:\s*,\s*[A-Z]+[0-9]+)*)(?P<tail>.*)$")
+NOQA = re.compile(
+    r"#\s*noqa:\s*(?P<codes>[A-Z]+[0-9]+(?:\s*,\s*[A-Z]+[0-9]+)*)(?P<tail>.*)$"
+)
 
 #: A mypy suppression and its codes, with whatever follows them.
 IGNORE = re.compile(r"#\s*type:\s*ignore\[(?P<codes>[^]\n]*)\](?P<tail>.*)$")
@@ -84,7 +86,9 @@ def check(paths: list[Path]) -> int:
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} silent suppression(s). A code names the check; the reason names the argument.")
+        print(
+            f"\n{len(problems)} silent suppression(s). A code names the check; the reason names the argument."
+        )
         return 1
     print(f"[ok] {len(paths)} file(s) state a reason at every suppression")
     return 0

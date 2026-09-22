@@ -55,9 +55,15 @@ class Gate:
 #: Every gate this package ships, keyed by its module under ``triviajudge/``.
 CATALOG: dict[str, Gate] = {
     "md_trivia": Gate(script="triviajudge-md", hook_id="md-trivia", plugin=True),
-    "comment_trivia": Gate(script="triviajudge-comments", hook_id="comment-trivia", plugin=True),
-    "changelog_trivia": Gate(script="triviajudge-changelog", hook_id="changelog-trivia", plugin=True),
-    "archaeology": Gate(script="triviajudge-archaeology", hook_id="archaeology", plugin=True),
+    "comment_trivia": Gate(
+        script="triviajudge-comments", hook_id="comment-trivia", plugin=True
+    ),
+    "changelog_trivia": Gate(
+        script="triviajudge-changelog", hook_id="changelog-trivia", plugin=True
+    ),
+    "archaeology": Gate(
+        script="triviajudge-archaeology", hook_id="archaeology", plugin=True
+    ),
     "sweep": Gate(script="triviajudge-sweep", hook_id=None, plugin=False),
 }
 
@@ -118,10 +124,13 @@ def check_scripts(catalog: dict[str, Gate], declared: dict[str, str]) -> list[st
         if gate.script not in declared:
             problems.append(f"{gate.script}: no [project.scripts] entry")
         elif declared[gate.script] != want:
-            problems.append(f"{gate.script}: [project.scripts] points at {declared[gate.script]!r}, not {want!r}")
+            problems.append(
+                f"{gate.script}: [project.scripts] points at {declared[gate.script]!r}, not {want!r}"
+            )
     known = {gate.script for gate in catalog.values()}
     problems += [
-        f"{name}: a [project.scripts] entry the catalog does not carry" for name in sorted(set(declared) - known)
+        f"{name}: a [project.scripts] entry the catalog does not carry"
+        for name in sorted(set(declared) - known)
     ]
     return problems
 
@@ -133,12 +142,17 @@ def check_manifest(catalog: dict[str, Gate], declared: dict[str, str]) -> list[s
         if gate.hook_id is None:
             continue
         if gate.hook_id not in declared:
-            problems.append(f"{gate.hook_id}: no id in .pre-commit-hooks.yaml, for gate {name}")
+            problems.append(
+                f"{gate.hook_id}: no id in .pre-commit-hooks.yaml, for gate {name}"
+            )
         elif declared[gate.hook_id] != gate.script:
-            problems.append(f"{gate.hook_id}: runs {declared[gate.hook_id]!r}, not {gate.script!r}")
+            problems.append(
+                f"{gate.hook_id}: runs {declared[gate.hook_id]!r}, not {gate.script!r}"
+            )
     known = {gate.hook_id for gate in catalog.values() if gate.hook_id}
     problems += [
-        f"{name}: a .pre-commit-hooks.yaml id the catalog does not carry" for name in sorted(set(declared) - known)
+        f"{name}: a .pre-commit-hooks.yaml id the catalog does not carry"
+        for name in sorted(set(declared) - known)
     ]
     return problems
 
@@ -146,14 +160,19 @@ def check_manifest(catalog: dict[str, Gate], declared: dict[str, str]) -> list[s
 def check_plugin(catalog: dict[str, Gate], wired: set[str]) -> list[str]:
     """Each plugin gate is wired into hooks.json, each console-script-only gate is not."""
     problems = [
-        f"{name}: hooks.json runs no such gate" for name, gate in catalog.items() if gate.plugin and name not in wired
+        f"{name}: hooks.json runs no such gate"
+        for name, gate in catalog.items()
+        if gate.plugin and name not in wired
     ]
     problems += [
         f"{name}: hooks.json wires it, and the catalog holds it off the hook path"
         for name, gate in catalog.items()
         if not gate.plugin and name in wired
     ]
-    problems += [f"{name}: hooks.json runs a gate the catalog does not carry" for name in sorted(wired - set(catalog))]
+    problems += [
+        f"{name}: hooks.json runs a gate the catalog does not carry"
+        for name in sorted(wired - set(catalog))
+    ]
     return problems
 
 
@@ -173,7 +192,9 @@ def check(catalog: dict[str, Gate] | None = None) -> int:
     for problem in problems:
         print(problem)
     if problems:
-        print(f"\n{len(problems)} catalog disagreement(s) across pyproject.toml, .pre-commit-hooks.yaml, hooks.json.")
+        print(
+            f"\n{len(problems)} catalog disagreement(s) across pyproject.toml, .pre-commit-hooks.yaml, hooks.json."
+        )
         return 1
     print(f"[ok] all {len(catalog)} gates agree across the three tables")
     return 0

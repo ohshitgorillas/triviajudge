@@ -15,9 +15,7 @@ import pytest
 
 SILENT_NOQA = "value = call()  # noqa: S603\n"
 
-STATED_THEN_SILENT = (
-    "first = call()  # noqa: S603 — argv is this module's own literals\nsecond = call()  # noqa: S607\n"
-)
+STATED_THEN_SILENT = "first = call()  # noqa: S603 — argv is this module's own literals\nsecond = call()  # noqa: S607\n"
 
 TWO_CODES = "value = call()  # noqa: S603, S607\n"
 
@@ -32,7 +30,9 @@ STATED_IGNORE_THEN_SILENT = (
 
 STRING_THEN_SILENT = 'TEXT = "# noqa: S603"\nvalue = call()  # noqa: S607\n'
 
-PLAIN_THEN_SILENT = "value = call()  # the value the caller asked for\nother = call()  # noqa: S603\n"
+PLAIN_THEN_SILENT = (
+    "value = call()  # the value the caller asked for\nother = call()  # noqa: S603\n"
+)
 
 #: What the gate says after naming the suppression it refuses.
 SILENT_TAIL = "states no reason — add ' — <why the check is wrong here>'"
@@ -44,7 +44,9 @@ NOQA_BOTH = "noqa S603, S607"
 IGNORE_ARG = "type: ignore arg-type"
 
 #: The count line ``check`` prints under a single finding.
-SUMMARY_ONE = "1 silent suppression(s). A code names the check; the reason names the argument."
+SUMMARY_ONE = (
+    "1 silent suppression(s). A code names the check; the reason names the argument."
+)
 
 
 def module(tmp_path: Path, source: str) -> Path:
@@ -67,12 +69,16 @@ def test_a_silent_noqa_is_named_by_line_and_code(tmp_path: Path) -> None:
     assert GATE.faults(path) == [finding(path, 1, NOQA_S603)]
 
 
-def test_a_stated_reason_clears_its_line_and_leaves_the_next_one_named(tmp_path: Path) -> None:
+def test_a_stated_reason_clears_its_line_and_leaves_the_next_one_named(
+    tmp_path: Path,
+) -> None:
     path = module(tmp_path, STATED_THEN_SILENT)
     assert GATE.faults(path) == [finding(path, 2, NOQA_S607)]
 
 
-def test_a_suppression_naming_two_codes_is_one_finding_naming_both(tmp_path: Path) -> None:
+def test_a_suppression_naming_two_codes_is_one_finding_naming_both(
+    tmp_path: Path,
+) -> None:
     path = module(tmp_path, TWO_CODES)
     assert GATE.faults(path) == [finding(path, 1, NOQA_BOTH)]
 
@@ -90,7 +96,9 @@ def test_a_silent_type_ignore_is_named_by_line_and_code(tmp_path: Path) -> None:
     assert GATE.faults(path) == [finding(path, 1, IGNORE_ARG)]
 
 
-def test_a_stated_type_ignore_clears_its_line_and_leaves_the_next_one_named(tmp_path: Path) -> None:
+def test_a_stated_type_ignore_clears_its_line_and_leaves_the_next_one_named(
+    tmp_path: Path,
+) -> None:
     path = module(tmp_path, STATED_IGNORE_THEN_SILENT)
     assert GATE.faults(path) == [finding(path, 2, IGNORE_ARG)]
 
@@ -116,7 +124,10 @@ def test_check_prints_the_finding_with_its_count_and_refuses(
 ) -> None:
     path = module(tmp_path, SILENT_NOQA)
     status = GATE.check([path])
-    assert (status, capsys.readouterr().out) == (1, f"{finding(path, 1, NOQA_S603)}\n\n{SUMMARY_ONE}\n")
+    assert (status, capsys.readouterr().out) == (
+        1,
+        f"{finding(path, 1, NOQA_S603)}\n\n{SUMMARY_ONE}\n",
+    )
 
 
 def test_main_checks_the_file_named_on_argv(
@@ -125,12 +136,17 @@ def test_main_checks_the_file_named_on_argv(
     path = module(tmp_path, SILENT_IGNORE)
     monkeypatch.setattr("sys.argv", ["check_noqa_reasons.py", str(path)])
     status = GATE.main()
-    assert (status, capsys.readouterr().out) == (1, f"{finding(path, 1, IGNORE_ARG)}\n\n{SUMMARY_ONE}\n")
+    assert (status, capsys.readouterr().out) == (
+        1,
+        f"{finding(path, 1, IGNORE_ARG)}\n\n{SUMMARY_ONE}\n",
+    )
 
 
 STATED_NOQA = "value = call()  # noqa: S603 — argv is this module's own literals\n"
 
-STATED_IGNORE = "value = call()  # type: ignore[arg-type]  # — the keys are checked above\n"
+STATED_IGNORE = (
+    "value = call()  # type: ignore[arg-type]  # — the keys are checked above\n"
+)
 
 #: What ``check`` prints when every suppression it read states a reason.
 TWO_CLEAN_FILES = "[ok] 2 file(s) state a reason at every suppression\n"
@@ -142,4 +158,7 @@ def test_check_counts_the_files_it_read_when_every_suppression_states_a_reason(
     first = module(tmp_path, STATED_NOQA)
     second = tmp_path / "other.py"
     second.write_text(STATED_IGNORE, encoding="utf-8")
-    assert (GATE.check([first, second]), capsys.readouterr().out) == (0, TWO_CLEAN_FILES)
+    assert (GATE.check([first, second]), capsys.readouterr().out) == (
+        0,
+        TWO_CLEAN_FILES,
+    )

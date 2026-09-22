@@ -44,7 +44,10 @@ PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         "iteration narration",
     ),
     (
-        re.compile(r"\b(?:turn(?:s|ed) out|discovered|realized|had to discover)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(?:turn(?:s|ed) out|discovered|realized|had to discover)\b",
+            re.IGNORECASE,
+        ),
         "discovery narration",
     ),
     (
@@ -92,7 +95,9 @@ def check_message(text: str) -> list[str]:
     complaints = []
     for lineno, line in scanned_lines(text):
         if BARE_PRAGMA.search(line):
-            complaints.append(f"line {lineno}: bare `{PRAGMA}` — the reason is required")
+            complaints.append(
+                f"line {lineno}: bare `{PRAGMA}` — the reason is required"
+            )
             continue
         if EXEMPT.search(line):
             continue

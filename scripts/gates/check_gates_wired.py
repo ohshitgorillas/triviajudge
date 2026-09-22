@@ -76,7 +76,9 @@ def live(text: str) -> str:
     A gate commented out is a gate that stopped running, which is the case this
     exists to catch. Both configs mark comments with ``#``.
     """
-    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+    return "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#")
+    )
 
 
 def unwired(config: str, names: list[str]) -> list[str]:
@@ -97,14 +99,21 @@ def tracked_directories(root: Path) -> set[str]:
         check=False,
         timeout=GIT_TIMEOUT,
     )
-    return {str(parent) for name in finished.stdout.splitlines() for parent in PurePosixPath(name).parents}
+    return {
+        str(parent)
+        for name in finished.stdout.splitlines()
+        for parent in PurePosixPath(name).parents
+    }
 
 
 def duplication(makefile: str, precommit: str) -> list[str]:
     """Return a complaint per config holding no live line that invokes the duplication gate."""
     return [
         f"{name}: no live line invokes `{JSCPD}`"
-        for name, text in (("Makefile", makefile), (".pre-commit-config.yaml", precommit))
+        for name, text in (
+            ("Makefile", makefile),
+            (".pre-commit-config.yaml", precommit),
+        )
         if JSCPD not in live(text)
     ]
 
@@ -152,11 +161,19 @@ def check(root: Path, exempt: dict[str, str] | None = None) -> int:
         problems += 1
 
     if problems:
-        print(f"\n{problems} problem(s). Every gate runs in a live Makefile recipe, and in")
-        print(".pre-commit-config.yaml unless PRECOMMIT_EXEMPT gives a reason it should not.")
-        print(f"`{JSCPD}` runs in both, and every {CONFIG} {PATHS} entry names a tracked directory.")
+        print(
+            f"\n{problems} problem(s). Every gate runs in a live Makefile recipe, and in"
+        )
+        print(
+            ".pre-commit-config.yaml unless PRECOMMIT_EXEMPT gives a reason it should not."
+        )
+        print(
+            f"`{JSCPD}` runs in both, and every {CONFIG} {PATHS} entry names a tracked directory."
+        )
         return 1
-    print(f"[ok] all {len(names)} gate scripts are wired into the Makefile and pre-commit")
+    print(
+        f"[ok] all {len(names)} gate scripts are wired into the Makefile and pre-commit"
+    )
     return 0
 
 

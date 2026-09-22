@@ -34,7 +34,9 @@ SWEEP_ENTRY_POINT = "triviajudge.sweep:main"
 #: One hooked gate, wired everywhere a hooked gate belongs.
 HOOKED = {MODULE: GATE.Gate(script=SCRIPT, hook_id=HOOK_ID, plugin=True)}
 #: One gate the catalog holds off the hook path altogether.
-CONSOLE_ONLY = {SWEEP_MODULE: GATE.Gate(script=SWEEP_SCRIPT, hook_id=None, plugin=False)}
+CONSOLE_ONLY = {
+    SWEEP_MODULE: GATE.Gate(script=SWEEP_SCRIPT, hook_id=None, plugin=False)
+}
 
 #: The tail a refusal prints under a single finding.
 ONE_DISAGREEMENT = "1 catalog disagreement(s) across pyproject.toml, .pre-commit-hooks.yaml, hooks.json."
@@ -42,9 +44,13 @@ ONE_DISAGREEMENT = "1 catalog disagreement(s) across pyproject.toml, .pre-commit
 NO_MODULE = f"CATALOG['{MODULE}']: names no module at triviajudge/{MODULE}.py"
 HOOK_ID_MISPOINTED = f"{HOOK_ID}: runs '{OTHER_SCRIPT}', not '{SCRIPT}'"
 HOOK_ID_RUNS_NOTHING = f"{HOOK_ID}: runs '', not '{SCRIPT}'"
-HOOK_ID_UNCATALOGED = f"{OTHER_HOOK_ID}: a .pre-commit-hooks.yaml id the catalog does not carry"
+HOOK_ID_UNCATALOGED = (
+    f"{OTHER_HOOK_ID}: a .pre-commit-hooks.yaml id the catalog does not carry"
+)
 NOT_WIRED = f"{MODULE}: hooks.json runs no such gate"
-WIRED_OFF_HOOK = f"{SWEEP_MODULE}: hooks.json wires it, and the catalog holds it off the hook path"
+WIRED_OFF_HOOK = (
+    f"{SWEEP_MODULE}: hooks.json wires it, and the catalog holds it off the hook path"
+)
 WIRED_UNCATALOGED = f"{OTHER_MODULE}: hooks.json runs a gate the catalog does not carry"
 
 
@@ -62,9 +68,19 @@ class Tables(NamedTuple):
 
 
 #: One hooked gate, spelled the same way in all four places.
-AGREED = Tables(modules=[MODULE], declared={SCRIPT: ENTRY_POINT}, manifest=[(HOOK_ID, SCRIPT)], plugin=[MODULE])
+AGREED = Tables(
+    modules=[MODULE],
+    declared={SCRIPT: ENTRY_POINT},
+    manifest=[(HOOK_ID, SCRIPT)],
+    plugin=[MODULE],
+)
 #: One console-script-only gate, absent from both hook tables as the catalog says it must be.
-AGREED_OFF_HOOK = Tables(modules=[SWEEP_MODULE], declared={SWEEP_SCRIPT: SWEEP_ENTRY_POINT}, manifest=[], plugin=[])
+AGREED_OFF_HOOK = Tables(
+    modules=[SWEEP_MODULE],
+    declared={SWEEP_SCRIPT: SWEEP_ENTRY_POINT},
+    manifest=[],
+    plugin=[],
+)
 
 
 def with_modules(modules: list[str]) -> Tables:
@@ -93,12 +109,19 @@ def wire(root: Path, tables: Tables) -> None:
     package.mkdir(parents=True, exist_ok=True)
     for name in tables.modules:
         (package / f"{name}.py").write_text("", encoding="utf-8")
-    table = ["[project.scripts]", *(f'{name} = "{target}"' for name, target in tables.declared.items())]
+    table = [
+        "[project.scripts]",
+        *(f'{name} = "{target}"' for name, target in tables.declared.items()),
+    ]
     (root / "pyproject.toml").write_text("\n".join(table) + "\n", encoding="utf-8")
-    ids = "".join(f"- id: {hook}\n  entry: {entry}\n" for hook, entry in tables.manifest)
+    ids = "".join(
+        f"- id: {hook}\n  entry: {entry}\n" for hook, entry in tables.manifest
+    )
     (root / ".pre-commit-hooks.yaml").write_text(ids, encoding="utf-8")
     (root / "hooks").mkdir(exist_ok=True)
-    commands = [{"command": f'"$PLUGIN/hooks/run-gate.sh" {name}'} for name in tables.plugin]
+    commands = [
+        {"command": f'"$PLUGIN/hooks/run-gate.sh" {name}'} for name in tables.plugin
+    ]
     payload = {"hooks": {"Stop": [{"hooks": commands}]}}
     (root / "hooks" / "hooks.json").write_text(json.dumps(payload), encoding="utf-8")
 
@@ -149,7 +172,9 @@ def keyed(
     the count of lines carrying the name the case seeded is read.
     """
     wire(root, tables)
-    commands = [{"command": f'"$PLUGIN/hooks/run-gate.sh" {name}'} for name in tables.plugin]
+    commands = [
+        {"command": f'"$PLUGIN/hooks/run-gate.sh" {name}'} for name in tables.plugin
+    ]
     payload = {"hooks": {event: [{"hooks": commands}] for event in events}}
     (root / "hooks" / "hooks.json").write_text(json.dumps(payload), encoding="utf-8")
     pointed_at(root, monkeypatch)
@@ -163,7 +188,9 @@ def keyed(
 def test_a_hooked_gate_spelled_the_same_everywhere_agrees(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=MODULE)
+    judge = functools.partial(
+        keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=MODULE
+    )
     agreeing = judge(tmp_path / "agreeing", tables=AGREED)
     unmodulated = judge(tmp_path / "unmodulated", tables=with_modules([]))
     assert (agreeing, unmodulated) == ((0, 0), (1, 1))
@@ -172,8 +199,19 @@ def test_a_hooked_gate_spelled_the_same_everywhere_agrees(
 def test_a_console_only_gate_absent_from_both_hook_tables_agrees(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    wired = Tables(AGREED_OFF_HOOK.modules, AGREED_OFF_HOOK.declared, AGREED_OFF_HOOK.manifest, [SWEEP_MODULE])
-    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=CONSOLE_ONLY, key=SWEEP_MODULE)
+    wired = Tables(
+        AGREED_OFF_HOOK.modules,
+        AGREED_OFF_HOOK.declared,
+        AGREED_OFF_HOOK.manifest,
+        [SWEEP_MODULE],
+    )
+    judge = functools.partial(
+        keyed,
+        monkeypatch=monkeypatch,
+        capsys=capsys,
+        catalog=CONSOLE_ONLY,
+        key=SWEEP_MODULE,
+    )
     absent = judge(tmp_path / "absent", tables=AGREED_OFF_HOOK)
     hooked = judge(tmp_path / "hooked", tables=wired)
     assert (absent, hooked) == ((0, 0), (1, 1))
@@ -182,7 +220,9 @@ def test_a_console_only_gate_absent_from_both_hook_tables_agrees(
 def test_a_module_two_events_run_is_wired_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=MODULE)
+    judge = functools.partial(
+        keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=MODULE
+    )
     one = judge(tmp_path / "one", tables=AGREED, events=("Stop",))
     two = judge(tmp_path / "two", tables=AGREED, events=("Stop", "SubagentStop"))
     none = judge(tmp_path / "none", tables=with_plugin([]), events=("Stop",))
@@ -195,7 +235,11 @@ def test_a_module_two_events_run_is_wired_once(
 def test_a_catalog_name_with_no_module_file_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, with_modules([])) == (1, [NO_MODULE], ONE_DISAGREEMENT)
+    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, with_modules([])) == (
+        1,
+        [NO_MODULE],
+        ONE_DISAGREEMENT,
+    )
 
 
 # --- behavior 3: the [project.scripts] table disagreeing is named --------------
@@ -204,7 +248,9 @@ def test_a_catalog_name_with_no_module_file_is_named(
 def test_a_gate_with_no_console_script_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=SCRIPT)
+    judge = functools.partial(
+        keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=SCRIPT
+    )
     carried = judge(tmp_path / "carried", tables=AGREED)
     emptied = judge(tmp_path / "emptied", tables=with_declared({}))
     assert (carried, emptied) == ((0, 0), (1, 1))
@@ -213,7 +259,9 @@ def test_a_gate_with_no_console_script_is_named(
 def test_a_console_script_bound_to_another_module_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=SCRIPT)
+    judge = functools.partial(
+        keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=SCRIPT
+    )
     own = judge(tmp_path / "own", tables=with_declared({SCRIPT: ENTRY_POINT}))
     sweep = judge(tmp_path / "sweep", tables=with_declared({SCRIPT: SWEEP_ENTRY_POINT}))
     assert (own, sweep) == ((0, 0), (1, 1))
@@ -222,9 +270,14 @@ def test_a_console_script_bound_to_another_module_is_named(
 def test_a_console_script_the_catalog_does_not_carry_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=OTHER_SCRIPT)
+    judge = functools.partial(
+        keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=OTHER_SCRIPT
+    )
     alone = judge(tmp_path / "alone", tables=with_declared({SCRIPT: ENTRY_POINT}))
-    beside = judge(tmp_path / "beside", tables=with_declared({SCRIPT: ENTRY_POINT, OTHER_SCRIPT: ENTRY_POINT}))
+    beside = judge(
+        tmp_path / "beside",
+        tables=with_declared({SCRIPT: ENTRY_POINT, OTHER_SCRIPT: ENTRY_POINT}),
+    )
     assert (alone, beside) == ((0, 0), (1, 1))
 
 
@@ -234,7 +287,9 @@ def test_a_console_script_the_catalog_does_not_carry_is_named(
 def test_a_hooked_gate_with_no_pre_commit_id_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    judge = functools.partial(keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=HOOK_ID)
+    judge = functools.partial(
+        keyed, monkeypatch=monkeypatch, capsys=capsys, catalog=HOOKED, key=HOOK_ID
+    )
     carried = judge(tmp_path / "carried", tables=AGREED)
     emptied = judge(tmp_path / "emptied", tables=with_manifest([]))
     assert (carried, emptied) == ((0, 0), (1, 1))
@@ -244,21 +299,33 @@ def test_a_pre_commit_id_running_another_script_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     tables = with_manifest([(HOOK_ID, OTHER_SCRIPT)])
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (1, [HOOK_ID_MISPOINTED], ONE_DISAGREEMENT)
+    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (
+        1,
+        [HOOK_ID_MISPOINTED],
+        ONE_DISAGREEMENT,
+    )
 
 
 def test_a_pre_commit_id_carrying_no_entry_runs_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     tables = with_manifest([(HOOK_ID, "")])
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (1, [HOOK_ID_RUNS_NOTHING], ONE_DISAGREEMENT)
+    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (
+        1,
+        [HOOK_ID_RUNS_NOTHING],
+        ONE_DISAGREEMENT,
+    )
 
 
 def test_a_pre_commit_id_the_catalog_does_not_carry_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     tables = with_manifest([(HOOK_ID, SCRIPT), (OTHER_HOOK_ID, OTHER_SCRIPT)])
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (1, [HOOK_ID_UNCATALOGED], ONE_DISAGREEMENT)
+    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (
+        1,
+        [HOOK_ID_UNCATALOGED],
+        ONE_DISAGREEMENT,
+    )
 
 
 # --- behavior 5: the plugin wiring disagreeing is named -----------------------
@@ -267,18 +334,32 @@ def test_a_pre_commit_id_the_catalog_does_not_carry_is_named(
 def test_a_plugin_gate_the_hooks_json_does_not_run_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, with_plugin([])) == (1, [NOT_WIRED], ONE_DISAGREEMENT)
+    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, with_plugin([])) == (
+        1,
+        [NOT_WIRED],
+        ONE_DISAGREEMENT,
+    )
 
 
 def test_a_gate_held_off_the_hook_path_but_wired_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    tables = Tables([SWEEP_MODULE], {SWEEP_SCRIPT: SWEEP_ENTRY_POINT}, [], [SWEEP_MODULE])
-    assert verdict(tmp_path, monkeypatch, capsys, CONSOLE_ONLY, tables) == (1, [WIRED_OFF_HOOK], ONE_DISAGREEMENT)
+    tables = Tables(
+        [SWEEP_MODULE], {SWEEP_SCRIPT: SWEEP_ENTRY_POINT}, [], [SWEEP_MODULE]
+    )
+    assert verdict(tmp_path, monkeypatch, capsys, CONSOLE_ONLY, tables) == (
+        1,
+        [WIRED_OFF_HOOK],
+        ONE_DISAGREEMENT,
+    )
 
 
 def test_a_wired_module_the_catalog_does_not_carry_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     tables = with_plugin([MODULE, OTHER_MODULE])
-    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (1, [WIRED_UNCATALOGED], ONE_DISAGREEMENT)
+    assert verdict(tmp_path, monkeypatch, capsys, HOOKED, tables) == (
+        1,
+        [WIRED_UNCATALOGED],
+        ONE_DISAGREEMENT,
+    )

@@ -35,7 +35,11 @@ from typing import IO, Any, cast
 
 REPO = "ohshitgorillas/triviajudge"
 PACKAGE = "triviajudge"
-DATA_DIR = Path(os.environ.get("TRIVIAJUDGE_METRICS_DIR", Path.home() / ".local/share/triviajudge-metrics"))
+DATA_DIR = Path(
+    os.environ.get(
+        "TRIVIAJUDGE_METRICS_DIR", Path.home() / ".local/share/triviajudge-metrics"
+    )
+)
 USER_AGENT = f"triviajudge-metrics (+https://github.com/{REPO})"
 # Resolved once, at import, so the timer spawns the same gh a shell would.
 GH = shutil.which("gh")
@@ -91,7 +95,11 @@ def gh_api(path: str) -> JsonObject | JsonArray:
         check=False,
     )
     if result.returncode != 0:
-        detail = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "gh api failed"
+        detail = (
+            result.stderr.strip().splitlines()[-1]
+            if result.stderr.strip()
+            else "gh api failed"
+        )
         raise RuntimeError(detail)
     return cast("JsonObject | JsonArray", json.loads(result.stdout))
 
@@ -106,7 +114,9 @@ def upsert(name: str, fields: list[str], rows: list[Row], key: tuple[str, ...]) 
                 merged[tuple(existing[column] for column in key)] = dict(existing)
     for row in rows:
         merged[tuple(str(row[column]) for column in key)] = row
-    ordered = sorted(merged.values(), key=lambda row: tuple(str(row[column]) for column in key))
+    ordered = sorted(
+        merged.values(), key=lambda row: tuple(str(row[column]) for column in key)
+    )
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
@@ -123,7 +133,13 @@ def github_traffic() -> None:
             day = entry["timestamp"][:10]
             row = by_day.setdefault(
                 day,
-                {"date": day, "clones": 0, "unique_cloners": 0, "views": 0, "unique_visitors": 0},
+                {
+                    "date": day,
+                    "clones": 0,
+                    "unique_cloners": 0,
+                    "views": 0,
+                    "unique_visitors": 0,
+                },
             )
             if kind == "clones":
                 row["clones"] = entry["count"]
@@ -144,10 +160,16 @@ def pypi_daily() -> None:
     """Daily download counts from pypistats, mirrors held in their own rows."""
     payload = fetch_json(f"https://pypistats.org/api/packages/{PACKAGE}/overall")
     rows: list[Row] = [
-        {"date": entry["date"], "category": entry["category"], "downloads": entry["downloads"]}
+        {
+            "date": entry["date"],
+            "category": entry["category"],
+            "downloads": entry["downloads"],
+        }
         for entry in payload.get("data", [])
     ]
-    upsert("pypi_daily.csv", ["date", "category", "downloads"], rows, ("date", "category"))
+    upsert(
+        "pypi_daily.csv", ["date", "category", "downloads"], rows, ("date", "category")
+    )
 
 
 def releases() -> None:
@@ -167,7 +189,14 @@ def releases() -> None:
     if not rows:
         # A source-only project attaches no assets, and recording the zero keeps
         # that state distinguishable from a fetch that failed.
-        rows = [{"snapshot_date": stamp, "tag": "(none)", "asset": "(no assets)", "download_count": 0}]
+        rows = [
+            {
+                "snapshot_date": stamp,
+                "tag": "(none)",
+                "asset": "(no assets)",
+                "download_count": 0,
+            }
+        ]
     upsert(
         "releases.csv",
         ["snapshot_date", "tag", "asset", "download_count"],
@@ -220,7 +249,13 @@ def main() -> int:
             # series, and the remaining three still collect.
             warn(f"{name}: HTTP {error.code}")
             failures.append(name)
-        except (OSError, RuntimeError, ValueError, KeyError, json.JSONDecodeError) as error:
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+            KeyError,
+            json.JSONDecodeError,
+        ) as error:
             warn(f"{name}: {error}")
             failures.append(name)
     if failures:

@@ -171,8 +171,12 @@ def collect(args: argparse.Namespace) -> tuple[list[Line], list[str]]:
     if args.stop:
         if stop_already_ran():
             return [], []
-        seen = set(clean_cache(cache_path(CACHE_NAME))) | set(clean_cache(cache_path(SWEEP_CACHE)))
-        return [line for line in prose_only(worktree_lines()) if digest(line) not in seen], []
+        seen = set(clean_cache(cache_path(CACHE_NAME))) | set(
+            clean_cache(cache_path(SWEEP_CACHE))
+        )
+        return [
+            line for line in prose_only(worktree_lines()) if digest(line) not in seen
+        ], []
     if args.lines:
         return prose_only(from_records(Path(args.lines))), []
     if args.head:

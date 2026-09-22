@@ -68,13 +68,19 @@ def corpus(tmp_path: Path, trivia: str, clean: str) -> Path:
         (A_RECORD_THEN_A_BLANK_LINE, 2),
     ],
 )
-def test_a_line_that_is_no_record_is_reported_against_its_own_line(tmp_path: Path, body: str, number: int) -> None:
+def test_a_line_that_is_no_record_is_reported_against_its_own_line(
+    tmp_path: Path, body: str, number: int
+) -> None:
     path = corpus(tmp_path, body, ANOTHER_RECORD) / "trivia.txt"
     assert GATE.unparsed(path) == [NO_RECORD_FINDING.format(path=path, number=number)]
 
 
-def test_a_file_whose_every_line_is_a_record_is_reported_against_nothing(tmp_path: Path) -> None:
-    assert GATE.unparsed(corpus(tmp_path, A_RECORD, ANOTHER_RECORD) / "trivia.txt") == []
+def test_a_file_whose_every_line_is_a_record_is_reported_against_nothing(
+    tmp_path: Path,
+) -> None:
+    assert (
+        GATE.unparsed(corpus(tmp_path, A_RECORD, ANOTHER_RECORD) / "trivia.txt") == []
+    )
 
 
 # --- behavior 2: no text is filed under both labels -------------------------
@@ -88,13 +94,20 @@ def test_one_text_cited_from_two_files_names_both_sides(tmp_path: Path) -> None:
 
 
 def test_two_texts_that_differ_are_two_claims(tmp_path: Path) -> None:
-    assert GATE.contradictions(corpus(tmp_path, A_RECORD, ANOTHER_RECORD), "trivia.txt", "clean.txt") == []
+    assert (
+        GATE.contradictions(
+            corpus(tmp_path, A_RECORD, ANOTHER_RECORD), "trivia.txt", "clean.txt"
+        )
+        == []
+    )
 
 
 # --- behavior 3: the check prints its verdict, and refuses on a problem ------
 
 
-def test_the_check_prints_the_unreadable_line_and_refuses(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_the_check_prints_the_unreadable_line_and_refuses(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     directory = corpus(tmp_path, NO_TAB, ANOTHER_RECORD)
     status = GATE.check(directory)
     assert (status, capsys.readouterr().out) == (
@@ -105,7 +118,9 @@ def test_the_check_prints_the_unreadable_line_and_refuses(tmp_path: Path, capsys
     )
 
 
-def test_the_check_prints_the_contradiction_and_refuses(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_the_check_prints_the_contradiction_and_refuses(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     directory = corpus(tmp_path, A_RECORD, SAME_TEXT_ELSEWHERE)
     status = GATE.check(directory)
     assert (status, capsys.readouterr().out) == (
@@ -146,4 +161,7 @@ def test_the_run_with_no_argument_holds_this_repository_s_corpus(
 ) -> None:
     monkeypatch.setattr(sys, "argv", ["check_corpus.py"])
     status = GATE.main()
-    assert (status, capsys.readouterr().out) == (0, OK_LINE.format(directory=GATE.ROOT / GATE.CORPUS))
+    assert (status, capsys.readouterr().out) == (
+        0,
+        OK_LINE.format(directory=GATE.ROOT / GATE.CORPUS),
+    )
