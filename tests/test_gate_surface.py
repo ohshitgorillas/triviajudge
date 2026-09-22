@@ -219,9 +219,10 @@ def test_the_out_file_carries_the_ids_the_judge_flagged_and_no_others(
 ) -> None:
     one_reply(bin_dir, words)
     out = tmp_path / "flags.json"
-    gate.judged(
-        arguments(stop=False, out=out), md_trivia.gate(None), TWO_LINES, io.StringIO()
-    )
+    args = arguments(stop=False, out=out)
+    markdown = md_trivia.gate(None)
+    stream = io.StringIO()
+    gate.judged(args, markdown, TWO_LINES, stream)
     assert out_ids(out) == ids
 
 
@@ -241,9 +242,10 @@ def test_the_cache_keeps_the_digest_of_the_line_the_judge_passed_alone(
 ) -> None:
     one_reply(bin_dir, words)
     cache = tmp_path / "clean.json"
-    gate.judged(
-        arguments(stop=True, out=None), md_trivia.gate(cache), TWO_LINES, io.StringIO()
-    )
+    args = arguments(stop=True, out=None)
+    markdown = md_trivia.gate(cache)
+    stream = io.StringIO()
+    gate.judged(args, markdown, TWO_LINES, stream)
     assert json.loads(cache.read_text(encoding="utf-8")) == digests
 
 
