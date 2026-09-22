@@ -10,6 +10,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **CI validates its own manifests.** `check-jsonschema` runs the workflow files against the github-workflows schema and `.pre-commit-hooks.yaml` against the pre-commit-hooks schema; `actionlint` runs the workflow files. `check.yml` runs `pre-commit run --all-files` after `make check`, skipping only the three judges that need the network.
 
+### Changed
+
+- **The markdown gate asks in chunks and is answered per line.** Its prompt asks for a verdict on every input id, and `gate_batch` lines go per call, `gate_parallel` calls at a time. An id the judge returns no verdict for is asked once more and then flagged, rather than passing unread. The comment and changelog gates keep the single call and the hit-list answer.
+
 ### Internal
 
 - **The testing policy is one binding document.** `docs/testing.md` states eighteen numbered rules a test is reviewed against, the exemption route, and the motions a test leaves by. `CONTRIBUTING.md` keeps the gate mechanics and points there for the rule each gate serves.

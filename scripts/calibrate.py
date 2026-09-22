@@ -30,7 +30,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from triviajudge import changelog_trivia, comment_trivia, md_trivia
-from triviajudge.core import ask, from_records
+from triviajudge.core import from_records
+from triviajudge.gate import verdicts
 
 if TYPE_CHECKING:
     from triviajudge.core import Line
@@ -50,13 +51,14 @@ BATCH = 50
 TIMEOUT = 300.0
 
 
-def flagged(lines: list[Line], prompt: str, model: str | None, batch: int) -> set[str]:
-    """The id of every line the judge flags, over as many calls as the batch size asks for."""
-    found: set[str] = set()
-    for start in range(0, len(lines), batch):
-        chunk = lines[start : start + batch]
-        found.update(str(flag["id"]) for flag in ask(chunk, prompt, model, TIMEOUT))
-    return found
+def flagged(lines: list[Line], prompt: str, model: str | None, batch: int, *, exhaustive: bool) -> set[str]:
+    """The id of every line the judge flags, over as many calls as the batch size asks for.
+
+    The chunking is the gate's own, so a calibration run measures the shape the
+    gate runs rather than a second one written here.
+    """
+    marked = verdicts(lines, prompt, exhaustive=exhaustive, batch=batch, parallel=1, model=model, timeout=TIMEOUT)
+    return {str(flag["id"]) for flag in marked}
 
 
 def corpus(path: Path | None) -> list[Line]:
@@ -109,7 +111,7 @@ def main() -> int:
     clean = corpus(args.clean)
     if not trivia and not clean:
         raise SystemExit("no corpus: name one with --trivia or --clean")
-    marked = flagged(trivia + clean, PROMPTS[args.gate], args.model, args.batch)
+    marked = flagged(trivia + clean, PROMPTS[args.gate], args.model, args.batch, exhaustive=args.gate == "md")
     return report(trivia, clean, marked)
 
 

@@ -220,6 +220,7 @@ containers = ["triviajudge"]
 layers = [
     "sweep",
     "md_trivia | comment_trivia | changelog_trivia",
+    "gate",
     "archaeology",
     "core",
     "config",

@@ -52,10 +52,6 @@ ALLOWANCE: dict[str, int] = {
     # it. A split would put a prompt in one file and the rules it names in
     # another.
     "triviajudge/changelog_trivia.py": 465,
-    # The transport, the input modes and the verdict share one module because a
-    # gate is a prompt over one of those inputs. A split runs along that seam or
-    # not at all, which is a larger change than a line count asks for.
-    "triviajudge/core.py": 407,
 }
 
 

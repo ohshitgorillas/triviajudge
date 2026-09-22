@@ -74,6 +74,14 @@ class Settings:
     #: its own names its path here, so reaching one is a line in this table rather than a change
     #: to the transport.
     chat_path: str = "/v1/chat/completions"
+    #: Lines per call at the markdown gate. A judge reads a bounded number of the lines one
+    #: call carries, so the chunk is what holds recall steady between runs over the same
+    #: input. 0 asks every collected line in one call.
+    gate_batch: int = 20
+    #: Concurrent calls a gate makes over its chunks, capped at half the cores of the host it
+    #: runs on. It is what keeps a chunked gate from costing the turn one call's latency per
+    #: chunk.
+    gate_parallel: int = 4
     #: Lines per CLI call in a sweep. One call carries every line it is given, so the batch
     #: size is what keeps a whole-tree run from riding on a single call.
     sweep_batch: int = 150

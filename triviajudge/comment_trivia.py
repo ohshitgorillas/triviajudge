@@ -63,9 +63,9 @@ from triviajudge.core import (
     git_diff,
     parse_args,
     root,
-    run,
     stop_already_ran,
 )
+from triviajudge.gate import run
 
 if TYPE_CHECKING:
     import argparse
