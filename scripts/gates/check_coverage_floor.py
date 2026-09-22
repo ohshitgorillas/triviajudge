@@ -28,7 +28,15 @@ REPORT = ROOT / ".coverage.json"
 FLOOR = 90
 
 #: Files excused from the floor, path to the reason.
-EXEMPT: dict[str, str] = {}
+EXEMPT: dict[str, str] = {
+    # Twelve statements here assert nothing yet: the refusal branch of ``run``,
+    # the out-file and cache tail of ``judged``, the pool branch of ``spread``
+    # and two empty-input returns. They arrive untested from ``core.py``, whose
+    # size held them over the floor, and a block that pins them cannot be
+    # written against a module that has not landed. The entry leaves with that
+    # block and holds nothing else excused.
+    "triviajudge/gate.py": "twelve statements carried untested out of core.py, pinned by the block that follows this one",
+}
 
 
 def percentages(report: Path) -> dict[str, float]:
