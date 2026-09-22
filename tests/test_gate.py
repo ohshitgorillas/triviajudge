@@ -151,7 +151,11 @@ FOUR_IDS = [line.id for line in FOUR]
 
 def verdict(number: int, word: str) -> dict[str, str]:
     """One object of an exhaustive answer: the id judged, the verdict it got, the reason."""
-    return {"id": f"a.md:{number}", "verdict": word, "reason": "the rate the panel asks for"}
+    return {
+        "id": f"a.md:{number}",
+        "verdict": word,
+        "reason": "the rate the panel asks for",
+    }
 
 
 def answered(bin_dir: Path, rows: list[dict[str, object]]) -> None:
@@ -222,7 +226,14 @@ def test_the_ids_the_exhaustive_answer_called_trivia_are_the_ids_that_come_back_
 ) -> None:
     answered(
         bin_dir,
-        [{"ids": THREE_IDS, "answer": [verdict(number, word) for number, word in enumerate(words, 1)]}],
+        [
+            {
+                "ids": THREE_IDS,
+                "answer": [
+                    verdict(number, word) for number, word in enumerate(words, 1)
+                ],
+            }
+        ],
     )
     assert [flag["id"] for flag in judged(LINES[:3])] == flagged
 
@@ -236,7 +247,10 @@ def test_the_ids_the_exhaustive_answer_called_trivia_are_the_ids_that_come_back_
         ([verdict(3, "trivia"), verdict(4, "clean")], ["a.md:2", "a.md:3"]),
         ([], ["a.md:2", "a.md:3", "a.md:4"]),
     ],
-    ids=["the second answer judges both stragglers", "the second answer judges neither"],
+    ids=[
+        "the second answer judges both stragglers",
+        "the second answer judges neither",
+    ],
 )
 def test_an_id_the_judge_never_ruled_on_comes_back_flagged(
     bin_dir: Path, second: list[dict[str, str]], flagged: list[str]
