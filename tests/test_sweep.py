@@ -81,7 +81,7 @@ def test_a_path_is_judged_when_it_sits_under_a_named_prefix(path: str, prefixes:
 
 
 def test_concurrency_is_at_least_one_and_at_most_half_the_cores(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("triviajudge.sweep.os.cpu_count", lambda: 8)
+    monkeypatch.setattr("triviajudge.gate.os.cpu_count", lambda: 8)
     assert [sweep.workers(asked) for asked in (0, 1, 4, 64)] == [1, 1, 4, 4]
 
 
@@ -231,13 +231,13 @@ def test_a_call_that_raises_answers_with_no_flags_and_the_reason(monkeypatch: py
     def refuse(*_args: object, **_kwargs: object) -> list[dict[str, str]]:
         raise RuntimeError("claude exited 1")
 
-    monkeypatch.setattr("triviajudge.sweep.ask", refuse)
+    monkeypatch.setattr("triviajudge.sweep.verdicts", refuse)
     batch = sweep.batched(sweep.MD, "prompt", LINES, 50)[0]
     assert sweep.judge(batch, "a-model") == (batch, None, "claude exited 1")
 
 
 def test_every_batch_is_asked_when_the_calls_run_concurrently(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("triviajudge.sweep.ask", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr("triviajudge.sweep.verdicts", lambda *_args, **_kwargs: [])
     batches = sweep.batched(sweep.MD, "prompt", LINES, 2)
     assert [batch.name for batch, _flags, _why in sweep.run_batches(batches, "a-model", 4)] == [
         "md#1",
@@ -360,21 +360,21 @@ def sweep_run(monkeypatch: pytest.MonkeyPatch, flags: list[str]) -> int:
 
 def test_a_tree_with_nothing_to_judge_asks_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tracked(monkeypatch, tmp_path, {})
-    monkeypatch.setattr("triviajudge.sweep.ask", lambda *_args, **_kwargs: pytest.fail("a call was made"))
+    monkeypatch.setattr("triviajudge.sweep.verdicts", lambda *_args, **_kwargs: pytest.fail("a call was made"))
     assert sweep_run(monkeypatch, ["--md", "--yes"]) == 0
 
 
 def test_a_declined_question_asks_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     monkeypatch.setattr("builtins.input", lambda _prompt: "n")
-    monkeypatch.setattr("triviajudge.sweep.ask", lambda *_args, **_kwargs: pytest.fail("a call was made"))
+    monkeypatch.setattr("triviajudge.sweep.verdicts", lambda *_args, **_kwargs: pytest.fail("a call was made"))
     assert sweep_run(monkeypatch, ["--md"]) == 0
 
 
 def test_a_flagged_line_fails_the_run_under_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     monkeypatch.setattr(
-        "triviajudge.sweep.ask",
+        "triviajudge.sweep.verdicts",
         lambda *_args, **_kwargs: [{"id": "docs/plan.md:1", "reason": "narrates a decision"}],
     )
     assert sweep_run(monkeypatch, ["--md", "--yes", "--check"]) == 1
@@ -383,7 +383,7 @@ def test_a_flagged_line_fails_the_run_under_check(tmp_path: Path, monkeypatch: p
 def test_the_out_file_carries_the_flags_the_run_printed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     monkeypatch.setattr(
-        "triviajudge.sweep.ask",
+        "triviajudge.sweep.verdicts",
         lambda *_args, **_kwargs: [{"id": "docs/plan.md:1", "reason": "narrates a decision"}],
     )
     out = tmp_path / "flags.json"
@@ -395,7 +395,7 @@ def test_the_baseline_remembers_the_lines_no_judge_flagged(tmp_path: Path, monke
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
     cache = tmp_path / sweep.CACHE_NAME
     monkeypatch.setattr(sweep, "cache_path", lambda _name: cache)
-    monkeypatch.setattr("triviajudge.sweep.ask", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr("triviajudge.sweep.verdicts", lambda *_args, **_kwargs: [])
     sweep_run(monkeypatch, ["--md", "--yes", "--baseline"])
     first = Line("docs/plan.md", 1, PROSE_MARKDOWN.splitlines()[0])
     assert json.loads(cache.read_text(encoding="utf-8")) == [digest(first)]
@@ -408,7 +408,7 @@ def test_a_failed_batch_is_named_on_the_way_out(
         raise RuntimeError("claude exited 1")
 
     tracked(monkeypatch, tmp_path, {"docs/plan.md": PROSE_MARKDOWN})
-    monkeypatch.setattr("triviajudge.sweep.ask", refuse)
+    monkeypatch.setattr("triviajudge.sweep.verdicts", refuse)
     sweep_run(monkeypatch, ["--md", "--yes"])
     assert "md#1" in capsys.readouterr().err
 
