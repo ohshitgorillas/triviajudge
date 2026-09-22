@@ -21,7 +21,7 @@ library in a version above ``requires-python`` would pass here and fail for a
 consumer on the floor version. That floor is 3.12 and this gate runs under it in
 CI.
 
-Usage: ``python scripts/gates/check_stdlib_only.py [path ...]``
+Usage: ``python scripts/gates/code/check_stdlib_only.py [path ...]``
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ import ast
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 
 #: The package's own name; an import of it is an import of this tree.
 PACKAGE = "triviajudge"

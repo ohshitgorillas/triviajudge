@@ -21,6 +21,7 @@ import pytest
 from test_hook_modes import child_environment, committed_repo, gate_run, git_run, write
 
 from triviajudge import changelog_prompts as PROMPTS
+from triviajudge import changelog_screen as SCREEN
 from triviajudge import changelog_trivia as GATE
 from triviajudge import core
 
@@ -65,7 +66,7 @@ MARKETING = "- **the lane simply returns the staged model.**\n"
 BY_NEGATION = "- **the lane returns the staged model, the panel untouched.**\n"
 OVER_THE_CAP = (
     "- **the lane returns the staged model.** "
-    + " ".join(["lane"] * (GATE.WORD_CAP + 1))
+    + " ".join(["lane"] * (SCREEN.WORD_CAP + 1))
     + "\n"
 )
 CLEAN_ENTRY = "- **the lane returns the staged model.**\n"
@@ -98,7 +99,7 @@ def namespace(**overrides: object) -> argparse.Namespace:
 
 def first_block(text: str) -> list[str]:
     """The lines of the first bullet under ``[Unreleased]``."""
-    return GATE.bullets(GATE.section(text))[0][2]
+    return SCREEN.bullets(SCREEN.section(text))[0][2]
 
 
 def staged_run(
@@ -111,7 +112,7 @@ def staged_run(
 ) -> subprocess.CompletedProcess[str]:
     """Run the gate over a throwaway checkout carrying ``text`` as its changelog."""
     root, env = committed_repo(tmp_path, {})
-    write(root, {GATE.CHANGELOG: text})
+    write(root, {SCREEN.CHANGELOG: text})
     if stage:
         git_run(root, env, "add", "-A")
     return gate_run("changelog_trivia", flags, root, env, stdin)
@@ -121,25 +122,29 @@ def staged_run(
 
 
 def test_only_the_bullets_under_the_unreleased_heading_are_read() -> None:
-    assert [number for number, _kind, _block in GATE.bullets(GATE.section(SAMPLE))] == [
+    assert [
+        number for number, _kind, _block in SCREEN.bullets(SCREEN.section(SAMPLE))
+    ] == [
         7,
         11,
     ]
 
 
 def test_each_bullet_carries_the_kind_it_sits_under() -> None:
-    assert [kind for _number, kind, _block in GATE.bullets(GATE.section(SAMPLE))] == [
+    assert [
+        kind for _number, kind, _block in SCREEN.bullets(SCREEN.section(SAMPLE))
+    ] == [
         "Added",
         "Fixed",
     ]
 
 
 def test_a_continuation_line_arrives_joined_to_the_bullet_it_belongs_to() -> None:
-    assert markers_in(GATE.joined(first_block(CONTINUED))) == ("BRAVO", "CHARLIE")
+    assert markers_in(SCREEN.joined(first_block(CONTINUED))) == ("BRAVO", "CHARLIE")
 
 
 def test_a_code_span_costs_a_bullet_no_words() -> None:
-    assert GATE.words(CODE_SPAN_ENTRY) == 2
+    assert SCREEN.words(CODE_SPAN_ENTRY) == 2
 
 
 # --- behavior 2: each screen rule answers for the bullet it refuses ----------
@@ -157,11 +162,11 @@ def test_a_code_span_costs_a_bullet_no_words() -> None:
     ],
 )
 def test_a_bullet_breaking_one_rule_draws_one_complaint(block: list[str]) -> None:
-    assert len(GATE.entry_faults(1, block)) == 1
+    assert len(SCREEN.entry_faults(1, block)) == 1
 
 
 def test_a_bullet_breaking_no_rule_draws_none() -> None:
-    assert GATE.entry_faults(1, [CLEAN_ENTRY]) == []
+    assert SCREEN.entry_faults(1, [CLEAN_ENTRY]) == []
 
 
 @pytest.mark.parametrize(
@@ -176,19 +181,19 @@ def test_a_bullet_breaking_no_rule_draws_none() -> None:
 def test_the_heading_rules_answer_for_the_section_they_read(
     found: list[tuple[int, str]], count: int
 ) -> None:
-    assert len(GATE.heading_faults(found)) == count
+    assert len(SCREEN.heading_faults(found)) == count
 
 
 # --- behavior 3: the entry scope reads the bullets a change adds -------------
 
 
 def test_a_bullet_the_change_leaves_alone_does_not_reach_the_judge() -> None:
-    lines, _complaints = GATE.screen(SAMPLE, {11})
-    assert [line.id for line in lines] == [f"{GATE.CHANGELOG}:11"]
+    lines, _complaints = SCREEN.screen(SAMPLE, {11})
+    assert [line.id for line in lines] == [f"{SCREEN.CHANGELOG}:11"]
 
 
 def test_a_bullet_the_screen_refuses_is_answered_for_and_not_sent() -> None:
-    lines, complaints = GATE.screen(
+    lines, complaints = SCREEN.screen(
         "## [Unreleased]\n\n### Fixed\n\n" + NO_BOLD_LEAD, {5}
     )
     assert (len(lines), len(complaints)) == (0, 1)
@@ -196,9 +201,9 @@ def test_a_bullet_the_screen_refuses_is_answered_for_and_not_sent() -> None:
 
 def test_the_records_mode_judges_the_bullets_the_file_addresses(tmp_path: Path) -> None:
     records = tmp_path / "lines.tsv"
-    records.write_text(f"{GATE.CHANGELOG}:7\t{CLEAN_ENTRY}", encoding="utf-8")
+    records.write_text(f"{SCREEN.CHANGELOG}:7\t{CLEAN_ENTRY}", encoding="utf-8")
     lines, _complaints = GATE.collect(namespace(lines=str(records)))
-    assert [line.id for line in lines] == [f"{GATE.CHANGELOG}:7"]
+    assert [line.id for line in lines] == [f"{SCREEN.CHANGELOG}:7"]
 
 
 def test_the_head_mode_judges_the_bullets_the_last_commit_added(
@@ -209,7 +214,7 @@ def test_the_head_mode_judges_the_bullets_the_last_commit_added(
     )
     monkeypatch.setattr("triviajudge.changelog_trivia.at", lambda _rev: STAGED_CLEAN)
     lines, _complaints = GATE.collect(namespace(head=True))
-    assert [line.id for line in lines] == [f"{GATE.CHANGELOG}:5"]
+    assert [line.id for line in lines] == [f"{SCREEN.CHANGELOG}:5"]
 
 
 def test_a_commit_naming_no_changelog_judges_nothing() -> None:
@@ -230,12 +235,12 @@ def test_a_revision_that_does_not_carry_the_changelog_reads_as_empty(
 
 
 def test_the_release_scope_sends_every_bullet_under_the_unreleased_heading() -> None:
-    lines, _complaints = GATE.whole_section(SAMPLE)
+    lines, _complaints = SCREEN.whole_section(SAMPLE)
     assert [line.number for line in lines] == [7, 11]
 
 
 def test_a_bullet_reaches_the_release_judge_carrying_its_kind() -> None:
-    lines, _complaints = GATE.whole_section(SAMPLE)
+    lines, _complaints = SCREEN.whole_section(SAMPLE)
     assert lines[0].text.startswith("(Added)")
 
 
@@ -296,8 +301,8 @@ def test_a_directory_in_no_work_tree_is_refused(tmp_path: Path) -> None:
 def test_the_working_tree_mode_reads_what_a_tracked_changelog_gains(
     tmp_path: Path,
 ) -> None:
-    root, env = committed_repo(tmp_path, {GATE.CHANGELOG: STAGED_CLEAN})
-    write(root, {GATE.CHANGELOG: STAGED_CLEAN + CLEAN_ENTRY})
+    root, env = committed_repo(tmp_path, {SCREEN.CHANGELOG: STAGED_CLEAN})
+    write(root, {SCREEN.CHANGELOG: STAGED_CLEAN + CLEAN_ENTRY})
     finished = gate_run("changelog_trivia", ["--stop"], root, env, "{}")
     assert (finished.returncode, MISSING_JUDGE in finished.stderr) == (2, True)
 
@@ -306,7 +311,7 @@ def test_the_stop_mode_under_the_judges_own_session_does_nothing(
     tmp_path: Path,
 ) -> None:
     root, env = committed_repo(tmp_path, {})
-    write(root, {GATE.CHANGELOG: SAMPLE})
+    write(root, {SCREEN.CHANGELOG: SAMPLE})
     finished = gate_run(
         "changelog_trivia", ["--stop"], root, {**env, core.INNER: "1"}, "{}"
     )

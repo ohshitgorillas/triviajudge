@@ -19,7 +19,7 @@ as ``RECORD``. And across each pair in ``PAIRS`` no text appears on both sides,
 compared on the record's text alone: the same sentence cited from two files is one
 claim about that sentence.
 
-Usage: ``python scripts/gates/check_corpus.py [corpus-directory]``
+Usage: ``python scripts/gates/repo/check_corpus.py [corpus-directory]``
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 
 #: Where the corpus lives, relative to the repository root.
 CORPUS = "corpus"

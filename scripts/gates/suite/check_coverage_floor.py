@@ -9,7 +9,7 @@ A missing or empty report fails rather than passing. Pre-commit sets no
 ``fail_fast``, so this still runs when the suite dies, and a tree that was
 never measured must not read as a tree that measured clean.
 
-Usage: ``python scripts/gates/check_coverage_floor.py [report] [floor]``
+Usage: ``python scripts/gates/suite/check_coverage_floor.py [report] [floor]``
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 
 #: Where the `test` target and the `pytest` hook write their report.
 REPORT = ROOT / ".coverage.json"

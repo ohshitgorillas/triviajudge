@@ -6,7 +6,7 @@ A violation is rejected in review even when the suite is green. Rule numbers are
 
 1. **Test behavior, never implementation.** This diff, this stdin payload, this reply from the model; the gate prints this and exits with that. A refactor that keeps behavior and breaks a test has found a defective test. Module layout, private helpers, call order, log text: off limits.
 
-2. **One assertion per test.** One `assert` or one `pytest.raises` per `test_` function. Two facts that are one behavior compare as a tuple: `assert (finished.returncode, finished.stderr) == (0, "")`. Sweeps are `@pytest.mark.parametrize`, never assert-in-loop, never `all()`/`any()`. A conjunction is one assertion per operand; `x is not None and x["k"] == v` is repaired as `(x or {})["k"] == v`. `scripts/gates/check_test_assertions.py`.
+2. **One assertion per test.** One `assert` or one `pytest.raises` per `test_` function. Two facts that are one behavior compare as a tuple: `assert (finished.returncode, finished.stderr) == (0, "")`. Sweeps are `@pytest.mark.parametrize`, never assert-in-loop, never `all()`/`any()`. A conjunction is one assertion per operand; `x is not None and x["k"] == v` is repaired as `(x or {})["k"] == v`. `scripts/gates/suite/check_test_assertions.py`.
 
 3. **Public API only.** A test reaches the package the way a hook, a pre-commit run or `python -m` does. No `_private` attribute, no monkeypatch inside `triviajudge/`. `_ask_cli`, `_ask_http`, `_answer`, `_headers` are reached through `ask` and a wire fake, never called.
 
@@ -23,8 +23,8 @@ A violation is rejected in review even when the suite is green. Rule numbers are
 
 7. **No test waits on a wall clock.** A retry or timeout is judged by what it concluded, never by how long it took.
    - The timeout path is driven by a fake `claude` that raises or exits, never by sleeping through a small deadline. A fake never sleeps; the one legal sleep is the literal `0`.
-   - No carve-out: there is no e2e lane, and `tests/e2e/` is not created as a route around this rule. `scripts/gates/check_test_clocks.py` reads every file under `tests/`: a `sleep` on anything but `0`, and a `timeout` or `*_timeout` literal under 0.5 s, fail it.
-   - Gated: `scripts/gates/check_suite_time.py` holds `make test` wall time to the last green run's; over 5 s slower needs `--accept`, 10 s or more is refused. `scripts/gates/check_hook_timeouts.py` holds each hook `timeout` at or above the largest constant its module can reach.
+   - No carve-out: there is no e2e lane, and `tests/e2e/` is not created as a route around this rule. `scripts/gates/suite/check_test_clocks.py` reads every file under `tests/`: a `sleep` on anything but `0`, and a `timeout` or `*_timeout` literal under 0.5 s, fail it.
+   - Gated: `scripts/gates/suite/check_suite_time.py` holds `make test` wall time to the last green run's; over 5 s slower needs `--accept`, 10 s or more is refused. `scripts/gates/repo/check_hook_timeouts.py` holds each hook `timeout` at or above the largest constant its module can reach.
 
 8. **New tests must bite.** Red against pre-change code, with implementation reverted to `HEAD` and tests kept. Only an assertion failure is bite; a collection or import error is no evidence. A new surface with no red run possible: the spec block names the null stub each line fails against. Characterization and pure-refactor tests are exempt, and the exemption is said in the hand-back, never assumed.
 
@@ -32,9 +32,9 @@ A violation is rejected in review even when the suite is green. Rule numbers are
    - A refusal is matched on what the test seeded: `match="no credit"` where the fake wrote `no credit`, never `match="claude exited 1: no credit"`.
    - A gate's report line is copy. Assert the exit code and the `path:line` the test constructed, never the wording after it.
    - The prompt is copy. A test asserts that its own lines reached the fake, never a fragment of the prose around them.
-   - `corpus/` is calibration data, read by `make calibrate`, never by the suite. Whether it is well-formed is `scripts/gates/check_corpus.py`, a data gate.
+   - `corpus/` is calibration data, read by `make calibrate`, never by the suite. Whether it is well-formed is `scripts/gates/repo/check_corpus.py`, a data gate.
    - A curated count is copy: the number of patterns in a screen is data, the number of lines a diff added is contract.
-   - `scripts/gates/check_no_copy_assertions.py` refuses an unseeded literal of two or more words. Nothing left once the wording goes: strike, do not keep.
+   - `scripts/gates/suite/check_no_copy_assertions.py` refuses an unseeded literal of two or more words. Nothing left once the wording goes: strike, do not keep.
 
 10. **A test discriminates, or it is a tautology.** Name an implementation that fails the assertion and one that passes, both plausible; if the failing one is only "feature absent", the test pins presence. Shapes that fail:
     - One input, one absolute value: a lookup-table entry. Assert a relation, or two distinct expected values on one surface.
@@ -52,11 +52,11 @@ A violation is rejected in review even when the suite is green. Rule numbers are
     - Column alignment, key order in the cache file, the spelling of a number: not asserted unless a consumer parses it.
     - The tell: a fixture-supplied value is asserted verbatim; a design-chosen value never absolutely.
 
-12. **A test costs.** A test constraining nothing another does not is deleted, and deletion is not a coverage regression. Two tests that cannot fail independently are one test. A test written to reach a line is rule 1 by another route: fix the code. `scripts/gates/check_coverage_floor.py` holds 90% per file as a floor, never a target.
+12. **A test costs.** A test constraining nothing another does not is deleted, and deletion is not a coverage regression. Two tests that cannot fail independently are one test. A test written to reach a line is rule 1 by another route: fix the code. `scripts/gates/suite/check_coverage_floor.py` holds 90% per file as a floor, never a target.
 
 13. **Fakes answer from tables, never logic.** The fake `claude` prints the envelope the test wrote for this case. A fake that reads the prompt and decides what to flag is a second judge.
 
-14. **Helpers return values.** No `assert` outside a `test_` function; a fixture that must refuse raises. `scripts/gates/check_test_assertions.py`.
+14. **Helpers return values.** No `assert` outside a `test_` function; a fixture that must refuse raises. `scripts/gates/suite/check_test_assertions.py`.
 
 15. **Lowest lane.** Pure function (`added_lines`, `flags_from`, `parsed`), then `ask` against a wire fake, then a gate driven in process, then a gate spawned with stdin. A spawned test an in-process test already covers is deleted; spawning is for what only the boundary shows: stdin, exit code, scrubbed environment, `INNER`.
 
@@ -72,7 +72,7 @@ A violation is rejected in review even when the suite is green. Rule numbers are
 
 ## Exemptions
 
-An exemption lives in the `EXEMPT` table of the gate that would report the site, keyed `<path>::<test name>`, reason naming the condition that removes it. Only the existence and skip categories may be exempted. Owner-approved: a contributor proposes it in the hand-back and does not add it. `skip`, `skipif` and `xfail` are exemptions; `xfail_strict = true` stays. `importorskip` on a dev-extra tool is mechanism, not exemption. Every `noqa` and `type: ignore` under `tests/` carries an em dash and a clause, as `scripts/gates/check_noqa_reasons.py` holds the package to.
+An exemption lives in the `EXEMPT` table of the gate that would report the site, keyed `<path>::<test name>`, reason naming the condition that removes it. Only the existence and skip categories may be exempted. Owner-approved: a contributor proposes it in the hand-back and does not add it. `skip`, `skipif` and `xfail` are exemptions; `xfail_strict = true` stays. `importorskip` on a dev-extra tool is mechanism, not exemption. Every `noqa` and `type: ignore` under `tests/` carries an em dash and a clause, as `scripts/gates/code/check_noqa_reasons.py` holds the package to.
 
 ## Motions
 

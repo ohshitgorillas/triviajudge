@@ -17,7 +17,7 @@ not parse, a key ``config.read`` refuses, or a value it cannot coerce is a
 refusal printed here rather than a traceback, and the reader's first
 encounter with it is this gate rather than a stopped commit of their own.
 
-Usage: ``python scripts/gates/check_settings_docs.py [README.md]``
+Usage: ``python scripts/gates/repo/check_settings_docs.py [README.md]``
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from pathlib import Path
 
 from triviajudge.config import Settings, read
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 README = ROOT / "README.md"
 
 #: The fence the documented block opens with, and the table that marks it.

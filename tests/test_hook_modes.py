@@ -12,7 +12,7 @@ blocks the turn on what it can prove and nothing else.
 
 ``core.INNER`` is the recursion guard. The markdown judge shells out to the
 ``claude`` CLI from inside a ``Stop`` hook, and the inner session shares the
-working directory, so its own ``Stop`` hooks fire the same gate. ``ask`` sets
+working directory, so its own ``Stop`` hooks fire the same gate. ``transport.ask`` sets
 the variable in the child's environment and every hook mode reads it and does
 nothing, which ``stop_hook_active`` cannot do: that flag marks the outer turn,
 not the inner process.
@@ -36,7 +36,7 @@ from typing import cast
 import pytest
 from conftest import coverage_environment
 
-from triviajudge import core
+from triviajudge import core, transport
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -225,10 +225,10 @@ def test_the_judge_sets_the_guard_in_the_environment_of_its_own_call(
         seen.update(cast("dict[str, str]", kwargs["env"]))
         return Finished()
 
-    monkeypatch.setattr(core, "binary", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(core, "root", Path.cwd)
-    monkeypatch.setattr("triviajudge.core.subprocess.run", fake_run)
-    core.ask([core.Line("doc.md", 1, "a line")], "prompt")
+    monkeypatch.setattr(transport, "binary", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(transport, "root", Path.cwd)
+    monkeypatch.setattr("triviajudge.transport.subprocess.run", fake_run)
+    transport.ask([core.Line("doc.md", 1, "a line")], "prompt")
     assert seen[core.INNER] == "1"
 
 

@@ -12,7 +12,7 @@ comment readers for source. The archaeology patterns screen the comment
 candidates first, as they do at commit. Their complaints are free — no model
 call carries them — and they never reach the judge.
 
-Cost is the thing to hold. ``core.ask`` sends one call for every line it is
+Cost is the thing to hold. ``triviajudge.transport.ask`` sends one call for every line it is
 given, whichever backend carries it, so a whole tree in one call is a call
 nobody can afford to lose. Sweep
 splits the candidates into batches of ``sweep_batch`` and asks once per batch.
@@ -49,7 +49,6 @@ from pathlib import Path
 from triviajudge import comment_trivia, md_trivia
 from triviajudge.config import SWEEP_CACHE, Settings, cache_path, settings
 from triviajudge.core import (
-    CLAUDE_BACKEND,
     Line,
     NotARepositoryError,
     clean_cache,
@@ -59,6 +58,7 @@ from triviajudge.core import (
 )
 from triviajudge.gate import verdicts
 from triviajudge.gate import workers as workers  # noqa: PLC0414 — the alias is the explicit re-export: one cap covers the gate path and the sweep, and callers of a sweep read it here
+from triviajudge.transport import CLAUDE_BACKEND
 
 #: The cache a ``--baseline`` run writes, read by the markdown gate at ``Stop``.
 CACHE_NAME = SWEEP_CACHE

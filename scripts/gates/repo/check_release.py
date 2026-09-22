@@ -26,7 +26,7 @@ Four rules hold them together:
    is the one exemption, because the commit that cuts a release exists before the
    tag that names it does; the next release is what brings it under the rule.
 
-Usage: ``python scripts/gates/check_release.py``
+Usage: ``python scripts/gates/repo/check_release.py``
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 
 #: A released section heading: ``## [x.y.z]``, date and all. ``[Unreleased]`` misses it.
 HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\]")

@@ -24,7 +24,7 @@ poor one, and the section that holds both would then state the rule twice.
 Released sections are history and are never rewritten, so nothing below the first
 ``##`` heading under ``[Unreleased]`` is read.
 
-Usage: ``python scripts/gates/check_changelog.py [CHANGELOG.md ...]``
+Usage: ``python scripts/gates/repo/check_changelog.py [CHANGELOG.md ...]``
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 
 #: The one section this gate reads. Everything below it has shipped.
 UNRELEASED = "## [Unreleased]"

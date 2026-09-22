@@ -33,7 +33,7 @@ nothing: jscpd walks what it is given and prints a percentage over what it found
 so a renamed directory reads as a clean tree rather than as a gate that stopped
 looking. Every entry therefore names a directory holding a file git tracks.
 
-Usage: ``python scripts/gates/check_gates_wired.py``
+Usage: ``python scripts/gates/repo/check_gates_wired.py``
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 
 #: The duplication gate's invocation, which no filename sweep can find.
 JSCPD = "npx jscpd"
@@ -66,8 +66,16 @@ PRECOMMIT_EXEMPT: dict[str, str] = {}
 
 
 def gate_scripts(gates: Path) -> list[str]:
-    """Filename of every gate script in the directory, sorted."""
-    return sorted(path.name for path in gates.glob("*.py") if path.is_file())
+    """Path of every gate script under the directory, relative to it, sorted.
+
+    The gates sit in one subdirectory per concern, so the sweep descends: a gate
+    one level down is as much a gate as one at the top.
+    """
+    return sorted(
+        path.relative_to(gates).as_posix()
+        for path in gates.rglob("*.py")
+        if path.is_file()
+    )
 
 
 def live(text: str) -> str:

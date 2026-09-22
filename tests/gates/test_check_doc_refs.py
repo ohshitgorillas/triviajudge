@@ -277,5 +277,5 @@ def test_a_path_that_is_no_file_is_not_read(
 
 
 def test_a_repo_relative_path_is_how_a_problem_is_addressed() -> None:
-    inside = GATE.ROOT / "scripts" / "gates" / "check_doc_refs.py"
-    assert GATE.relabel(inside) == "scripts/gates/check_doc_refs.py"
+    inside = GATE.ROOT / "scripts" / "gates" / "repo" / "check_doc_refs.py"
+    assert GATE.relabel(inside) == "scripts/gates/repo/check_doc_refs.py"

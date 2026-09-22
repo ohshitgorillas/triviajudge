@@ -72,28 +72,28 @@ repos:
 
       - id: single-assertion
         name: one assertion per test
-        entry: .venv/bin/python scripts/gates/check_test_assertions.py
+        entry: .venv/bin/python scripts/gates/suite/check_test_assertions.py
         language: system
         types: [python]
         files: ^tests/
 
       - id: no-copy-assertions
         name: no copy in assertions
-        entry: .venv/bin/python scripts/gates/check_no_copy_assertions.py
+        entry: .venv/bin/python scripts/gates/suite/check_no_copy_assertions.py
         language: system
         types: [python]
         files: ^tests/
 
       - id: test-clocks
         name: no test reads a real clock
-        entry: .venv/bin/python scripts/gates/check_test_clocks.py
+        entry: .venv/bin/python scripts/gates/suite/check_test_clocks.py
         language: system
         types: [python]
         files: ^tests/
 
       - id: noqa-reasons
         name: every suppression states a reason
-        entry: .venv/bin/python scripts/gates/check_noqa_reasons.py
+        entry: .venv/bin/python scripts/gates/code/check_noqa_reasons.py
         language: system
         types: [python]
 
@@ -109,7 +109,7 @@ repos:
       # refusing a missing report rather than passing.
       - id: coverage-floor
         name: per-file coverage floor
-        entry: .venv/bin/python scripts/gates/check_coverage_floor.py
+        entry: .venv/bin/python scripts/gates/suite/check_coverage_floor.py
         language: system
         pass_filenames: false
         always_run: true
@@ -118,20 +118,30 @@ repos:
       # so this reports the red rather than a time.
       - id: suite-time
         name: suite wall time against the last green run
-        entry: .venv/bin/python scripts/gates/check_suite_time.py
+        entry: .venv/bin/python scripts/gates/suite/check_suite_time.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # filepawl reads the whole tree through `git ls-files`: the stale-allowance
+      # audit is meaningless over a subset, because an entry is stale by the
+      # absence of its file.
+      - id: file-length
+        name: max 500 source / 800 test lines, watched files only shrink
+        entry: .venv/bin/filepawl check
         language: system
         pass_filenames: false
         always_run: true
 
       - id: nesting
         name: no function nests more than 4 blocks deep
-        entry: .venv/bin/python scripts/gates/check_nesting.py
+        entry: .venv/bin/python scripts/gates/code/check_nesting.py
         language: system
         types: [python]
 
       - id: no-barrels
         name: no re-export modules or trivial forwarders
-        entry: .venv/bin/python scripts/gates/check_no_barrels.py
+        entry: .venv/bin/python scripts/gates/code/check_no_barrels.py
         language: system
         types: [python]
         exclude: ^tests/
@@ -140,14 +150,14 @@ repos:
       # sweep reads it and leaves the gates, which run on the dev extra, alone.
       - id: stdlib-only
         name: the package imports the standard library alone
-        entry: .venv/bin/python scripts/gates/check_stdlib_only.py
+        entry: .venv/bin/python scripts/gates/code/check_stdlib_only.py
         language: system
         types: [python]
         files: ^triviajudge/.*\.py$
 
       - id: call-timeouts
         name: every call that waits states a timeout
-        entry: .venv/bin/python scripts/gates/check_call_timeouts.py
+        entry: .venv/bin/python scripts/gates/code/check_call_timeouts.py
         language: system
         types: [python]
         exclude: ^tests/
@@ -157,7 +167,7 @@ repos:
       # and needs neither the CLI nor the network.
       - id: changelog-shape
         name: the unreleased section holds its shape
-        entry: .venv/bin/python scripts/gates/check_changelog.py
+        entry: .venv/bin/python scripts/gates/repo/check_changelog.py
         language: system
         files: ^CHANGELOG\.md$
 
@@ -165,7 +175,7 @@ repos:
       # across files, so the gate reads the directory rather than the staged paths.
       - id: corpus
         name: the calibration corpus parses and holds one verdict per text
-        entry: .venv/bin/python scripts/gates/check_corpus.py
+        entry: .venv/bin/python scripts/gates/repo/check_corpus.py
         language: system
         pass_filenames: false
         files: ^corpus/.*\.txt$
@@ -174,7 +184,7 @@ repos:
       # one moving is what has to trigger the comparison.
       - id: hook-timeouts
         name: a hook timeout covers the waits its module makes
-        entry: .venv/bin/python scripts/gates/check_hook_timeouts.py
+        entry: .venv/bin/python scripts/gates/repo/check_hook_timeouts.py
         language: system
         pass_filenames: false
         files: ^(hooks/hooks\.json|triviajudge/.*\.py)$
@@ -192,7 +202,7 @@ repos:
       # either the citing source or the cited document moves.
       - id: doc-refs
         name: doc citation gate
-        entry: .venv/bin/python scripts/gates/check_doc_refs.py
+        entry: .venv/bin/python scripts/gates/repo/check_doc_refs.py
         language: system
         types_or: [python, markdown]
 
@@ -210,7 +220,7 @@ repos:
       # and hooks.json, so this runs when any of the three moves.
       - id: control-catalog
         name: gate catalog cross-check
-        entry: .venv/bin/python scripts/gates/check_control_catalog.py
+        entry: .venv/bin/python scripts/gates/repo/check_control_catalog.py
         language: system
         pass_filenames: false
         files: ^(pyproject\.toml|\.pre-commit-hooks\.yaml|hooks/hooks\.json)$
@@ -219,7 +229,7 @@ repos:
       # either one moving is what has to trigger the pairing check.
       - id: settings-docs
         name: settings documented both ways
-        entry: .venv/bin/python scripts/gates/check_settings_docs.py
+        entry: .venv/bin/python scripts/gates/repo/check_settings_docs.py
         language: system
         pass_filenames: false
         files: ^(triviajudge/config\.py|README\.md)$
@@ -229,7 +239,7 @@ repos:
       # reads come from git, not from the staged paths.
       - id: release
         name: version, changelog and tags name one release
-        entry: .venv/bin/python scripts/gates/check_release.py
+        entry: .venv/bin/python scripts/gates/repo/check_release.py
         language: system
         pass_filenames: false
         files: ^(pyproject\.toml|CHANGELOG\.md)$
@@ -238,7 +248,7 @@ repos:
       # types: selector matches, so this one always runs.
       - id: gates-wired
         name: gate wiring gate
-        entry: .venv/bin/python scripts/gates/check_gates_wired.py
+        entry: .venv/bin/python scripts/gates/repo/check_gates_wired.py
         language: system
         pass_filenames: false
         always_run: true
@@ -248,7 +258,7 @@ repos:
       # install` wire that stage alongside pre-commit.
       - id: commit-msg-archaeology
         name: commit-message archaeology gate
-        entry: .venv/bin/python scripts/gates/check_commit_msg.py
+        entry: .venv/bin/python scripts/gates/repo/check_commit_msg.py
         language: system
         stages: [commit-msg]
 

@@ -19,7 +19,7 @@ tree runs the gate: a worktree resolves it through git's common dir, so the
 pair merge gate compares against dev's last green run instead of seeding a
 fresh one. CI has no baseline and seeds on every run.
 
-Usage: ``python scripts/gates/check_suite_time.py [--accept]``
+Usage: ``python scripts/gates/suite/check_suite_time.py [--accept]``
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 
 #: Seconds over the baseline past which the run needs the owner's accept.
 ESCALATE = 5.0

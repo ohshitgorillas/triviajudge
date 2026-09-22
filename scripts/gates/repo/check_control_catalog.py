@@ -22,7 +22,7 @@ console script and must appear in no hook table. The gate holds that shape in
 both directions — a catalog name missing from a table it belongs in fails, and
 so does a name in a table that the catalog does not carry.
 
-Usage: ``python scripts/gates/check_control_catalog.py``
+Usage: ``python scripts/gates/repo/check_control_catalog.py``
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 PYPROJECT = ROOT / "pyproject.toml"
 HOOKS_YAML = ROOT / ".pre-commit-hooks.yaml"
 HOOKS_JSON = ROOT / "hooks" / "hooks.json"

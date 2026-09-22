@@ -4,7 +4,7 @@ The default mode asks about one entry at a time: whether the bullet reads as the
 note a reader hitting the problem needs, or as the fix's autobiography. The
 pre-release mode asks about the section as a whole: which entries must not ship
 beside each other. Both are the gate's own text, and both restate the screen
-rules in ``triviajudge.changelog_trivia`` so the judge reads the same standard
+rules in ``triviajudge.changelog_screen`` so the judge reads the same standard
 the screen already applied.
 """
 

@@ -24,7 +24,7 @@ The comparison is over constants, not over call sites. A call that states
 ``timeout=None`` waits forever and no hook timeout covers it; that decision is the
 call site's to make and ``check_call_timeouts.py`` is where it is held.
 
-Usage: ``python scripts/gates/check_hook_timeouts.py [hooks.json]``
+Usage: ``python scripts/gates/repo/check_hook_timeouts.py [hooks.json]``
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 
 #: The hook table, relative to the repository root.
 TABLE = "hooks/hooks.json"

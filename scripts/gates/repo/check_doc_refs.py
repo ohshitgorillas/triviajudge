@@ -48,7 +48,7 @@ cross-reference and breaks visibly when it breaks.
 Escape hatch: ``doc-ref-exempt: <reason>`` on the offending line or the one
 above it, the same contract as the archaeology gate — the reason is required.
 
-Usage: ``python scripts/gates/check_doc_refs.py <path>...``
+Usage: ``python scripts/gates/repo/check_doc_refs.py <path>...``
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 PRAGMA = "doc-ref-exempt:"
 
 #: a Markdown ATX heading, any level

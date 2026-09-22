@@ -20,7 +20,7 @@ than against the paths handed over, so a partial commit that touches one file
 is not told every other entry is stale, and an entry that has stopped being
 true cannot hide by staying out of the run.
 
-Usage: ``python scripts/gates/check_nesting.py <path>...``
+Usage: ``python scripts/gates/code/check_nesting.py <path>...``
 """
 
 from __future__ import annotations

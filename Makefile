@@ -5,7 +5,7 @@ VENV := .venv/bin
 # demands.
 SOURCES := $(shell git ls-files 'triviajudge/*.py' 'scripts/*.py')
 
-# The length gate governs tests too, at its own limit. The citation gate reads
+# The nesting and suppression gates govern tests too. The citation gate reads
 # whatever can carry a citation: code and markdown alike.
 ALL_PY := $(shell git ls-files '*.py')
 DOCS := $(shell git ls-files '*.md')
@@ -29,23 +29,24 @@ lint:
 	$(VENV)/mypy
 	$(VENV)/lint-imports
 	$(VENV)/triviajudge-archaeology $(SOURCES)
-	$(VENV)/python scripts/gates/check_nesting.py $(ALL_PY)
-	$(VENV)/python scripts/gates/check_no_barrels.py $(SOURCES)
-	$(VENV)/python scripts/gates/check_stdlib_only.py $(PACKAGE)
-	$(VENV)/python scripts/gates/check_call_timeouts.py $(SOURCES)
-	$(VENV)/python scripts/gates/check_test_assertions.py $(TESTS)
-	$(VENV)/python scripts/gates/check_no_copy_assertions.py $(TESTS)
-	$(VENV)/python scripts/gates/check_test_clocks.py $(TESTS)
-	$(VENV)/python scripts/gates/check_noqa_reasons.py $(ALL_PY)
-	$(VENV)/python scripts/gates/check_doc_refs.py $(ALL_PY) $(DOCS)
-	git log -1 --format=%B | $(VENV)/python scripts/gates/check_commit_msg.py -
-	$(VENV)/python scripts/gates/check_control_catalog.py
-	$(VENV)/python scripts/gates/check_settings_docs.py
-	$(VENV)/python scripts/gates/check_changelog.py CHANGELOG.md
-	$(VENV)/python scripts/gates/check_corpus.py
-	$(VENV)/python scripts/gates/check_hook_timeouts.py
-	$(VENV)/python scripts/gates/check_release.py
-	$(VENV)/python scripts/gates/check_gates_wired.py
+	$(VENV)/filepawl check
+	$(VENV)/python scripts/gates/code/check_nesting.py $(ALL_PY)
+	$(VENV)/python scripts/gates/code/check_no_barrels.py $(SOURCES)
+	$(VENV)/python scripts/gates/code/check_stdlib_only.py $(PACKAGE)
+	$(VENV)/python scripts/gates/code/check_call_timeouts.py $(SOURCES)
+	$(VENV)/python scripts/gates/suite/check_test_assertions.py $(TESTS)
+	$(VENV)/python scripts/gates/suite/check_no_copy_assertions.py $(TESTS)
+	$(VENV)/python scripts/gates/suite/check_test_clocks.py $(TESTS)
+	$(VENV)/python scripts/gates/code/check_noqa_reasons.py $(ALL_PY)
+	$(VENV)/python scripts/gates/repo/check_doc_refs.py $(ALL_PY) $(DOCS)
+	git log -1 --format=%B | $(VENV)/python scripts/gates/repo/check_commit_msg.py -
+	$(VENV)/python scripts/gates/repo/check_control_catalog.py
+	$(VENV)/python scripts/gates/repo/check_settings_docs.py
+	$(VENV)/python scripts/gates/repo/check_changelog.py CHANGELOG.md
+	$(VENV)/python scripts/gates/repo/check_corpus.py
+	$(VENV)/python scripts/gates/repo/check_hook_timeouts.py
+	$(VENV)/python scripts/gates/repo/check_release.py
+	$(VENV)/python scripts/gates/repo/check_gates_wired.py
 	$(VENV)/check-jsonschema --builtin-schema vendor.github-workflows .github/workflows/*.yml
 	$(VENV)/check-jsonschema --schemafile scripts/schemas/pre-commit-hooks.json .pre-commit-hooks.yaml
 	@command -v actionlint >/dev/null || { echo "actionlint not found; install it: https://github.com/rhysd/actionlint/releases (or 'go install github.com/rhysd/actionlint/cmd/actionlint@latest')" >&2; exit 1; }
@@ -62,11 +63,11 @@ duplication:
 # The coverage floor is per file and lives in the gate below, not in
 # --cov-fail-under. Second recipe line, so a failing suite reports first.
 # The junit report carries the suite's wall time; the third line holds it to the
-# last green run's (scripts/gates/check_suite_time.py).
+# last green run's (scripts/gates/suite/check_suite_time.py).
 test:
 	$(VENV)/pytest -q --cov=triviajudge --cov=scripts --cov-branch --cov-report=term-missing --cov-report=json:.coverage.json --junitxml=.pytest-junit.xml
-	$(VENV)/python scripts/gates/check_coverage_floor.py
-	$(VENV)/python scripts/gates/check_suite_time.py
+	$(VENV)/python scripts/gates/suite/check_coverage_floor.py
+	$(VENV)/python scripts/gates/suite/check_suite_time.py
 
 check: lint duplication test
 
@@ -105,7 +106,7 @@ trivia:
 # `trivia` and outside `check`.
 release:
 	$(VENV)/triviajudge-changelog --release
-	$(VENV)/python scripts/gates/check_release.py
+	$(VENV)/python scripts/gates/repo/check_release.py
 
 # Measures the judge rather than the tree: it asks the configured model about a
 # held corpus whose verdict is already known and reports where the two disagree.

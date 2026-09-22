@@ -34,11 +34,11 @@ from triviajudge.core import (
     Gate,
     Line,
     NotARepositoryError,
-    ask,
     inner_session,
     remember_clean,
     report,
 )
+from triviajudge.transport import ask
 
 if TYPE_CHECKING:
     import argparse

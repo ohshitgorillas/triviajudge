@@ -19,7 +19,7 @@ and ``urlopen`` by any dotted prefix. A call reached through an alias is not
 matched, which is the gate's edge; the import style in this tree is the dotted
 one.
 
-Usage: ``python scripts/gates/check_call_timeouts.py [path ...]``
+Usage: ``python scripts/gates/code/check_call_timeouts.py [path ...]``
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import ast
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 
 #: Call names that wait, by the attribute the call site spells last.
 WAITING = {"run": "subprocess.run", "urlopen": "urllib.request.urlopen"}
@@ -97,7 +97,7 @@ def main() -> int:
         return check(args)
     return check(
         sorted((ROOT / "triviajudge").glob("*.py"))
-        + sorted((ROOT / "scripts" / "gates").glob("*.py"))
+        + sorted((ROOT / "scripts" / "gates").rglob("*.py"))
     )
 
 

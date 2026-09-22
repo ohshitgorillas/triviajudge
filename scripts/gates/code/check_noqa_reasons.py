@@ -24,7 +24,7 @@ The sweep reads comment tokens, so a suppression spelled inside a string is data
 the test that feeds this gate a bad line, and this docstring, are both invisible
 to it. A suppression naming no codes is ruff's to refuse, not this gate's.
 
-Usage: ``python scripts/gates/check_noqa_reasons.py <file>...``
+Usage: ``python scripts/gates/code/check_noqa_reasons.py <file>...``
 """
 
 from __future__ import annotations

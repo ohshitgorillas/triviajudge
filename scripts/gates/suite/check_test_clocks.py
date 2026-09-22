@@ -24,7 +24,7 @@ A per-test duration threshold sees neither pattern: a ten millisecond poll sprea
 over seventy call sites lifts no test over any threshold, and a deadline waited
 out inside a spawned gate reads as CPU rather than as idle.
 
-Usage: ``python scripts/gates/check_test_clocks.py <file>...``
+Usage: ``python scripts/gates/suite/check_test_clocks.py <file>...``
 """
 
 from __future__ import annotations

@@ -20,7 +20,7 @@ constraint behind it, or delete the line. A line that must stay takes
 ``history-ok: <reason>``, reason required, the same contract as the comment
 gate in ``triviajudge/archaeology.py``.
 
-Usage: ``python scripts/gates/check_commit_msg.py <message-file>`` (the
+Usage: ``python scripts/gates/repo/check_commit_msg.py <message-file>`` (the
 commit-msg hook contract) or ``-`` to read the message from stdin.
 """
 

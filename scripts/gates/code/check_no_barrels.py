@@ -35,7 +35,7 @@ is rooted in a call rather than a name (``self.require_http().restore(...)``).
 Those are left to review. A gate that
 implied it caught every barrel would be worse than one that says where it stops.
 
-Usage: ``python scripts/gates/check_no_barrels.py <path>...``
+Usage: ``python scripts/gates/code/check_no_barrels.py <path>...``
 """
 
 from __future__ import annotations

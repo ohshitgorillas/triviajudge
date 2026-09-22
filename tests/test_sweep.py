@@ -5,7 +5,7 @@ what is pinned here is the machinery that keeps a whole-tree run affordable and
 survivable.
 
 ``batched`` splits one gate's candidates into calls of at most ``sweep_batch``
-lines, because ``core.ask`` carries every line it is given in one call.
+lines, because ``transport.ask`` carries every line it is given in one call.
 ``wanted`` is the ``--paths`` filter, and an empty prefix list is the whole
 tree rather than nothing. ``workers`` caps concurrency at half the host's
 cores, whatever it is asked for.

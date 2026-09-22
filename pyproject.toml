@@ -47,17 +47,39 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["triviajudge"]
 
-# This repository judged by its own gates. The four gate modules spell the
-# trivia rules out in prose, which the judge reads as a restatement of its own
-# rules, so every edit to them would flag.
+# This repository judged by its own gates. The four gate modules and the
+# changelog screen spell the trivia rules out in prose, which the judge reads as
+# a restatement of its own rules, so every edit to them would flag.
 [tool.triviajudge]
 comment_skip = [
     "triviajudge/md_trivia.py",
     "triviajudge/comment_trivia.py",
     "triviajudge/changelog_trivia.py",
+    "triviajudge/changelog_screen.py",
     "triviajudge/archaeology.py",
 ]
 excluded = ["tests/"]
+
+# The file-length ratchet, which `filepawl` runs in place of the gate script this
+# repository used to carry. The numbers are that gate's: a source file is capped
+# at 500 lines and a test file at 800, and above 400 lines a file needs an
+# allowance entry in .filepawl.toml that only ever comes down.
+[tool.filepawl]
+languages = ["python"]
+tests = ["tests/**"]
+
+[tool.filepawl.length]
+cap = 500
+cap_tests = 800
+watch = 400
+
+# filepawl's second gate: how many matched files sit directly in one directory,
+# counted per directory and not recursively. A test directory gets the wider cap,
+# because one assertion per test spreads a module's suite over more files.
+[tool.filepawl.dircount]
+cap = 15
+cap_tests = 30
+exclude = ["__init__.py"]
 
 # Mutation testing, run by hand via `make mutate` — never in `make check` or
 # pre-commit. It asks the one question the assertion gates cannot: would this
@@ -171,8 +193,13 @@ strict = true
 files = ["triviajudge", "tests", "scripts"]
 # The suite's own helpers are imported by bare name, the way pytest puts the
 # conftest directory on the path. A gate script is a module by filename, imported
-# the same way, so the directory holding them is a path root too.
-mypy_path = ["tests", "scripts/gates"]
+# the same way, so each directory holding them is a path root too.
+mypy_path = [
+    "tests",
+    "scripts/gates/code",
+    "scripts/gates/repo",
+    "scripts/gates/suite",
+]
 # A branch the types say cannot run is a bug in one or the other, and a bare
 # `type: ignore` hides the next one, so both are errors here.
 warn_unreachable = true
@@ -225,8 +252,9 @@ containers = ["triviajudge"]
 layers = [
     "sweep",
     "md_trivia | comment_trivia | changelog_trivia",
-    "changelog_prompts",
+    "changelog_prompts | changelog_screen",
     "gate",
+    "transport",
     "archaeology",
     "core",
     "config",

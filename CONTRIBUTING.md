@@ -14,9 +14,14 @@ To report a bug, please give:
 ```sh
 python -m venv .venv
 .venv/bin/pip install -e ".[dev]"
+.venv/bin/pip install path/to/filepawl
 .venv/bin/pre-commit install
 npm install
 ```
+
+`filepawl` is the length gate. It lives in its own repository and is unpublished,
+so it is installed from a checkout rather than named in the `dev` extra, where an
+unresolvable name would break the extra for everyone.
 
 `pre-commit install` wires both the pre-commit and the commit-msg stage, because
 `.pre-commit-config.yaml` declares `default_install_hook_types`. Without that
@@ -89,7 +94,7 @@ holds you to:
 
 ## Changelog shape
 
-`scripts/gates/check_changelog.py` is the offline half of the rule above, and it
+`scripts/gates/repo/check_changelog.py` is the offline half of the rule above, and it
 makes no model call, so it runs in `make lint` where the judge cannot. Its scope
 is the whole `[Unreleased]` section rather than the lines a commit adds: a bullet
 reshaped by a commit that adds no line to it, a heading a rebase duplicates, a
@@ -110,22 +115,33 @@ What it may not carry is the road there: which attempt came first, what a
 session or a reviewer did, what somebody worked out along the way, a dated
 remark, a tally of a file's past.
 
-`scripts/gates/check_commit_msg.py` runs at the commit-msg stage and refuses
+`scripts/gates/repo/check_commit_msg.py` runs at the commit-msg stage and refuses
 those shapes in the subject and body. Git's `#` comment lines and the trailing
 block of `Key: value` trailers are out of scope, which is where a session link
 lives. A line that must stay takes `history-ok: <reason>`, reason required — the
 same contract the comment gate offers.
 
+## File length
+
+A source file is capped at 500 lines, a test file at 800. Above 400 lines a
+source file also enters a ratchet: it carries an entry in `.filepawl.toml` and
+may only ever get shorter. Growing past the entry fails, and so does measuring
+under it — `filepawl accept` lowers the number to match, so headroom cannot be
+banked in one commit and spent in the next. Nothing raises an allowance. A file
+that needs more room needs a split. `filepawl check` prints the `accept` command
+that clears whatever it can clear; the limits and the watch line are
+`[tool.filepawl.length]` in `pyproject.toml`.
+
 ## Shape
 
 Three gates hold the tree's shape where line count says nothing.
 
-`scripts/gates/check_nesting.py` caps a function at four nested blocks. xenon and
+`scripts/gates/code/check_nesting.py` caps a function at four nested blocks. xenon and
 ruff `C901` count branches, so a branch-cheap function that indents five deep
 passes both and still asks the reader to hold five conditions at once. A site
 that must stand carries its reason in `EXEMPT`, keyed `path::qualified.name`.
 
-`scripts/gates/check_no_barrels.py` refuses the two shapes that shorten a file
+`scripts/gates/code/check_no_barrels.py` refuses the two shapes that shorten a file
 without simplifying the tree: a module of imports and nothing else, and a method
 whose whole body forwards its own arguments somewhere else. Both read as a
 finished split to anything counting lines, and neither moved a caller.
@@ -145,7 +161,7 @@ serves is cited there by number.
 
 ## One assertion per test
 
-`scripts/gates/check_test_assertions.py` holds a `test_` function to exactly one
+`scripts/gates/suite/check_test_assertions.py` holds a `test_` function to exactly one
 assertion — an `assert` statement or a `pytest.raises` context, counting one per
 operand of a conjunction at the root. A test that pins six things reports the
 first one that breaks and hides the rest, and its name can only describe one of
@@ -164,7 +180,7 @@ may be exempted.
 
 ## No copy in assertions
 
-`scripts/gates/check_no_copy_assertions.py` refuses a literal of two or more
+`scripts/gates/suite/check_no_copy_assertions.py` refuses a literal of two or more
 words asserted, or matched by `pytest.raises(match=...)`, unless the test itself
 put those words there. A sentence the gate wraps around a value is prose the
 author rewords at will: a test pinning it goes red on a rewording and green on a
@@ -180,7 +196,7 @@ matches an f-string a fake wrote.
 
 ## Real clocks in tests
 
-`scripts/gates/check_test_clocks.py` refuses two shapes anywhere under `tests/`,
+`scripts/gates/suite/check_test_clocks.py` refuses two shapes anywhere under `tests/`,
 with no carve-out directory. A `time.sleep` or `asyncio.sleep` is one, unless its
 argument is the literal `0`, which is a scheduler yield; the argument's spelling
 does not matter otherwise, since a paced fake names its wait with a constant as
@@ -198,7 +214,7 @@ than as idle.
 
 ## Exemptions carry reasons
 
-`scripts/gates/check_noqa_reasons.py` requires an em dash and a clause after the
+`scripts/gates/code/check_noqa_reasons.py` requires an em dash and a clause after the
 codes of every `noqa` and every `type: ignore` comment, as in
 `# noqa: CODE — why the check is wrong here`. A `type: ignore` puts that clause
 behind a second `#`, which is the only tail mypy accepts after its codes.
@@ -215,7 +231,7 @@ reads as more codes, hence the em dash.
 
 ## Hook timeouts
 
-`scripts/gates/check_hook_timeouts.py` holds each `timeout` in
+`scripts/gates/repo/check_hook_timeouts.py` holds each `timeout` in
 `hooks/hooks.json` at or above the largest timeout constant the module that hook
 runs can reach: the constants that module states, and `triviajudge/core.py`'s,
 which every mode calls into through the diff it reads. Where the hook's timeout
@@ -229,7 +245,7 @@ site, and "Calls that wait" is where it is held.
 
 ## The standard library alone
 
-`scripts/gates/check_stdlib_only.py` walks the AST of every file under
+`scripts/gates/code/check_stdlib_only.py` walks the AST of every file under
 `triviajudge/` and refuses an import naming anything outside
 `sys.stdlib_module_names` and the package itself. The empty `dependencies` list
 in `pyproject.toml` is what lets a consumer install this package with no
@@ -243,7 +259,7 @@ belongs; `scripts/` runs on that extra and is outside this gate's scope.
 
 ## Calls that wait
 
-`scripts/gates/check_call_timeouts.py` requires a `timeout=` keyword on every
+`scripts/gates/code/check_call_timeouts.py` requires a `timeout=` keyword on every
 `subprocess.run` and `urlopen` in `triviajudge/` and `scripts/gates/`. Both wait
 forever by default, and a hook captures its output, so a wedged `git` or a
 server that answers nothing hangs a commit with no line saying which call is
@@ -256,7 +272,7 @@ so a call reached through an alias is outside what the gate sees.
 
 ## Suite time
 
-`scripts/gates/check_suite_time.py` reads the junit report `make test` writes and
+`scripts/gates/suite/check_suite_time.py` reads the junit report `make test` writes and
 compares the suite's wall time with the last green run's, kept in the gitignored
 `.suite-time.json`. A run within five seconds of the baseline passes and becomes
 the baseline. A run past that needs `--accept`; a run ten seconds or more over is
@@ -284,7 +300,7 @@ invocation and how to read a survivor are in `docs/testing.md`
 
 ## Cutting a release
 
-`scripts/gates/check_release.py` holds five statements of the version together:
+`scripts/gates/repo/check_release.py` holds five statements of the version together:
 `version` in `pyproject.toml`, `version` in `.claude-plugin/plugin.json`,
 `metadata.version` in `.claude-plugin/marketplace.json`, the newest released
 `## [x.y.z]` heading in `CHANGELOG.md`, and the `vx.y.z` tags in git.
@@ -329,7 +345,7 @@ so it sits beside `make trivia`, outside `check`.
 
 ## The calibration corpus
 
-`scripts/gates/check_corpus.py` holds the files `make calibrate` reads. Two
+`scripts/gates/repo/check_corpus.py` holds the files `make calibrate` reads. Two
 rules: every line of every `corpus/*.txt` parses as `path:line<TAB>text`, and
 across each label pair — `trivia.txt` with `clean.txt`,
 `changelog-trivia.txt` with `changelog-clean.txt` — no text appears on both
@@ -353,7 +369,7 @@ text**, which moves with the content it names:
 # (README.md "The judged repository configures the gates")
 ```
 
-`scripts/gates/check_doc_refs.py` fails a quoted citation that resolves to no
+`scripts/gates/repo/check_doc_refs.py` fails a quoted citation that resolves to no
 heading, or to more than one, and rejects a `round N` or `step N` citation
 outright — those number a position in a narrative that nothing maintains. A
 citation must sit on one line, since matching is per line; where a heading is
