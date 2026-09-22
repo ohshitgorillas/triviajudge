@@ -195,9 +195,7 @@ def judged(lines: list[Line]) -> list[dict[str, str]]:
     ids=["twenty lines to a call", "fifteen lines to a call"],
 )
 @pytest.mark.usefixtures("checkout")
-def test_the_lines_reach_the_judge_in_chunks_of_the_batch_size_the_caller_named(
-    size: int, flagged: list[str]
-) -> None:
+def test_the_lines_reach_the_judge_in_chunks_of_the_batch_size_the_caller_named(size: int, flagged: list[str]) -> None:
     flags = gate.verdicts(
         LINES,
         "prompt",
@@ -229,9 +227,7 @@ def test_the_ids_the_exhaustive_answer_called_trivia_are_the_ids_that_come_back_
         [
             {
                 "ids": THREE_IDS,
-                "answer": [
-                    verdict(number, word) for number, word in enumerate(words, 1)
-                ],
+                "answer": [verdict(number, word) for number, word in enumerate(words, 1)],
             }
         ],
     )
