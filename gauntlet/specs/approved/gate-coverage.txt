@@ -1,0 +1,111 @@
+slug: gate-coverage
+kind: characterization
+brief:
+> fix the coverage gate and get coverage up above 90%, or as high as you can
+
+surface: `triviajudge.gate.run(args, gate)` over `triviajudge.comment_trivia.gate()`,
+`triviajudge.gate.judged(args, gate, lines, out)` over `triviajudge.md_trivia.gate(cache)`,
+and `triviajudge.gate.verdicts(lines, prompt, *, exhaustive, batch, parallel, model, timeout)`,
+each called directly over a judge whose answers are fixed per call: the exit code returned,
+the ids the JSON at the path `--out` names carries, the digests the cache file holds, and the
+input each `claude` call receives.
+
+1. The exit code `run` answers with, for the comment gate whose collect finds nothing staged,
+   is 0 in a directory that is in a git work tree, 1 in a directory that is in none, and 2 in a
+   directory that is in none where the arguments carry `--stop`.
+   kills: answers on the flag alone without ever reaching the work tree, so a checkout with
+     nothing staged is refused with 1 as well and every clean commit is blocked
+   bite: HEAD answers 0, 1 and 2 at those three inputs, measured --
+     `gate.run(argparse.Namespace(files=[], head=False, stop=<False|True>, lines=None,
+     out=None), comment_trivia.gate())` with cwd in a `tempfile.TemporaryDirectory()` that is in
+     no git work tree for the second and third, and `triviajudge-comments` run in a `git init`
+     checkout holding one committed file and nothing staged for the first, which prints
+     `[ok] no comment prose added`
+   existing: none, `grep -rn "gate.run(\|comment_trivia.main\|from triviajudge.gate import" tests/ --include=*.py` ->
+     sixteen `gate_run` spawns across tests/test_changelog_trivia.py and tests/test_hook_modes.py,
+     none of them the comment gate and none of them varying the work tree
+
+2. The ids the JSON at the path `--out` names carries, after `judged` runs at `stop=False`
+   under the markdown gate over the two lines `a.md:1` and `a.md:2`, where the judge answers
+   one verdict object per id carrying that id's verdict word, are `["a.md:1"]` where the two
+   words are `trivia`, `clean` and `["a.md:2"]` where they are `clean`, `trivia`.
+   kills: writes every line it judged to that path rather than the flags alone, so both answers
+     write `["a.md:1", "a.md:2"]`
+   bite: HEAD writes `["a.md:1"]` at `trivia`, `clean` and `["a.md:2"]` at `clean`, `trivia`,
+     measured -- `gatemod.judged(argparse.Namespace(files=[], head=False, stop=False,
+     lines=None, out=<path>), md_trivia.gate(None), lines, io.StringIO())` over
+     `[Line("a.md", 1, "line one text"), Line("a.md", 2, "line two text")]`, against a `claude`
+     on a built `PATH` answering one verdict object per id
+   existing: none, `grep -rn "remember_clean\|gate.judged\|\"--out\"" tests/ --include=*.py` ->
+     tests/test_core.py:140 and :147, both `core.remember_clean` called directly, and
+     tests/test_sweep.py:390, the sweep's own `--out`
+
+3. The digests the cache file holds, after `judged` runs at `stop=True` with no `--out` under
+   the markdown gate over those same two lines and that same judge, are the digest of `a.md:2`
+   alone where the two words are `trivia`, `clean`, and the digest of `a.md:1` alone where they
+   are `clean`, `trivia`.
+   kills: remembers every line it judged rather than the unflagged ones alone, so both answers
+     leave both digests behind and the next run skips a line the judge flagged
+   bite: HEAD leaves one digest, the unflagged line's, in both runs, measured over the same
+     call at `stop=True` with `out=None` --
+     `["b471c332584ed6c40e540677f12f3f33ffda133a"]`, `sha1(b"line two text")`, at `trivia`,
+     `clean`, and `["ea665d3b89412af71b8db778845534c22807fb97"]`, `sha1(b"line one text")`, at
+     `clean`, `trivia`
+   existing: none, `grep -rn "remember_clean\|gate.judged\|\"--out\"" tests/ --include=*.py` ->
+     tests/test_core.py:140 and :147, both `core.remember_clean` called directly, and
+     tests/test_sweep.py:390, the sweep's own `--out`
+
+4. The ids each body the judge receives carries, for a line list of no lines and for one of the
+   single line `a.md:1`, at `batch=0`, `exhaustive=False`, `parallel=1`, are `[]` and
+   `[["a.md:1"]]`.
+   kills: hands an empty line list to the judge as one call, so the empty case sends one body
+     carrying no id and spends a judge call on nothing
+   bite: HEAD sends no body at all for the empty list and one body carrying `["a.md:1"]` for
+     the single line, measured -- `gate.verdicts([], "prompt", exhaustive=False, batch=0,
+     parallel=1, model="a-model", timeout=30)` leaves the judge's call log empty, and the same
+     call over `[Line("a.md", 1, "line one text")]` leaves one row in it
+   existing: none, `grep -rn "chunked\|verdicts(" tests/ --include=*.py` ->
+     tests/test_gate.py:175 and :199, both `gate.verdicts` over line lists of 45, 4 and 3 lines
+
+--- reviewer ---
+READY
+discriminates: anchor+edges on `gate.run`'s exit code (line 1), sweep on the judge's answers (lines 2, 3), anchor+edges on the judge call log (line 4)
+
+round 1 finding, and its answer: line 1 was stricken because "2 if args.stop else 1", returned
+without ever consulting the work tree, satisfied it whole. The repaired line adds the in-tree
+anchor at exit 0 under the same no-flag arguments that answer 1 outside a tree, so the flag no
+longer carries the outcome alone and no stub reaches the three values without asking git.
+Finding withdrawn.
+
+1  ADMITTED
+2  ADMITTED  carried
+3  ADMITTED  carried
+4  ADMITTED  carried
+
+null stub: `run` returns 0, `judged` writes no `--out` file and no cache entry, `verdicts`
+returns `[]` and spawns no judge.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: `run` answers a code chosen from the flags alone; `judged`/`verdicts` return
+canned values and never spawn `claude`, so the `--out` file, the cache and the call log stay as
+the caller left them.
+  satisfies: none   fails: 1, 2, 3, 4
+
+survives: 4
+
+notes
+- (b) on line 1, corrected against the tree rather than against the quoted grep: the grep in
+  `existing:` misses tests/test_comment_trivia.py:245,
+  `test_the_exit_code_over_a_staged_file_with_no_judge_binary_on_path`, which spawns
+  `-m triviajudge.comment_trivia` through the `gate_exit_code` helper and already holds the
+  case `(EVERY_CANDIDATE_DATED, [], 0)` - the comment gate, inside a work tree, exit 0. The
+  line survives because its subject is the work tree, not the staged source, and folding it
+  into a test named for the commit path would break rule 6; but the exit-0 input is that case
+  again and is the new test's anchor only. Do not write a second test for it.
+- Line 1's bite mixes entry points: the 0 was measured through the installed
+  `triviajudge-comments` script, the 1 and the 2 through `gate.run(argparse.Namespace(...))`.
+  The line names `gate.run`, so all three inputs are driven in process, lowest lane, rule 15.
+- `[ok] no comment prose added` appears in the bite as narrative. It is copy under rule 9 and
+  stays out of the assertion; the outcome is the exit code alone.
+- Round 1's (m) note is settled and withdrawn: tests/gates/test_check_coverage_floor.py pins
+  the coverage gate across sixteen assertions, including the floor, the exemption table and
+  the CLI, so the brief's first clause is not left unpinned by this block.
