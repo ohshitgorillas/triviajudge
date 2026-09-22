@@ -41,15 +41,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from triviajudge import comment_trivia, md_trivia
-from triviajudge.config import SWEEP_CACHE, cache_path, settings
-from triviajudge.core import CLAUDE_BACKEND, Line, NotARepositoryError, ask, clean_cache, digest, git, root
+from triviajudge.config import SWEEP_CACHE, Settings, cache_path, settings
+from triviajudge.core import CLAUDE_BACKEND, Line, NotARepositoryError, clean_cache, digest, git, root
+from triviajudge.gate import verdicts
+from triviajudge.gate import workers as workers  # noqa: PLC0414 — the alias is the explicit re-export: one cap covers the gate path and the sweep, and callers of a sweep read it here
 
 #: The cache a ``--baseline`` run writes, read by the markdown gate at ``Stop``.
 CACHE_NAME = SWEEP_CACHE
@@ -128,11 +129,6 @@ def batched(gate: str, prompt: str, lines: list[Line], size: int) -> list[Batch]
     return [Batch(gate, index, prompt, chunk) for index, chunk in enumerate(chunks, start=1)]
 
 
-def workers(asked: int) -> int:
-    """Concurrent calls to run, at least one and at most half the cores this host has."""
-    return max(1, min(asked, (os.cpu_count() or 2) // 2))
-
-
 def transport() -> str:
     """What one concurrent call spends, in the words of the configured backend.
 
@@ -163,7 +159,16 @@ def consent(batches: list[Batch], model: str, parallel: int, *, assumed: bool) -
 def judge(batch: Batch, model: str) -> tuple[Batch, list[dict[str, str]] | None, str]:
     """Ask one batch; a failure answers with None and the shortest message that says why."""
     try:
-        return batch, ask(batch.lines, batch.prompt, model=model, timeout=CALL_TIMEOUT), ""
+        flags = verdicts(
+            batch.lines,
+            batch.prompt,
+            exhaustive=batch.gate == MD,
+            batch=0,
+            parallel=1,
+            model=model,
+            timeout=CALL_TIMEOUT,
+        )
+        return batch, flags, ""
     except (RuntimeError, TypeError, ValueError, OSError) as exc:
         return batch, None, str(exc)
 
@@ -216,15 +221,22 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def collect(args: argparse.Namespace, size: int) -> tuple[list[Batch], list[str]]:
-    """The batches to ask and the complaints the pattern screen already answered for."""
+def collect(args: argparse.Namespace, size: int, md_size: int | None = None) -> tuple[list[Batch], list[str]]:
+    """The batches to ask and the complaints the pattern screen already answered for.
+
+    ``md_size`` is the markdown gate's own chunk, which is smaller than the
+    comment gate's: the markdown judge answers a verdict per line and reads a
+    shorter body accurately than a long one. It defaults to ``size``, so a
+    caller naming one number gets that number for both.
+    """
     prefixes = tuple(args.paths)
+    md_size = size if md_size is None else md_size
     both = not args.md and not args.comments
     batches: list[Batch] = []
     complaints: list[str] = []
     if args.md or both:
         lines = md_candidates(prefixes)[: args.limit]
-        batches.extend(batched(MD, md_trivia.PROMPT, lines, size))
+        batches.extend(batched(MD, md_trivia.PROMPT, lines, md_size))
     if args.comments or both:
         lines, complaints = comment_candidates(prefixes)
         batches.extend(batched(COMMENTS, comment_trivia.PROMPT, lines[: args.limit], size))
@@ -252,15 +264,20 @@ def report(results: list[Result]) -> tuple[list[dict[str, str]], list[Line]]:
     return flags, passed
 
 
+def sizes(args: argparse.Namespace, config: Settings) -> tuple[int, int]:
+    """The comment gate's chunk and the markdown gate's; ``--batch`` names both at once."""
+    return args.batch or config.sweep_batch, args.batch or config.gate_batch
+
+
 def main() -> int:
     """Sweep the tree, report what the judges flagged, and answer with the exit code."""
     args = parse_args()
     try:
         config = settings()
-        size = args.batch or config.sweep_batch
+        size, md_size = sizes(args, config)
         model = args.model or config.sweep_model
         parallel = workers(args.parallel or config.sweep_parallel)
-        batches, complaints = collect(args, size)
+        batches, complaints = collect(args, size, md_size)
     except (NotARepositoryError, RuntimeError, OSError) as exc:
         print(f"trivia judge: {exc}", file=sys.stderr)
         return 1

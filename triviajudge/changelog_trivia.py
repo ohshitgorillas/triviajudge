@@ -62,9 +62,9 @@ from triviajudge.core import (
     git_diff,
     inner_session,
     root,
-    screened,
     stop_already_ran,
 )
+from triviajudge.gate import screened
 
 #: The one file this gate reads, repo-relative. A changelog under another name is
 #: a changelog this gate does not judge.

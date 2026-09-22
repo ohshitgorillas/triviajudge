@@ -1,11 +1,12 @@
 """The shared machinery both trivia gates run on: input, transport, verdict.
 
 A gate is a prompt, a way of collecting candidates, and a decision about
-whether the judge runs at ``Stop``. Everything else — reading what a change
-added, calling the model, remembering what it passed, printing the verdict and
-choosing the exit code — is the same for every gate and lives here.
+whether the judge runs at ``Stop``. Reading what a change added, calling the
+model, remembering what it passed and printing the verdict are the same for
+every gate and live here. The flow that strings them together — screen, chunk,
+judge, exit code — lives in ``triviajudge.gate``, which imports this module.
 
-Transport is one call per run carrying every candidate, over whichever backend
+Transport is one call carrying the lines it is handed, over whichever backend
 the judged repository names. ``claude`` is the default and runs the CLI in
 print mode; ``local`` posts to an OpenAI-compatible server and asks it for a
 schema-constrained answer. The model is small because the question is small
@@ -39,7 +40,7 @@ from typing import TYPE_CHECKING, TextIO
 from triviajudge.config import settings
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 CACHE_CAP = 20000
 
@@ -66,6 +67,21 @@ FLAGS_SCHEMA = {
     },
 }
 FLAGS_FORMAT = {"type": "json_schema", "json_schema": {"name": "flags", "strict": True, "schema": FLAGS_SCHEMA}}
+
+#: The exhaustive answer's shape, one object per input id. ``strict`` is what makes the
+#: sparse schema above unusable here: it forbids the ``verdict`` key outright, so a gate
+#: reading verdicts against that schema is answered without one and flags nothing at all.
+VERDICTS_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "verdict": {"type": "string"}, "reason": {"type": "string"}},
+        "required": ["id", "verdict", "reason"],
+        "additionalProperties": False,
+    },
+}
+VERDICTS_JSON = {"name": "verdicts", "strict": True, "schema": VERDICTS_SCHEMA}
+VERDICTS_FORMAT = {"type": "json_schema", "json_schema": VERDICTS_JSON}
 
 #: Set in the environment of the judge's own ``claude`` call, and read by any gate the
 #: inner session's hooks start. The inner session runs in the same working directory as
@@ -160,13 +176,17 @@ def from_records(path: Path) -> list[Line]:
     return out
 
 
-def ask(lines: list[Line], prompt: str, model: str | None = None, timeout: float | None = None) -> list[dict[str, str]]:
+def ask(
+    lines: list[Line], prompt: str, model: str | None = None, timeout: float | None = None, *, exhaustive: bool = False
+) -> list[dict[str, str]]:
     """One call for every line; the parsed JSON array it answers with.
 
     ``model`` overrides the configured one, for a caller that asks a different
     judge than the gates do. ``timeout`` kills a call that never answers and
     reports it as a failure, for a caller that makes many calls and must not
-    wait on one of them forever.
+    wait on one of them forever. ``exhaustive`` says the prompt asks for one
+    verdict per input id, which the constrained backend has to be told: the
+    schema it sends is what decides whether a ``verdict`` key can come back.
 
     The configured ``backend`` chooses the transport. An unknown one is a
     refusal rather than a fallback to the CLI: a judge nobody asked for is not
@@ -177,7 +197,7 @@ def ask(lines: list[Line], prompt: str, model: str | None = None, timeout: float
     if backend == CLAUDE_BACKEND:
         return _ask_cli(body, model, timeout)
     if backend == LOCAL_BACKEND:
-        return _ask_http(body, model, timeout)
+        return _ask_http(body, model, timeout, VERDICTS_FORMAT if exhaustive else FLAGS_FORMAT)
     raise RuntimeError(f"unknown backend {backend!r}; it is {CLAUDE_BACKEND!r} or {LOCAL_BACKEND!r}")
 
 
@@ -213,7 +233,9 @@ def _headers(api_key_env: str) -> dict[str, str]:
     return headers
 
 
-def _ask_http(body: str, model: str | None, timeout: float | None) -> list[dict[str, str]]:
+def _ask_http(
+    body: str, model: str | None, timeout: float | None, answer_format: Mapping[str, object]
+) -> list[dict[str, str]]:
     """Ask an OpenAI-compatible server for a schema-constrained answer and parse what it sends."""
     conf = settings()
     if not conf.base_url:
@@ -223,7 +245,7 @@ def _ask_http(body: str, model: str | None, timeout: float | None) -> list[dict[
         "model": model or conf.model,
         "messages": [{"role": "user", "content": body}],
         "temperature": 0,
-        "response_format": FLAGS_FORMAT,
+        "response_format": answer_format,
     }
     request = urllib.request.Request(  # noqa: S310 — base_url is the judged repository's own table, not input
         url, data=json.dumps(payload).encode("utf-8"), headers=_headers(conf.api_key_env), method="POST"
@@ -346,6 +368,11 @@ class Gate:
 
     ``cache`` is last and optional because a gate that does not judge at
     ``Stop`` never reaches the only call that writes one.
+
+    ``batch`` is how many lines one call carries, 0 for all of them, and
+    ``exhaustive`` says the prompt asks for a verdict per input id rather than
+    for the hits alone. Both default to the unchunked hit-list shape, so a gate
+    names them only where its prompt asks for the other.
     """
 
     prompt: str
@@ -353,6 +380,8 @@ class Gate:
     empty: str
     judge_at_stop: bool
     cache: Path | None = None
+    batch: int = 0
+    exhaustive: bool = False
 
 
 def parse_args(doc: str, noun: str) -> argparse.Namespace:
@@ -364,44 +393,3 @@ def parse_args(doc: str, noun: str) -> argparse.Namespace:
     parser.add_argument("--lines", help="calibration records, path:line<TAB>text")
     parser.add_argument("--out", help="write the judge's raw answer here")
     return parser.parse_args()
-
-
-def run(args: argparse.Namespace, gate: Gate) -> int:
-    """Print what the screen refused, judge what it left, and answer with the exit code."""
-    out = sys.stderr if args.stop else sys.stdout
-    if args.stop and inner_session():
-        return 0
-    try:
-        lines, complaints = gate.collect(args)
-    except NotARepositoryError as exc:
-        print(f"trivia judge: {exc}", file=sys.stderr)
-        return 2 if args.stop else 1
-    return screened(args, gate, lines, complaints, out)
-
-
-def screened(args: argparse.Namespace, gate: Gate, lines: list[Line], complaints: list[str], out: TextIO) -> int:
-    """Print what the pattern screen refused, then judge whatever it left."""
-    for complaint in complaints:
-        print(complaint, file=out)
-    if args.stop and not gate.judge_at_stop:
-        return 2 if complaints else 0
-    if not lines:
-        if not args.stop:
-            print(gate.empty)
-        return 0
-    return judged(args, gate, lines, out)
-
-
-def judged(args: argparse.Namespace, gate: Gate, lines: list[Line], out: TextIO) -> int:
-    """Ask the judge about the lines the screen left, and answer with the exit code."""
-    fail = 2 if args.stop else 1
-    try:
-        flags = ask(lines, gate.prompt)
-    except (RuntimeError, TypeError, ValueError, OSError) as exc:
-        print(f"trivia judge unavailable, refusing to pass: {exc}", file=sys.stderr)
-        return fail
-    if args.out:
-        Path(args.out).write_text(json.dumps(flags, indent=2) + "\n", encoding="utf-8")
-    if args.stop and gate.cache is not None:
-        remember_clean(lines, flags, gate.cache)
-    return fail if report(lines, flags, out) else 0
