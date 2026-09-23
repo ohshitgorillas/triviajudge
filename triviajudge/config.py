@@ -91,10 +91,11 @@ class Settings:
     #: The model a sweep asks. Separate from ``model`` because a sweep asks it thousands of
     #: times over prose nobody is waiting on, and a gate asks it once on a commit.
     sweep_model: str = "claude-haiku-4-5"
-    #: Whether the markdown judge runs at ``Stop``. False makes that hook a no-op: markdown
-    #: has no pattern screen, so the model call is the whole gate there. A repository that
-    #: will not spend a nested call on every turn that adds markdown turns it off, and keeps
-    #: the commit and HEAD modes, which judge the same lines on finished work.
+    #: Whether the markdown judge's model call runs at ``Stop``. False makes that call a
+    #: no-op, not the whole hook: the pattern screen in ``md_screen`` still runs and still
+    #: fails the turn on its own complaints. A repository that will not spend a nested call
+    #: on every turn that adds markdown turns it off, and keeps the commit and HEAD modes,
+    #: which judge the same lines on finished work.
     md_judge_at_stop: bool = True
 
 

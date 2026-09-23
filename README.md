@@ -16,6 +16,8 @@ Some of that rot has a shape a regex can name. The rest is a judgment call, so a
 | Changelog trivia | `triviajudge-changelog` | bullets a change adds under `## [Unreleased]` | yes |
 **Archaeology** is a fixed pattern list: ISO dates in prose, `used to`, `earlier draft`, refactor verbs followed by `of` or `from`, replacement narration, commit citations, and a past-tense verb sharing a sentence with a literal length. It needs no network and no model. A line that must keep its history takes `history-ok: <reason>` — the reason is required, because an excuse with no reason excuses nothing.
 
+**The markdown screen** (`triviajudge.md_screen`) is the same fixed-pattern idea pointed at `.md` prose: a dated event (an event verb beside an ISO date), a round, round-N, phase or step-N/hand-back number used as a position in history, a struck-through or `Resolved:`/`Still open:` item, correction narration (`previously documented`, `made here earlier`, `then-current`), narration by negation (`works the same`, `same as before`, `unchanged from`), a completed-run record (`run completed`, `all N ... checked`, `ran twice`), `used to` past behavior, and text addressed to the judge. Its complaints fail the run without a model call, at `Stop`, at commit and in a sweep. A blockquote line and a line indented four or more spaces or by a tab skip it, as does an inline code span; `history-ok: <reason>` exempts a line from both the screen and the judge.
+
 **The markdown and comment judges** send what the patterns did not answer for to a model, and ask one question: would this text lose nothing by being deleted or rewritten in present tense? They prefer silence.
 
 **The changelog judge** holds a release note to the reader's need rather than the author's. Its screen is the mechanical half — one bullet, one line, a bold lead, a word cap, no second person, no marketing register, no narration by negation, one heading per kind in Keep a Changelog order — and its judge reads what the screen leaves for the shape a screen cannot name: a flag name or a file path as the subject, the order a gate runs its steps in, cause narration, mechanism where the reader needs effect, what the code did in an earlier release. `--release` asks it a second question over the whole `[Unreleased]` section before a cut: which bullets double each other, which one a later bullet supersedes, and which sits under the wrong kind. It rewrites nothing.
@@ -40,7 +42,7 @@ triviajudge-sweep --baseline        # remember every line the judges passed
 triviajudge-sweep --check           # exit 1 when anything is flagged
 ```
 
-Collection is whole-file, through the same filters the gates use: `md_skip` and the prose screen for markdown, `suffixes`, `excluded` and `comment_skip` for source. The archaeology patterns screen the comment candidates first; their complaints cost nothing and never reach a judge.
+Collection is whole-file, through the same filters the gates use: `md_skip`, the prose filter and the `md_screen` patterns for markdown, `suffixes`, `excluded` and `comment_skip` for source. The archaeology and markdown patterns screen their candidates first; their complaints cost nothing and never reach a judge.
 
 A judge takes one CLI call for every line it is given, so a sweep splits its candidates into batches of `sweep_batch` and asks once per batch. It counts the candidates and prints the call count before spending anything, and asks; `--yes` skips the question. A batch whose call fails is printed with the files it covers and the run continues — a commit gate fails closed because a commit is one decision, and a sweep is hundreds.
 
@@ -108,7 +110,7 @@ sweep_parallel = 1                  # concurrent calls, capped at half the cores
 sweep_model = "claude-haiku-4-5"    # the model a sweep asks
 ```
 
-`md_judge_at_stop` stays on by default. Markdown has no pattern screen, so the model call is the whole gate at `Stop`, and the clean-line cache holds the cost to the lines a turn newly adds. Turn it off if you will not spend a nested call on every turn that adds markdown: the hook becomes a no-op, and the commit and HEAD modes still judge the same lines on finished work.
+`md_judge_at_stop` stays on by default. Turning it off makes only the model call a no-op, not the whole gate: `md_screen`'s pattern complaints still fail the turn at `Stop`, and the clean-line cache holds the model's cost to the lines a turn newly adds. Turn it off if you will not spend a nested call on every turn that adds markdown: the commit and HEAD modes still judge the same lines on finished work.
 
 Three readings at the edges. No file, no table, or a missing key gives the defaults above and the gate runs. A file that is present but unparseable fails the gate rather than falling back, because a silent default over a corrupt table judges a different file set than the one you asked for. A key present but empty is honoured: an empty `excluded` is the widest scope and an empty `suffixes` the narrowest, and neither is reachable by leaving a key out.
 

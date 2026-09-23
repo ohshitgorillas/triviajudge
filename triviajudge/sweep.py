@@ -46,7 +46,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from triviajudge import comment_trivia, md_trivia
+from triviajudge import comment_trivia, md_screen, md_trivia
 from triviajudge.config import SWEEP_CACHE, Settings, cache_path, settings
 from triviajudge.core import (
     Line,
@@ -108,7 +108,7 @@ def file_lines(rel: str) -> list[Line]:
 
 
 def md_candidates(prefixes: tuple[str, ...]) -> list[Line]:
-    """Every markdown line in the tree that carries prose, through the markdown gate's own screen."""
+    """Every markdown line in the tree that carries prose; screened by ``md_screen.screen`` in ``collect``."""
     out: list[Line] = []
     for rel in repo_files("*.md"):
         if wanted(rel, prefixes):
@@ -273,10 +273,12 @@ def collect(
     batches: list[Batch] = []
     complaints: list[str] = []
     if args.md or both:
-        lines = md_candidates(prefixes)[: args.limit]
-        batches.extend(batched(MD, md_trivia.PROMPT, lines, md_size))
+        lines, md_complaints = md_screen.screen(md_candidates(prefixes))
+        complaints.extend(md_complaints)
+        batches.extend(batched(MD, md_trivia.PROMPT, lines[: args.limit], md_size))
     if args.comments or both:
-        lines, complaints = comment_candidates(prefixes)
+        lines, comment_complaints = comment_candidates(prefixes)
+        complaints.extend(comment_complaints)
         batches.extend(
             batched(COMMENTS, comment_trivia.PROMPT, lines[: args.limit], size)
         )

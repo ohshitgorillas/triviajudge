@@ -170,6 +170,23 @@ def run(args: argparse.Namespace, gate: Gate) -> int:
     return screened(args, gate, lines, complaints, out)
 
 
+def screen_verdict(
+    args: argparse.Namespace, gate: Gate, complaints: list[str]
+) -> int | None:
+    """The exit code the screen alone forces, or ``None`` to defer to the judge.
+
+    A gate whose model call is off at ``Stop`` never reaches the judge at all.
+    A gate whose ``screen_fails`` names its own complaints as authoritative
+    fails on them without spending a call, whatever the judge would have said
+    and even when nothing is left for it to see.
+    """
+    if args.stop and not gate.judge_at_stop:
+        return 2 if complaints else 0
+    if gate.screen_fails and complaints:
+        return 2 if args.stop else 1
+    return None
+
+
 def screened(
     args: argparse.Namespace,
     gate: Gate,
@@ -180,8 +197,9 @@ def screened(
     """Print what the pattern screen refused, then judge whatever it left."""
     for complaint in complaints:
         print(complaint, file=out)
-    if args.stop and not gate.judge_at_stop:
-        return 2 if complaints else 0
+    forced = screen_verdict(args, gate, complaints)
+    if forced is not None:
+        return forced
     if not lines:
         if not args.stop:
             print(gate.empty)
