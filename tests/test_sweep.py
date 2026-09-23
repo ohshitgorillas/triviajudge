@@ -421,6 +421,28 @@ def test_comments_only_asks_no_markdown_batches(
     )
 
 
+@pytest.mark.parametrize(
+    ("first", "ids"),
+    [
+        (
+            "The schema was reviewed on 2026-03-14 by the owner",
+            ["docs/plan.md:2"],
+        ),
+        (
+            "the lane returns the staged model",
+            ["docs/plan.md:1", "docs/plan.md:2"],
+        ),
+    ],
+    ids=["dated first line screened out", "clean first line handed over"],
+)
+def test_a_markdown_line_the_screen_refuses_is_not_handed_to_the_judge(
+    checkout: Callable[[dict[str, str]], Path], first: str, ids: list[str]
+) -> None:
+    checkout({"docs/plan.md": f"{first}\nthe panel holds the staged rate\n"})
+    batches, _complaints = sweep.collect(namespace(md=True), 20)
+    assert [line.id for batch in batches for line in batch.lines] == ids
+
+
 def test_the_limit_caps_what_one_gate_hands_over(
     checkout: Callable[[dict[str, str]], Path],
 ) -> None:

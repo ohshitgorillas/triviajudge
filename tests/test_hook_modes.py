@@ -18,8 +18,8 @@ nothing, which ``stop_hook_active`` cannot do: that flag marks the outer turn,
 not the inner process.
 
 ``md_judge_at_stop`` decides whether the markdown gate calls the judge at
-``Stop`` at all. False makes the hook a no-op and leaves the commit and HEAD
-modes as the gate.
+``Stop`` at all. False leaves the hook the deterministic screen alone and the
+commit and HEAD modes as the judge.
 
 Every phrase fed to a gate lives in a string literal, never in a comment or
 docstring of this file, so this file is clean by the rule it pins.
@@ -45,6 +45,8 @@ GIT = shutil.which("git")
 DATED_COMMENT = "value = 1  # approved 2026-07-04\n"
 CLEAN_COMMENT = "other = 2  # the lane returns the staged model\n"
 DATED_MARKDOWN = "the hand-back passed on 2026-07-04\n"
+CLEAN_MARKDOWN = "the lane returns the staged model\n"
+EXEMPT_MARKDOWN = "the hand-back passed on 2026-07-04 history-ok: provenance row\n"
 
 #: The root-level settings file, named once so every mode reads the same name.
 SETTINGS_FILE = ".triviajudge.toml"
@@ -256,7 +258,7 @@ def test_without_the_guard_the_markdown_gate_reaches_for_a_judge_it_cannot_find(
     tmp_path: Path,
 ) -> None:
     root, env = committed_repo(tmp_path, {})
-    write(root, {"notes.md": DATED_MARKDOWN})
+    write(root, {"notes.md": CLEAN_MARKDOWN})
     finished = gate_run("md_trivia", ["--stop"], root, env, "{}")
     assert "not on PATH" in finished.stderr
 
@@ -264,10 +266,33 @@ def test_without_the_guard_the_markdown_gate_reaches_for_a_judge_it_cannot_find(
 # --- behavior 4: the markdown judge at Stop is the repository's switch --------
 
 
+@pytest.mark.parametrize(
+    ("text", "code"),
+    [(DATED_MARKDOWN, 2), (CLEAN_MARKDOWN, 0)],
+    ids=["dated line refused by the screen", "clean line passed with no call"],
+)
 def test_the_markdown_gate_makes_no_call_at_stop_when_the_repository_turns_it_off(
-    tmp_path: Path,
+    tmp_path: Path, text: str, code: int
 ) -> None:
     root, env = committed_repo(tmp_path, {SETTINGS_FILE: "md_judge_at_stop = false\n"})
-    write(root, {"notes.md": DATED_MARKDOWN})
+    write(root, {"notes.md": text})
     finished = gate_run("md_trivia", ["--stop"], root, env, "{}")
-    assert (finished.returncode, "not on PATH" in finished.stderr) == (0, False)
+    assert finished.returncode == code
+
+
+# --- behavior 5: at commit, the screen's refusal is the gate's exit ----------
+
+
+@pytest.mark.parametrize(
+    ("text", "code"),
+    [(DATED_MARKDOWN, 1), (EXEMPT_MARKDOWN, 0)],
+    ids=["dated line refused", "dated line with a history pragma passed"],
+)
+def test_a_staged_line_the_screen_refuses_fails_the_commit_with_no_judge_to_ask(
+    tmp_path: Path, text: str, code: int
+) -> None:
+    root, env = committed_repo(tmp_path, {})
+    write(root, {"notes.md": text})
+    git_run(root, env, "add", "notes.md")
+    finished = gate_run("md_trivia", ["notes.md"], root, env, "")
+    assert finished.returncode == code
