@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
@@ -99,8 +100,35 @@ def git(*args: str) -> str:
 
 
 def git_diff(*args: str) -> str:
-    """Zero-context diff, so every ``+`` line is an added line."""
-    return git("diff", "-U0", "--no-color", *args)
+    """Zero-context diff, so every ``+`` line is an added line.
+
+    Pathspecs after ``--`` filter the whole diff instead of limiting it: git
+    pairs a moved file with its old path only when it sees both, so a limited
+    diff reports a move as a new file and every line of it as added.
+    """
+    if "--" not in args:
+        return git("diff", "-U0", "--no-color", "-M", *args)
+    cut = args.index("--")
+    specs = args[cut + 1 :]
+    whole = git("diff", "-U0", "--no-color", "-M", *args[:cut])
+    sections = re.split(r"(?m)^(?=diff --git )", whole)
+    return "".join(part for part in sections if matches(new_path(part), specs))
+
+
+def new_path(section: str) -> str:
+    """The post-image path of one file's diff section, empty when it adds nothing."""
+    for raw in section.splitlines():
+        if raw.startswith("+++ "):
+            return raw[4:].removeprefix("b/")
+    return ""
+
+
+def matches(path: str, specs: tuple[str, ...]) -> bool:
+    """Whether a path falls under any of git's literal, directory or glob pathspecs."""
+    return bool(path) and any(
+        path == spec or path.startswith(spec.rstrip("/") + "/") or fnmatch(path, spec)
+        for spec in specs
+    )
 
 
 def added_lines(diff: str) -> list[Line]:
