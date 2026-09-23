@@ -1,10 +1,10 @@
 """The markdown gate's pattern screen: the mechanical half of "what happened, not what holds".
 
 A regex answers a handful of the shapes the model judge otherwise has to rule
-on every time: a dated event, a round or phase number used as a position in
-history, a struck-through or "Resolved:" item, a correction that narrates the
-mistake it fixes, narration by negation, a completed-run record, past
-behavior phrased as "used to", and a line that addresses the judge directly.
+on every time: a dated event, a number marking a position in history, a
+struck-through or closed-out item, a correction that narrates the mistake it
+fixes, narration by negation, a completed-run record, past behavior, and a
+line that addresses the judge directly.
 What this module refuses never reaches the judge; what it leaves is what the
 judge reads.
 
@@ -56,8 +56,8 @@ _VERB = (
 #: sentence end, either of which means the two are not the same remark.
 _GAP = r"[^.|]{0,40}"
 
-#: A past-behavior "used to" not itself part of a present-tense "can be used to" /
-#: "is used to" reading. Each excluded lead-in is its own fixed-width lookbehind,
+#: Past behavior, not the passive voice of a present-tense verb phrase: the
+#: auxiliaries it follows are excluded, each by its own fixed-width lookbehind,
 #: since a variable-width one is not allowed.
 _USED_TO = re.compile(
     r"(?<!\bbe )(?<!\bis )(?<!\bare )(?<!\bwas )(?<!\bwere )(?<!\bbeen )"
