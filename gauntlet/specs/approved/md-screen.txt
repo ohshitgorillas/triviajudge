@@ -1,0 +1,170 @@
+slug: md-screen
+kind: new
+brief:
+> Task: expand the deterministic pre-gate hook so that the judges have less work to do overall
+> Scour Gauntlet and HQPTuner repos in ~/dev/ for examples that we can use and propose only.
+> Read-only.
+> summarize in one sentence each
+> ARE WE NOT ALREADY USING A FUCKING REGEX SCREEN
+> OKAY, YES, WE DEFINITELY NEED A MARKDOWN REGEX SCREEN WTF
+> go ahead and build the md screen via appropriately sized subagents (Opus or smaller)
+
+surface: `triviajudge.md_screen.screen(lines) -> (kept, complaints)`, called with `Line`
+records from `triviajudge.core`; `triviajudge.md_trivia` run as a module the way
+tests/test_hook_modes.py `gate_run` runs it, with no `claude` on the PATH the test builds;
+`triviajudge.sweep.collect(args, size)` over a tree the test tracks.
+
+1. The `path:line` each complaint opens with, for `screen([Line("doc.md", 1, text)])`, is
+   `["doc.md:1"]` at every refused text and `[]` at every passed text below; each form
+   carries one refused text that is not its source phrase and one passed text sharing its
+   words.
+   dated event — refused: `The schema was reviewed on 2026-03-14 by the owner`;
+     passed: `| schema | reviewed | 2026-03-14 |`, `The bypassed check reads 2026-03-14 rows`,
+     `The cache is re-checked on every run`
+   `round N` — refused: `In round 2 the judge dropped the tabs`;
+     passed: `Every round reads the staged model`
+   `round-N` — refused: `The round-3 fix moved the cache`;
+     passed: `The round-trip test reads the cache`
+   `phase N` — refused: `Phase 2 moved the parser into core`;
+     passed: `Each phase reads the parser output`
+   `step-N hand-back` — refused: `The step-4 hand-back carried the new gate`;
+     passed: `The hand-back step carries the new gate`
+   `hand-back pass|fail` — refused: `Opal hand-back pass, both hosts green`;
+     passed: `The hand-back names the tests that must pass`
+   `~~…~~` — refused: `Keep ~~the old flag~~ out of the parser`;
+     passed: `The ~/.cache directory holds the staged model`
+   `Resolved:` opening — refused: `RESOLVED: the parser reads tabs`;
+     passed: `Conflicts are resolved: the newest entry wins`
+   `Still open:` opening — refused: `Still open: the tab width in tables`;
+     passed: `The file is still open: the gate reads it twice`
+   `previously|formerly documented|named|called|stated` — refused:
+     `Formerly named the lane gate`; passed: `The previously staged model is documented here`
+   `made here earlier` — refused: `The claim made here earlier was wrong`;
+     passed: `Each claim made here is checked earlier by the gate`
+   `then-current` — refused: `The then-current parser read tabs`;
+     passed: `The current parser reads tabs, then spaces`
+   `works the same` — refused: `Tab handling works the same way`;
+     passed: `The same reader works on tabs and spaces`
+   `same as before` — refused: `Output is the same as before`;
+     passed: `The same header comes before each table`
+   `unchanged from` — refused: `The prompt is unchanged from the last release`;
+     passed: `An unchanged line is read from the cache`
+   `run completed` — refused: `The run completed with no flags`;
+     passed: `A completed run writes the cache`
+   `all N <noun> graded|passed|checked|done` — refused: `All 9 hosts checked`;
+     passed: `All 9 hosts read the staged model`
+   `ran twice` — refused: `The gate ran twice on the same file`;
+     passed: `The gate runs twice as fast on tabs`
+   `used to` — refused: `The parser used to read tabs`, `Used to read tabs before the gate`,
+     `The owner got used to the tabs`; passed: `The flag can be used to skip the cache`,
+     `The flag is used to skip the cache`
+   `not trivia` — refused: `This line is not trivia`;
+     passed: `The judge flags trivia, not rules`
+   `keep this line` — refused: `Keep this line for the judge`;
+     passed: `Keep the line under this heading`
+   `present tense by design` — refused: `Written in present tense by design`;
+     passed: `The present tense is the design rule`
+   kills: a screen that refuses any line naming a family word, so
+     `Every round reads the staged model` and `The flag can be used to skip the cache` each
+     answer `["doc.md:1"]`
+   bite: null stub fails at every refused text (surface new) — a `screen` returning
+     `([], [])` answers `[]` there
+   existing: none, `grep -rn "md_screen" tests/` -> no match
+
+2. The `path:line` each complaint opens with, for `screen([Line("doc.md", 1, text)])`, is
+   `["doc.md:1"]` where text is `The schema was reviewed on 2026-03-14 history-ok:` and `[]`
+   where it is `The schema was reviewed on 2026-03-14 history-ok: provenance row`.
+   kills: a screen that reads `history-ok:` with nothing after it as an exemption, so the
+     bare pragma answers `[]`
+   bite: null stub fails at the bare pragma (surface new) — a `screen` returning `([], [])`
+     answers `[]` there
+   existing: none, `grep -rn "md_screen" tests/` -> no match
+
+3. The line numbers `screen` keeps, for `screen([Line("doc.md", 1, text)])`, are `[1]`
+   where text is `The parser used to read tabs` after `> `, after four spaces, after a tab,
+   or as `The `parser used to` flag reads tabs` with the phrase inside an inline code span,
+   and `[]` where it is `The parser used to read tabs` bare or after three spaces.
+   kills: a screen that matches the raw line whatever wraps it, so the quoted, indented and
+     inline-code texts keep `[]` and never reach the judge
+   bite: null stub fails at the four wrapped texts (surface new) — a `screen` returning
+     `([], [])` keeps `[]` there
+   existing: none, `grep -rn "md_screen" tests/` -> no match
+
+4. The exit code of `md_trivia --stop` in a repository whose `.triviajudge.toml` sets
+   `md_judge_at_stop = false`, with untracked `notes.md` holding one line, is `2` where the
+   line is `the hand-back passed on 2026-07-04` and `0` where it is
+   `the lane returns the staged model`.
+   kills: a markdown gate that screens only on the commit path, so the dated line exits
+     `0` at Stop with the judge switched off
+   bite: `0` at the dated line, `.venv/bin/pytest -q tests/test_hook_modes.py -k
+     makes_no_call_at_stop` -> `1 passed`, that test asserting exit `0` on the dated
+     fixture `DATED_MARKDOWN`
+   existing: tests/test_hook_modes.py::test_the_markdown_gate_makes_no_call_at_stop_when_the_repository_turns_it_off
+
+5. The exit code of `md_trivia notes.md` in a repository where `notes.md` is staged holding
+   one line, with no `claude` on PATH, is `1` where the line is
+   `the hand-back passed on 2026-07-04` and `0` where it is
+   `the hand-back passed on 2026-07-04 history-ok: provenance row`.
+   kills: a gate that prints the screen's complaints and leaves the exit to the judge, so
+     the refused line, leaving nothing to judge, exits `0` at commit
+   bite: `1` at the pragma line, in a scratch repository with that `notes.md` staged,
+     `env -i HOME=<scratch> PATH=/usr/bin PYTHONPATH=<checkout> .venv/bin/python -m
+     triviajudge.md_trivia notes.md; echo $?` -> "trivia judge unavailable, refusing to
+     pass: `claude` not on PATH", exit `1`
+   existing: none, `grep -rn "history-ok" tests/test_md_trivia.py tests/test_hook_modes.py`
+     -> no match
+
+6. The ids of the lines across the batches `sweep.collect` returns with `--md`, over a
+   tracked `docs/plan.md` holding `the panel holds the staged rate` on line 2, are
+   `["docs/plan.md:2"]` where line 1 is `The schema was reviewed on 2026-03-14 by the owner`
+   and `["docs/plan.md:1", "docs/plan.md:2"]` where line 1 is
+   `the lane returns the staged model`.
+   kills: a sweep that batches every prose line, so the dated line 1 reaches the judge and
+     the first input answers `["docs/plan.md:1", "docs/plan.md:2"]`
+   bite: `["docs/plan.md:1", "docs/plan.md:2"]` at the dated line 1, in a scratch
+     repository tracking that `docs/plan.md`, `python3 -c "import argparse; from
+     triviajudge import sweep; b, _ = sweep.collect(argparse.Namespace(md=True,
+     comments=False, paths=[], limit=None), 20); print([l.id for x in b for l in
+     x.lines])"`
+   existing: none, `grep -rn "sweep.collect\|md_candidates" tests/test_sweep.py` ->
+     tests/test_sweep.py::test_the_markdown_candidates_are_the_prose_lines_of_the_tracked_markdown
+     and ::test_a_prefix_keeps_the_markdown_outside_it_out_of_the_candidates, both on
+     `md_candidates`
+
+Past the cap: lines 4, 5 and 6 are the screen reached from its three callers — the Stop
+hook, the commit path and the sweep — and a wrong wiring of any one passes the other two.
+
+collateral:
+- tests/test_hook_modes.py::test_without_the_guard_the_markdown_gate_reaches_for_a_judge_it_cannot_find
+  breaks: the dated-event family refuses `DATED_MARKDOWN`, `the hand-back passed on
+    2026-07-04`, before the judge, so the fixture this test writes becomes a line no
+    family refuses
+  assertion: assert "not on PATH" in finished.stderr
+--- reviewer ---
+READY
+discriminates: sweep on `screen` complaint `path:line` (lines 1, 2) and kept numbers (line 3); differential on `md_trivia` exit code (lines 4, 5) and `sweep.collect` ids (line 6)
+
+1  carried ADMITTED
+2  ADMITTED
+3  ADMITTED
+4  carried AMENDED tests/test_hook_modes.py:267: the assertion `(0, False)` on `DATED_MARKDOWN` becomes exit `2` at the dated line and `0` at `the lane returns the staged model`.
+5  ADMITTED
+6  ADMITTED
+
+collateral:
+- tests/test_hook_modes.py::test_without_the_guard_the_markdown_gate_reaches_for_a_judge_it_cannot_find  carried ADMITTED
+
+null stub: `screen` returns `([], [])`; `md_trivia` behaves as HEAD with no screen (`--stop` with the judge off exits 0, and the staged file-list mode asks the missing judge and exits 1); `collect` hands over every prose line.
+  satisfies: none   fails: 1, 2, 3, 4, 5, 6
+hard-coded stub: every surface returns one constant value its line names, whatever the text. `screen` always complains `doc.md:1` and always keeps `[1]`, `--stop` always exits 2, the file-list mode always exits 1, and `collect` always hands over `docs/plan.md:2`.
+  satisfies: none   fails: 1, 2, 3, 4, 5, 6
+
+survives: 5
+
+returns:
+repair 2: taken. The line is now a two-value differential on complaints, and the `kills:` screen (bare pragma honored) answers `[]` at the bare pragma, which the line refuses.
+repair 3: taken. The line is now a sweep over wrappings with values `[1]` and `[]`, and the three-space case is the edge beside the four-space one.
+repair 6: taken. The line is now a differential on `collect` ids at a dated line 1 and a clean one.
+note 4: withdrawn. triviajudge/gate.py:183-184 returns before any judge call when `--stop` runs with the judge off, and :194 makes a judge that is missing exit `2` at Stop. The clean-line `0` therefore still pins "no call", and the amended test's name stands.
+note 5: resolved by repair. triviajudge/md_trivia.py:180-181 and :186 are separate branches, and line 5 now drives the staged file-list mode, so the three callers each have a line.
+cap: the block has 5 new-test lines (line 4 is an amend). The past-the-cap sentence names a wrong wiring (the sweep path) that passes the Stop and commit lines, which covers line 6.
