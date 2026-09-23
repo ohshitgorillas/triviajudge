@@ -47,9 +47,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["triviajudge"]
 
-# This repository judged by its own gates. The four gate modules and the
-# changelog screen spell the trivia rules out in prose, which the judge reads as
-# a restatement of its own rules, so every edit to them would flag.
+# This repository judged by its own gates. The four gate modules, the changelog
+# screen and the markdown screen spell the trivia rules out in prose, which the
+# judge reads as a restatement of its own rules, so every edit to them would flag.
 [tool.triviajudge]
 comment_skip = [
     "triviajudge/md_trivia.py",
@@ -57,6 +57,7 @@ comment_skip = [
     "triviajudge/changelog_trivia.py",
     "triviajudge/changelog_screen.py",
     "triviajudge/archaeology.py",
+    "triviajudge/md_screen.py",
 ]
 excluded = ["tests/"]
 
@@ -252,7 +253,7 @@ containers = ["triviajudge"]
 layers = [
     "sweep",
     "md_trivia | comment_trivia | changelog_trivia",
-    "changelog_prompts | changelog_screen",
+    "changelog_prompts | changelog_screen | md_screen",
     "gate",
     "transport",
     "archaeology",

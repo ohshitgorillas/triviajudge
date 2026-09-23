@@ -201,6 +201,12 @@ class Gate:
     ``exhaustive`` says the prompt asks for a verdict per input id rather than
     for the hits alone. Both default to the unchunked hit-list shape, so a gate
     names them only where its prompt asks for the other.
+
+    ``screen_fails`` is whether the pattern screen's own complaints fail the
+    run on their own, whatever the judge returns and even when the screen
+    leaves nothing for the judge to see. Default False keeps the comment
+    gate's commit rule, where ``archaeology.py`` is the authority on its own
+    complaints; markdown has no such authority.
     """
 
     prompt: str
@@ -210,6 +216,7 @@ class Gate:
     cache: Path | None = None
     batch: int = 0
     exhaustive: bool = False
+    screen_fails: bool = False
 
 
 def parse_args(doc: str, noun: str) -> argparse.Namespace:

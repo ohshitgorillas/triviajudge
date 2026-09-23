@@ -7,6 +7,11 @@ history, and prose whose only content is that something did not change.
 ``archaeology.py`` catches the keyword shapes in code comments; pointed at
 markdown it drowns in ISO dates that sit inside legitimate provenance tables.
 Telling those apart is a judgment call, so this gate asks a model to make it.
+``md_screen.screen`` answers the shapes a regex can name first — a dated
+event, a round or phase number, a struck-through item, correction narration,
+narration by negation, a completed-run record, "used to" past behavior, and a
+line addressed to the judge — and its complaints fail the run without a
+model call; the model reads what the screen leaves.
 
 Scope is the lines a commit adds, never the whole file: prose that already
 shipped is not re-litigated on every touch. Files with their own gate or their
@@ -43,6 +48,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from triviajudge import md_screen
 from triviajudge.config import SWEEP_CACHE, cache_path, settings
 from triviajudge.core import (
     Gate,
@@ -167,23 +173,26 @@ def worktree_lines() -> list[Line]:
 
 
 def collect(args: argparse.Namespace) -> tuple[list[Line], list[str]]:
-    """Lines to judge, from whichever input mode the arguments name; markdown raises no complaint of its own."""
+    """Lines to judge and the screen's complaints, from whichever input mode the arguments name."""
     if args.stop:
         if stop_already_ran():
             return [], []
+        kept, complaints = md_screen.screen(prose_only(worktree_lines()))
         seen = set(clean_cache(cache_path(CACHE_NAME))) | set(
             clean_cache(cache_path(SWEEP_CACHE))
         )
-        return [
-            line for line in prose_only(worktree_lines()) if digest(line) not in seen
-        ], []
+        return [line for line in kept if digest(line) not in seen], complaints
     if args.lines:
-        return prose_only(from_records(Path(args.lines))), []
+        return md_screen.screen(prose_only(from_records(Path(args.lines))))
     if args.head:
-        return prose_only(added_lines(git_diff("HEAD~1", "--", "*.md"))), []
+        return md_screen.screen(
+            prose_only(added_lines(git_diff("HEAD~1", "--", "*.md")))
+        )
     if not args.files:
         return [], []
-    return prose_only(added_lines(git_diff("--cached", "--", *args.files))), []
+    return md_screen.screen(
+        prose_only(added_lines(git_diff("--cached", "--", *args.files)))
+    )
 
 
 def gate(cache: Path | None, *, judge_at_stop: bool = True) -> Gate:
@@ -196,6 +205,7 @@ def gate(cache: Path | None, *, judge_at_stop: bool = True) -> Gate:
         cache=cache,
         batch=settings().gate_batch,
         exhaustive=True,
+        screen_fails=True,
     )
 
 

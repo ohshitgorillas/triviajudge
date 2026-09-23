@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Markdown gains a pattern screen.** `md_screen.screen` refuses a dated event, a round, phase or hand-back position in history, a struck-through or `Resolved:`/`Still open:` item, correction narration, narration by negation, a completed-run record and `used to` past behavior, before any line reaches the model, at `Stop`, at commit and in a sweep. A blockquote, an indented line and an inline code span skip it; `history-ok: <reason>` exempts a line.
+
 ## [0.5.0] - 2026-09-21
 
 ### Added
