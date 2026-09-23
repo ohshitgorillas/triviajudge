@@ -13,6 +13,7 @@ docstring of this file.
 """
 
 import importlib
+from typing import cast
 
 import pytest
 
@@ -28,7 +29,7 @@ def screened(text: str) -> tuple[list[Line], list[str]]:
     each test on its own and leaves the collection of other files intact.
     """
     screen = importlib.import_module("triviajudge.md_screen").screen
-    return screen([Line("doc.md", 1, text)])
+    return cast("tuple[list[Line], list[str]]", screen([Line("doc.md", 1, text)]))
 
 
 def complained_about(text: str) -> list[str]:
