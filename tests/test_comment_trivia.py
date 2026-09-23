@@ -377,3 +377,55 @@ def test_the_working_tree_mode_reads_an_untracked_file_whole(
     monkeypatch.setattr("triviajudge.comment_trivia.git", lambda *_args: SAMPLE_PATH)
     monkeypatch.setattr("triviajudge.comment_trivia.root", lambda: tmp_path)
     assert [cand.id for cand in GATE.worktree_candidates()] == [f"{SAMPLE_PATH}:1"]
+
+
+# --- behavior 6: a staged move judges only what the move changed --------------
+
+
+CARRIED = (
+    "value = 1  # TANGO keep in sync with the schema\n"
+    "other = 2  # UNIFORM the panel model\n"
+    "third = 3  # VICTOR the lane result\n"
+    "fourth = 4\n"
+)
+
+APPENDED_COMMENT = "fifth = 5  # WHISKEY the staged config\n"
+
+
+def repo_with_staged_move(tmp_path: Path, appended: str) -> tuple[Path, dict[str, str]]:
+    """A throwaway checkout whose index moves a committed file to ``SAMPLE_PATH``, plus ``appended``."""
+    if GIT is None:
+        pytest.skip("git is not on PATH, so no move can be staged")
+    env = child_environment(tmp_path)
+    root = tmp_path / "repo"
+    root.mkdir()
+    git_init(root, env)
+    (root / "moved.py").write_text(CARRIED, encoding="utf-8")
+    git_add_all(root, env)
+    git_commit(root, env)
+    (root / "moved.py").unlink()
+    staged = root / SAMPLE_PATH
+    staged.parent.mkdir(parents=True, exist_ok=True)
+    staged.write_text(CARRIED + appended, encoding="utf-8")
+    git_add_all(root, env)
+    return root, env
+
+
+@pytest.mark.parametrize(
+    ("appended", "code"),
+    [("", 0), (APPENDED_COMMENT, 1)],
+    ids=["a pure move", "a move that adds a comment"],
+)
+def test_the_exit_code_over_a_staged_move_named_by_its_new_path(
+    tmp_path: Path, appended: str, code: int
+) -> None:
+    root, env = repo_with_staged_move(tmp_path, appended)
+    finished = subprocess.run(
+        [sys.executable, "-m", "triviajudge.comment_trivia", SAMPLE_PATH],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert finished.returncode == code
