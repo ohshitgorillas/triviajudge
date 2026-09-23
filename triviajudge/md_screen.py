@@ -24,7 +24,6 @@ reason after it is refused.
 from __future__ import annotations
 
 import re
-from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from triviajudge.archaeology import BARE_PRAGMA, EXEMPT, PRAGMA
@@ -151,5 +150,5 @@ def screen(lines: list[Line]) -> tuple[list[Line], list[str]]:
         found = refused(line)
         complaints.extend(found)
         if not found and not EXEMPT.search(CODE_RE.sub(" ", line.text)):
-            keep.append(replace(line))
+            keep.append(line)
     return keep, complaints
