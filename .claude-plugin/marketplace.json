@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "The Trivia Judge gates, as a Claude Code plugin.",
-    "version": "0.6.1"
+    "version": "0.7.0"
   },
   "plugins": [
     {
