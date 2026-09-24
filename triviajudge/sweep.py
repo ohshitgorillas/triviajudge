@@ -26,15 +26,11 @@ Two modes ship together. The default reports flags and writes no cache. With
 ``Stop`` beside its own cache. One file holds the whole amnesty, so deleting
 it revokes the whole amnesty.
 
-Results arrive piecemeal, so a run that dies keeps what it already heard.
-Each batch prints the moment it answers, in the order the answers come, and
-appends one JSON line to ``sweep-journal.jsonl`` in the cache directory before
-the next is read; a ``--baseline`` run adds each batch's passed lines as that
-batch lands. The journal is emptied when a run starts. Ctrl-C or SIGTERM stops
-the run: no queued batch starts, the summary covers what landed, ``--out`` is
-written, the batches that never answered are named as not judged, and the
-exit is 130. An exception that escapes a batch stops the run the same way and
-exits 1.
+Results arrive piecemeal. Each batch prints as it answers and appends a line
+to ``sweep-journal.jsonl``, and ``--baseline`` takes its passed lines, before
+the next is read. Ctrl-C or SIGTERM stops the run with the summary and
+``--out`` written for what landed, the unanswered batches named as not judged,
+and exit 130; an exception that escapes a batch does the same and exits 1.
 
 Usage:
 
@@ -56,7 +52,6 @@ import json
 import signal
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -72,11 +67,20 @@ from triviajudge.core import (
 )
 from triviajudge.gate import verdicts
 from triviajudge.gate import workers as workers  # noqa: PLC0414 — the alias is the explicit re-export: one cap covers the gate path and the sweep, and callers of a sweep read it here
+from triviajudge.sweep_report import (
+    Batch,
+    Stopped,
+    announce,
+    exit_code,
+    flagged_ids,
+    unfinished,
+)
+from triviajudge.sweep_report import Result as Result  # noqa: PLC0414 — the alias is the explicit re-export: callers of a sweep name a batch's answer here
+from triviajudge.sweep_report import report as report  # noqa: PLC0414 — the alias is the explicit re-export: callers of a sweep report its results here
 from triviajudge.transport import CLAUDE_BACKEND
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
-    from types import FrameType
+    from collections.abc import Generator, Iterable, Iterator
 
 #: The cache a ``--baseline`` run writes, read by the markdown gate at ``Stop``.
 CACHE_NAME = SWEEP_CACHE
@@ -84,34 +88,11 @@ CACHE_NAME = SWEEP_CACHE
 #: One JSON line per answered batch, appended as it lands; no gate reads it.
 JOURNAL_NAME = "sweep-journal.jsonl"
 
-#: The exit code of a run stopped by Ctrl-C or SIGTERM.
-INTERRUPTED = 130
-
 #: Seconds one batch's CLI call may take before it is killed and reported as a failed batch.
 CALL_TIMEOUT = 600
 
 MD = "md"
 COMMENTS = "comments"
-
-
-@dataclass(frozen=True)
-class Batch:
-    """One CLI call's worth of candidates, addressed so a failure names what to rerun."""
-
-    gate: str
-    index: int
-    prompt: str
-    lines: list[Line] = field(compare=False)
-
-    @property
-    def name(self) -> str:
-        """``gate#index``, printed on a failure."""
-        return f"{self.gate}#{self.index}"
-
-    @property
-    def paths(self) -> list[str]:
-        """Every distinct file the batch covers, for the rerun line."""
-        return sorted({line.path for line in self.lines})
 
 
 def repo_files(pattern: str | None = None) -> list[str]:
@@ -209,32 +190,7 @@ def judge(batch: Batch, model: str) -> tuple[Batch, list[dict[str, str]] | None,
         return batch, None, str(exc)
 
 
-#: What one asked batch came back with: the batch, its flags (None when the call failed) and the failure text.
-Result = tuple[Batch, list[dict[str, str]] | None, str]
-
-
-class Stopped(Exception):  # noqa: N818 — the name is what happened to the run, and "StoppedError" would call an interrupt an error
-    """A run that ended before every batch answered, carrying what landed first."""
-
-    def __init__(
-        self,
-        flags: list[dict[str, str]],
-        passed: list[Line],
-        landed: list[str],
-        reason: str,
-        *,
-        interrupted: bool,
-    ) -> None:
-        """Keep the flags, passed lines and batch names reported before the stop."""
-        super().__init__(reason)
-        self.flags = flags
-        self.passed = passed
-        self.landed = landed
-        self.reason = reason
-        self.interrupted = interrupted
-
-
-def run_batches(batches: list[Batch], model: str, parallel: int) -> Iterator[Result]:
+def run_batches(batches: list[Batch], model: str, parallel: int) -> Generator[Result]:
     """Ask every batch and yield each answer as it arrives: in order, or as the calls finish."""
     if parallel <= 1:
         for batch in batches:
@@ -267,17 +223,11 @@ def landed(
         }
         with journal.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry) + "\n")
-            handle.flush()
         if baseline and answer is not None:
             ids = flagged_ids(answer)
             write_baseline([line for line in batch.lines if line.id not in ids])
         kept.append((batch, answer, error))
         yield batch, answer, error
-
-
-def flagged_ids(flags: list[dict[str, str]]) -> set[str]:
-    """The ids a batch's answer flagged."""
-    return {str(flag.get("id")) for flag in flags}
 
 
 def write_baseline(passed: list[Line]) -> Path:
@@ -290,8 +240,7 @@ def write_baseline(passed: list[Line]) -> Path:
             seen.append(digest(line))
             known.add(digest(line))
     path.parent.mkdir(parents=True, exist_ok=True)
-    # A kill mid-write must not leave a torn file: clean_cache reads one back
-    # as empty, and the next write would then drop every older digest.
+    # A torn file reads back empty in clean_cache and loses every older digest.
     staged = path.with_name(path.name + ".tmp")
     staged.write_text(json.dumps(seen) + "\n", encoding="utf-8")
     staged.replace(path)
@@ -367,55 +316,6 @@ def collect(
     return batches, complaints
 
 
-def reported(result: Result) -> tuple[list[dict[str, str]], list[Line]]:
-    """Print one batch's flags, or its failure, flushed; answer with its flags and passed lines."""
-    batch, answer, error = result
-    if answer is None:
-        print(
-            f"batch {batch.name} failed ({len(batch.lines)} line(s)): {error}",
-            file=sys.stderr,
-        )
-        rerun = " ".join(f"--paths {path}" for path in batch.paths)
-        print(
-            f"  rerun: triviajudge-sweep --{batch.gate} {rerun}",
-            file=sys.stderr,
-            flush=True,
-        )
-        return [], []
-    ids = flagged_ids(answer)
-    by_id = {line.id: line for line in batch.lines}
-    flags: list[dict[str, str]] = []
-    for flag in answer:
-        ident = str(flag.get("id"))
-        where = ident if ident in by_id else f"?:{ident}"
-        print(f"{where}: {str(flag.get('reason', '')).strip()}", flush=True)
-        flags.append({"id": ident, "reason": str(flag.get("reason", "")).strip()})
-    return flags, [line for line in batch.lines if line.id not in ids]
-
-
-def report(results: Iterable[Result]) -> tuple[list[dict[str, str]], list[Line]]:
-    """Print every flag and every failed batch as it arrives; answer with the flags and the lines that passed.
-
-    A stop anywhere upstream reaches this loop through its ``for``, so one
-    ``try`` covers every frame; it raises ``Stopped`` carrying what landed.
-    """
-    flags: list[dict[str, str]] = []
-    passed: list[Line] = []
-    names: list[str] = []
-    try:
-        for result in results:
-            batch_flags, batch_passed = reported(result)
-            flags.extend(batch_flags)
-            passed.extend(batch_passed)
-            names.append(result[0].name)
-    except KeyboardInterrupt as exc:
-        raise Stopped(flags, passed, names, "interrupted", interrupted=True) from exc
-    except Exception as exc:
-        reason = str(exc) or type(exc).__name__
-        raise Stopped(flags, passed, names, reason, interrupted=False) from exc
-    return flags, passed
-
-
 def sizes(args: argparse.Namespace, config: Settings) -> tuple[int, int]:
     """The comment gate's chunk and the markdown gate's; ``--batch`` names both at once."""
     return args.batch or config.sweep_batch, args.batch or config.gate_batch
@@ -441,72 +341,50 @@ def main() -> int:
     if not consent(batches, model, parallel, assumed=args.yes):
         print("nothing asked", file=sys.stderr)
         return 0
-    journal = journal_path()
-    journal.parent.mkdir(parents=True, exist_ok=True)
-    journal.write_text("", encoding="utf-8")
-    previous = signal.signal(signal.SIGTERM, interrupt)
+    journal_path().parent.mkdir(parents=True, exist_ok=True)
+    journal_path().write_text("", encoding="utf-8")
+    # SIGTERM raises KeyboardInterrupt, so it stops the run the way Ctrl-C does.
+    previous = signal.signal(signal.SIGTERM, signal.default_int_handler)
     try:
         return finish(args, batches, run_batches(batches, model, parallel), complaints)
     finally:
         signal.signal(signal.SIGTERM, previous)
 
 
-def interrupt(_signum: int, _frame: FrameType | None) -> None:
-    """Turn SIGTERM into the same stop Ctrl-C makes."""
-    raise KeyboardInterrupt
-
-
 def finish(
     args: argparse.Namespace,
     batches: list[Batch],
-    results: Iterator[Result],
+    results: Generator[Result],
     complaints: list[str],
 ) -> int:
     """Report what the judges flagged, what failed, what was never judged and what the baseline took; answer with the exit code."""
     kept: list[Result] = []
-    stop: Stopped | None = None
     try:
+        # Caught outside `closing`, so the pool is shut before the summary.
         with contextlib.closing(results):
             flags, passed = report(
                 landed(results, journal_path(), kept, baseline=args.baseline)
             )
     except Stopped as exc:
-        stop = exc
-        flags, passed = exc.flags, exc.passed
-    done = {batch.name for batch in batches} if stop is None else set(stop.landed)
-    failed = [
-        batch.name for batch, answer, _ in kept if answer is None and batch.name in done
-    ]
-    unjudged = [batch.name for batch in batches if batch.name not in done]
-    if failed:
-        print(
-            f"\n{len(failed)} batch(es) failed and were not judged: {', '.join(failed)}",
-            file=sys.stderr,
-        )
-    if unjudged:
-        print(
-            f"\n{len(unjudged)} batch(es) got no answer and were not judged: {', '.join(unjudged)}",
-            file=sys.stderr,
-        )
-    if stop is not None:
-        print(f"run stopped: {stop.reason}", file=sys.stderr)
+        stop: Stopped | None = exc
+        flags, passed, done = exc.flags, exc.passed, exc.landed
+    else:
+        stop, done = None, [batch.name for batch in batches]
+    failed, unjudged = unfinished(batches, kept, done)
+    announce(failed, unjudged, stop)
     if args.baseline:
         print(f"\n{len(passed)} passed line(s) written to {cache_path(CACHE_NAME)}")
     print(f"\n{len(flags)} flag(s), {len(complaints)} pattern complaint(s)", flush=True)
+    record = {
+        "flags": flags,
+        "screen": complaints,
+        "failed": failed,
+        "unjudged": unjudged,
+        "stopped": "" if stop is None else stop.reason,
+    }
     if args.out:
-        record = {
-            "flags": flags,
-            "screen": complaints,
-            "failed": failed,
-            "unjudged": unjudged,
-            "stopped": "" if stop is None else stop.reason,
-        }
         Path(args.out).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-    if stop is not None:
-        return INTERRUPTED if stop.interrupted else 1
-    if args.check and (flags or complaints or failed):
-        return 1
-    return 0
+    return exit_code(stop, check=args.check, found=bool(flags or complaints or failed))
 
 
 if __name__ == "__main__":
