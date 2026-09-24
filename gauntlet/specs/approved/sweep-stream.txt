@@ -1,0 +1,49 @@
+slug: sweep-stream
+kind: new
+brief:
+> I've lost the results of too many sweeps to timeouts or errors. How can we make sure that results arrive piecemeal so that cancelled or errored sweeps don't return nothing?
+> Yes, take it through the gauntlet. Your plan 1-4 is accepted.
+
+surface: `python -m triviajudge.sweep --md --yes --batch 1 --parallel 1`, run as a subprocess in a real checkout tracking `a.md` `the panel holds the staged rate`, `b.md` `the lane returns the staged model` and `c.md` `the resampler runs at the rate the panel asks for`, one line each, with stdout and stderr written to files; a fake `claude` on the PATH the test builds answers each call from a table keyed on the line id in its stdin, answering `{"result": "[{\"id\": \"<id>\", \"verdict\": \"<v>\", \"reason\": \"r\"}]"}` with `<v>` `trivia` (flagging) or `ok` (passing), and on the one row the line names either answers the same way or does what the line names to its parent process, the sweep.
+
+1. The `paths` values of the JSON lines in `.triviajudge/sweep-journal.jsonl` under the checkout, after the run, are `[["a.md"]]` where the fake sends SIGKILL to the sweep on the `b.md:1` call, `[["a.md"], ["b.md"]]` where it sends SIGKILL on the `c.md:1` call, and `[["a.md"], ["b.md"], ["c.md"]]` where it answers every call.
+   kills: a sweep that writes its journal once, after the last batch answers, so both SIGKILLed runs leave no journal and read `[]`
+   bite: null stub fails at both SIGKILL rows (surface new) — at HEAD no `.triviajudge/` directory exists after a SIGKILL on either call; measured with the scratch probe, `--md --yes --batch 1 --parallel 1`, fake SIGKILL on `b.md:1` and on `c.md:1` -> `exit=137` each, `ls .triviajudge` -> "No such file or directory"
+   existing: none, `grep -rn "journal" tests/` -> no match
+
+2. The sorted digests in `.triviajudge/sweep-clean.json` after a `--baseline` run, with the fake passing every line, are `[digest(Line("a.md", 1, "the panel holds the staged rate"))]` where the fake sends SIGKILL to the sweep on the `b.md:1` call, `sorted([digest(Line("a.md", 1, "the panel holds the staged rate")), digest(Line("b.md", 1, "the lane returns the staged model"))])` where it sends SIGKILL on the `c.md:1` call, and `sorted([digest(Line("a.md", 1, "the panel holds the staged rate")), digest(Line("b.md", 1, "the lane returns the staged model")), digest(Line("c.md", 1, "the resampler runs at the rate the panel asks for"))])` where it answers every call.
+   kills: a sweep that writes the baseline once, from the whole run's passed lines, so both SIGKILLed runs leave no `sweep-clean.json` and read `[]`
+   bite: no `sweep-clean.json` at either SIGKILL row — scratch probe with `--baseline`, fake passing, SIGKILL on `b.md:1` and on `c.md:1` -> `exit=137` each, `ls .triviajudge` -> "No such file or directory"; where every call answers, the same probe -> `["3cebc26953baaa57fdeda97951eccef831807a1a", "8cce85eb6b2e4ea536870537cf986c35ec25c000", "e3ab8b4c90c00f6b0d5d6b40ccd6d6da2dceb35c"]`
+   existing: none, `grep -n "def test.*baseline" tests/test_sweep.py` -> tests/test_sweep.py::test_the_baseline_adds_passed_digests_without_dropping_the_ones_already_there on `write_baseline` alone and ::test_the_baseline_remembers_the_lines_no_judge_flagged on a run every batch finishes; neither stops a run
+
+3. The ids from `a.md:1`, `b.md:1`, `c.md:1` that open a line of the sweep's stdout file, with the fake flagging every line, are `["a.md:1"]` where the fake sends SIGKILL to the sweep on the `b.md:1` call, `["a.md:1", "b.md:1"]` where it sends SIGKILL on the `c.md:1` call, and `["a.md:1", "b.md:1", "c.md:1"]` where it answers every call.
+   kills: a sweep that prints each batch's flags as that batch lands but leaves stdout block-buffered, so both SIGKILLed runs' stdout files hold no flag line and read `[]`
+   bite: `[]` at both SIGKILL rows — scratch probe, fake flagging, SIGKILL on `b.md:1` and on `c.md:1` -> `exit=137` each, stdout file empty; where every call answers, stdout -> `a.md:1: r`, `b.md:1: r`, `c.md:1: r`
+   existing: none, `grep -rn "SIGKILL\|SIGTERM\|SIGINT\|KeyboardInterrupt" tests/` -> no match
+
+4. The `id` of each entry under `flags` in the `--out` file, `[]` where no file exists, after a `--out FILE` run with the fake flagging every line, is `["a.md:1"]` where the fake sends SIGINT to the sweep on the `b.md:1` call, `["a.md:1", "b.md:1"]` where it sends SIGINT on the `c.md:1` call, `["a.md:1"]` where it sends SIGTERM on the `b.md:1` call, `["a.md:1", "b.md:1"]` where it sends SIGTERM on the `c.md:1` call, `["a.md:1", "b.md:1"]` where it answers the `c.md:1` call with a bare `[]` in place of the print-mode envelope, and `["a.md:1", "b.md:1", "c.md:1"]` where it answers every call.
+   kills: a sweep that writes `--out` only when every batch answered, so the five stopped rows read `[]`
+   bite: scratch probe, fake flagging, `--out ../out.json`: SIGINT on `b.md:1` and on `c.md:1` -> `exit=130` each, stderr ends `KeyboardInterrupt`, no `out.json`; SIGTERM on `b.md:1` and on `c.md:1` -> `exit=143` each, "Terminated", no `out.json`; bare `[]` on `c.md:1` -> `exit=1`, stderr ends `AttributeError: 'list' object has no attribute 'get'`, no `out.json`; every call answered -> `exit=0`, `out.json` flags `a.md:1`, `b.md:1`, `c.md:1`
+   existing: none, `grep -rn "SIGKILL\|SIGTERM\|SIGINT\|KeyboardInterrupt" tests/` -> no match; tests/test_sweep.py::test_the_out_file_carries_the_flags_the_run_printed covers `--out` on a run every batch finishes
+--- reviewer ---
+READY
+discriminates: sweep on the stop position (`b.md:1` call, `c.md:1` call, none), three distinct expected values on each of the journal, baseline, stdout and `--out` surfaces
+1  ADMITTED
+2  ADMITTED
+3  ADMITTED
+4  ADMITTED
+
+null stub: sweep as at HEAD, with no journal, no incremental baseline, stdout left buffered and `--out` written only at a clean end.
+  satisfies: none   fails: 1, 2, 3, 4
+hard-coded stub: persist and flush the first batch's result the moment it answers and hold every later batch until the run ends.
+  satisfies: none   fails: 1, 2, 3, 4 (every `c.md:1` stop row reads the first batch alone)
+survives: 4
+
+return, round 1:
+repair 1: repaired; lines 1-4 carry the `c.md:1` stop row.
+repair 2: repaired; line 4 pins the `--out` ids alone.
+repair 3: repaired; the bare `[]` row sits on the last call, where a crash and a failed-batch-then-continue give the same `["a.md:1", "b.md:1"]`, so the row no longer pins where the crash ends the run.
+repair 4: withdrawn on citation `gauntlet/plans/approved/sweep-stream.txt:10` and `:56`. The `brief:` is the owner's words verbatim, and "plan 1-4" is the owner's own sentence, not a pointer the writer put in place of them. (m) runs against items 1-4 (stream, journal, per-batch baseline, interrupt), and lines 3, 1, 2 and 4 pin them in that order.
+repair 5: repaired; line 2 states sorted lists with each digest term written out.
+repair 6: repaired; line 5 removed.
+note (line 1): withdrawn on citation `gauntlet/plans/approved/sweep-stream.txt:23`. The journal is listed under "What the owner sees change" in accepted item 2, so the owner can see it and it is contract, not the fix's own mechanism.
