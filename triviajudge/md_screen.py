@@ -56,6 +56,22 @@ _VERB = (
 #: sentence end, either of which means the two are not the same remark.
 _GAP = r"[^.|]{0,40}"
 
+#: A past-tense verb: ``was``, ``were``, ``had``, or a regular ``-ed`` form that is
+#: not a present passive after ``is``, ``are``, ``be``, ``been`` or ``not``, nor an
+#: adjective after ``a``, ``an`` or ``the`` ("a named repair"). The
+#: ``-eed`` words (``need``, ``speed``) are not past tense and are left out.
+_PAST = (
+    r"\b(?:was|were|had|(?<!\bis )(?<!\bare )(?<!\bbe )(?<!\bbeen )(?<!\bnot )(?<!\ba )(?<!\ban )(?<!\bthe )"
+    r"\w{2,}(?<!e)ed)\b"
+)
+
+#: A round or phase number is history only when a past-tense verb follows it in
+#: the same clause: "round 2 was collected" narrates a run, "round 1 lists every
+#: question" is a rule for every run. The clause ends at ``.``, ``;``, ``:`` or ``|``.
+_POSITION = re.compile(
+    rf"\b(?:round[\s-]|phase\s+)\d+\b[^.;:|]{{0,40}}?{_PAST}", re.IGNORECASE
+)
+
 #: Past behavior, not the passive voice of a present-tense verb phrase: the
 #: auxiliaries it follows are excluded, each by its own fixed-width lookbehind,
 #: since a variable-width one is not allowed.
@@ -76,9 +92,7 @@ PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "dated event",
     ),
-    (re.compile(r"\bround\s+\d+\b", re.IGNORECASE), "position in history"),
-    (re.compile(r"\bround-\d+\b", re.IGNORECASE), "position in history"),
-    (re.compile(r"\bphase\s+\d+\b", re.IGNORECASE), "position in history"),
+    (_POSITION, "position in history"),
     (
         re.compile(r"\bstep-\d+\s+hand-back\b", re.IGNORECASE),
         "position in history",

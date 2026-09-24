@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The markdown screen refuses a round or phase number only when a past-tense verb follows it in the same clause**, so a protocol that numbers its rounds ("round 1 lists every question") reaches the judge instead of failing outright.
+
 ## [0.6.1] - 2026-09-23
 
 ### Internal
