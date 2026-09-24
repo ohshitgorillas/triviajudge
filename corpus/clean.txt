@@ -1,5 +1,3 @@
-docs/junk-filter-autopilot-resource.md:27	| 084537Z to 183927Z | 314 | 41 FAKE, 273 REAL, by album via Roon history in `tracks.tsv` and `labels.tsv`; one album labelled by track | 4 transition bursts |
-docs/junk-filter-autopilot-resource.md:28	| 200248Z to 204148Z | 103 | 21 FAKE albums and 5 carried over, by album in `labels.tsv` | 12 transition bursts, 30 low-confidence track matches |
 docs/junk-filter-autopilot-resource.md:59	Per-bin minimum over about 30 s, spur peak against its baseline. The labelled corpus counts spurs as real and cannot grade it.
 docs/junk-filter-autopilot-resource.md:65	Beaten approaches, kept so they are not repeated.
 docs/junk-filter-autopilot-resource.md:67	- **30 s per-bin minimum for the 20k wall.** A minimum keeps each bin's quietest frame, so quiet passages erase the wall and a loud frame cannot restore it: detection misses, release takes tens of seconds. On the same 1550 blocks it scores 77 wrong to the p90 block's 56, and its release is the folded window's length.
@@ -16,3 +14,5 @@ docs/design.md:14	`ask` returns list indices, verified.
 docs/design.md:21	RFC 9110 section 9.3.1 defines the method as safe.
 docs/design.md:27	Retries are no longer required: the client is idempotent.
 docs/design.md:33	TODO: the sweep has no resume, so an interrupted run starts over.
+docs/junk-filter-autopilot-resource-20k.md:186	- **A spur as evidence of an upsample.** A tone above the fold with no partner at the source rate minus its frequency cannot come from a 1x upsample and proves capture at the container rate. One Beat's four spurs above its wall and Amnesty's supply tone were read as junk to remove; they are the opposite. Only a tone with a mirror partner is an image.
+docs/junk-filter-autopilot-resource-20k.md:156	**Policy.** Changing the junk filter on the running engine costs nothing: no interruption, no glitch, no silence. The 20k setting follows the per-track latch of section 2: it engages soon after the first frames that show the wall and holds until the track changes. A sample-rate change resets state at once. The 30k and 40k settings keep a hysteresis of their own on a 3 to 5 s minimum (section 4). The block rule's policy, engage where a block reads junk above the fold and drop where the next block reads nothing to remove, is beaten with the block; the run rule below is its confirming rule and its grade.
