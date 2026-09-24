@@ -10,6 +10,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Markdown gains a pattern screen.** `md_screen.screen` refuses a dated event, a round, phase or hand-back position in history, a struck-through or `Resolved:`/`Still open:` item, correction narration, narration by negation, a completed-run record and `used to` past behavior, before any line reaches the model, at `Stop`, at commit and in a sweep. A blockquote, an indented line and an inline code span skip it; `history-ok: <reason>` exempts a line.
 
+### Changed
+
+- **A line that carries trivia is flagged even when it also states a current fact**, at every gate, so the same line gets the same verdict from one run to the next. The markdown gate also flags a version stamped on a fact and the request that prompted the work. A rejected approach passes for its lesson — why it fails, what it costs, the comparison it lost — and is flagged for per-case detail past that.
+
 ## [0.5.0] - 2026-09-21
 
 ### Added
