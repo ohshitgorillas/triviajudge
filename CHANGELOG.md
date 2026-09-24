@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-23
+
+### Internal
+
+- **CI installs `filepawl`, pinned by commit, so `make check` runs its length and directory gates there as it does on a dev host.**
+
 ## [0.6.0] - 2026-09-23
 
 ### Added
