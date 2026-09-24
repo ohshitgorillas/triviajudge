@@ -44,7 +44,7 @@ triviajudge-sweep --check           # exit 1 when anything is flagged
 
 Collection is whole-file, through the same filters the gates use: `md_skip`, the prose filter and the `md_screen` patterns for markdown, `suffixes`, `excluded` and `comment_skip` for source. The archaeology and markdown patterns screen their candidates first; their complaints cost nothing and never reach a judge.
 
-A judge takes one CLI call for every line it is given, so a sweep splits its candidates into batches of `sweep_batch` and asks once per batch. It counts the candidates and prints the call count before spending anything, and asks; `--yes` skips the question. A batch whose call fails is printed with the files it covers and the run continues — a commit gate fails closed because a commit is one decision, and a sweep is hundreds.
+A judge takes one CLI call for every line it is given, so a sweep splits its candidates into batches of `gate_batch`, the chunk every gate asks in, and asks once per batch. It counts the candidates and prints the call count before spending anything, and asks; `--yes` skips the question. A batch whose call fails is printed with the files it covers and the run continues — a commit gate fails closed because a commit is one decision, and a sweep is hundreds.
 
 Flags print as `path:line: reason` and the run exits 0. `--check` exits 1 on any flag, complaint or failed batch, and `--out FILE` writes all three as JSON, with `unjudged` and `stopped` beside them.
 
@@ -105,9 +105,8 @@ base_url = ""                       # root of that server, e.g. "http://127.0.0.
 api_key_env = ""                    # variable holding its bearer token, if it wants one
 chat_path = "/v1/chat/completions"  # where under base_url the question is posted
 md_judge_at_stop = true             # whether the markdown judge runs at Stop
-gate_batch = 20                     # lines per call at the markdown gate, 0 for one call
+gate_batch = 20                     # lines per call at every gate and in a sweep, 0 for one call
 gate_parallel = 4                   # concurrent gate calls, capped at half the cores
-sweep_batch = 150                   # lines per call in a sweep
 sweep_parallel = 1                  # concurrent calls, capped at half the cores
 sweep_model = "claude-haiku-4-5"    # the model a sweep asks
 ```

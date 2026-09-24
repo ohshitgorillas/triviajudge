@@ -10,8 +10,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **A sweep keeps what it heard when it dies.** Each batch prints as it answers, in completion order, and lands in `.triviajudge/sweep-journal.jsonl` and, under `--baseline`, in `sweep-clean.json` before the next is read. Ctrl-C, SIGTERM or an exception that escapes a batch stops the run with the summary and `--out` written for what landed, the unanswered batches named as not judged, and exit 130 (1 on an exception). `--out` gains `unjudged` and `stopped`.
 
+### Removed
+
+- **`sweep_batch`.** A sweep asks in chunks of `gate_batch`; a table that still names `sweep_batch` fails as an unknown setting.
+
 ### Fixed
 
+- **The comment gate, the per-bullet changelog gate, the comment sweep and `make calibrate` ask in chunks of `gate_batch`**, as the markdown gate does, so a line gets the same verdict whichever of them reads it.
 - **The markdown screen refuses a round or phase number only when a past-tense verb follows it in the same clause**, so a protocol that numbers its rounds ("round 1 lists every question") reaches the judge instead of failing outright.
 
 ## [0.6.1] - 2026-09-23

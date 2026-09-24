@@ -15,7 +15,7 @@ call carries them — and they never reach the judge.
 Cost is the thing to hold. ``triviajudge.transport.ask`` sends one call for every line it is
 given, whichever backend carries it, so a whole tree in one call is a call
 nobody can afford to lose. Sweep
-splits the candidates into batches of ``sweep_batch`` and asks once per batch.
+splits the candidates into batches of ``gate_batch`` and asks once per batch.
 A batch that fails is reported with the files it covers and the run continues:
 a commit gate fails closed because a commit is one decision, and a sweep is
 hundreds, so one dead call must not throw away the rest.
@@ -56,7 +56,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from triviajudge import comment_trivia, md_screen, md_trivia
-from triviajudge.config import SWEEP_CACHE, Settings, cache_path, settings
+from triviajudge.config import SWEEP_CACHE, cache_path, settings
 from triviajudge.core import (
     Line,
     NotARepositoryError,
@@ -263,9 +263,7 @@ def parse_args() -> argparse.Namespace:
         metavar="PREFIX",
         help="limit to a path prefix",
     )
-    parser.add_argument(
-        "--batch", type=int, help="lines per call (default sweep_batch)"
-    )
+    parser.add_argument("--batch", type=int, help="lines per call (default gate_batch)")
     parser.add_argument(
         "--limit", type=int, help="judge at most this many candidates per gate"
     )
@@ -288,25 +286,20 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def collect(
-    args: argparse.Namespace, size: int, md_size: int | None = None
-) -> tuple[list[Batch], list[str]]:
+def collect(args: argparse.Namespace, size: int) -> tuple[list[Batch], list[str]]:
     """The batches to ask and the complaints the pattern screen already answered for.
 
-    ``md_size`` is the markdown gate's own chunk, which is smaller than the
-    comment gate's: the markdown judge answers a verdict per line and reads a
-    shorter body accurately than a long one. It defaults to ``size``, so a
-    caller naming one number gets that number for both.
+    Both judges take ``size`` lines per call, the chunk their gates take, so a
+    sweep reads each line the way a commit would.
     """
     prefixes = tuple(args.paths)
-    md_size = size if md_size is None else md_size
     both = not args.md and not args.comments
     batches: list[Batch] = []
     complaints: list[str] = []
     if args.md or both:
         lines, md_complaints = md_screen.screen(md_candidates(prefixes))
         complaints.extend(md_complaints)
-        batches.extend(batched(MD, md_trivia.PROMPT, lines[: args.limit], md_size))
+        batches.extend(batched(MD, md_trivia.PROMPT, lines[: args.limit], size))
     if args.comments or both:
         lines, comment_complaints = comment_candidates(prefixes)
         complaints.extend(comment_complaints)
@@ -316,20 +309,15 @@ def collect(
     return batches, complaints
 
 
-def sizes(args: argparse.Namespace, config: Settings) -> tuple[int, int]:
-    """The comment gate's chunk and the markdown gate's; ``--batch`` names both at once."""
-    return args.batch or config.sweep_batch, args.batch or config.gate_batch
-
-
 def main() -> int:
     """Sweep the tree, report what the judges flagged, and answer with the exit code."""
     args = parse_args()
     try:
         config = settings()
-        size, md_size = sizes(args, config)
+        size = args.batch or config.gate_batch
         model = args.model or config.sweep_model
         parallel = workers(args.parallel or config.sweep_parallel)
-        batches, complaints = collect(args, size, md_size)
+        batches, complaints = collect(args, size)
     except (NotARepositoryError, RuntimeError, OSError) as exc:
         print(f"trivia judge: {exc}", file=sys.stderr)
         return 1

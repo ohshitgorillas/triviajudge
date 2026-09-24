@@ -49,7 +49,7 @@ from triviajudge.changelog_screen import (
     screen_records,
     whole_section,
 )
-from triviajudge.config import cache_path
+from triviajudge.config import cache_path, settings
 from triviajudge.core import (
     Gate,
     Line,
@@ -126,7 +126,11 @@ def collect(args: argparse.Namespace) -> tuple[list[Line], list[str]]:
 
 
 def gate(args: argparse.Namespace) -> Gate:
-    """The changelog gate, in the scope the arguments name. The release scope keeps no cache."""
+    """The changelog gate, in the scope the arguments name.
+
+    The release scope keeps no cache and asks in one call, since its question is
+    how the bullets relate to each other.
+    """
     if args.release:
         return Gate(
             RELEASE_PROMPT,
@@ -141,6 +145,7 @@ def gate(args: argparse.Namespace) -> Gate:
         "[ok] no changelog entry added",
         judge_at_stop=True,
         cache=cache,
+        batch=settings().gate_batch,
     )
 
 

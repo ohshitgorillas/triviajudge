@@ -270,7 +270,13 @@ def collect(args: argparse.Namespace) -> tuple[list[Line], list[str]]:
 
 def gate() -> Gate:
     """The comment gate. It carries no cache: the mode that would write one does not judge."""
-    return Gate(PROMPT, collect, "[ok] no comment prose added", judge_at_stop=False)
+    return Gate(
+        PROMPT,
+        collect,
+        "[ok] no comment prose added",
+        judge_at_stop=False,
+        batch=settings().gate_batch,
+    )
 
 
 def main() -> int:

@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from triviajudge import changelog_prompts, comment_trivia, md_trivia
+from triviajudge.config import settings
 from triviajudge.core import from_records
 from triviajudge.gate import verdicts
 
@@ -42,10 +43,6 @@ PROMPTS = {
     "comments": comment_trivia.PROMPT,
     "changelog": changelog_prompts.PROMPT,
 }
-
-#: Lines per call. A corpus arrives in one file and the judge answers per call, so the
-#: batch is what keeps a whole run off a single answer.
-BATCH = 50
 
 #: Seconds one call may take before the run calls it lost.
 TIMEOUT = 300.0
@@ -121,7 +118,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--model", default=None, help="the model to ask, over the configured one"
     )
     parser.add_argument(
-        "--batch", type=int, default=BATCH, help=f"lines per call (default {BATCH})"
+        "--batch",
+        type=int,
+        help="lines per call (default gate_batch, as the gates ask)",
     )
     return parser.parse_args(argv)
 
@@ -137,7 +136,7 @@ def main() -> int:
         trivia + clean,
         PROMPTS[args.gate],
         args.model,
-        args.batch,
+        args.batch or settings().gate_batch,
         exhaustive=args.gate == "md",
     )
     return report(trivia, clean, marked)
