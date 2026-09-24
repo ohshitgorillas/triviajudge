@@ -36,6 +36,9 @@ jobs:
           python -m venv .venv
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -e ".[dev]"
+          # Not in the dev extra: PyPI refuses an upload whose metadata names a
+          # git dependency. Pinned by commit, as the actionlint download is.
+          .venv/bin/pip install "filepawl @ git+https://github.com/ohshitgorillas/filepawl@dafec4a8bfb9e00d99d1b3e8c44137338a0346ad"
 
       # No package named `actionlint` on npm is the upstream project — the
       # Makefile's workflow lint line needs the real binary on PATH, pinned and
