@@ -25,25 +25,28 @@ surface: `python -m triviajudge.sweep --md --yes --batch 1 --parallel 1`, run as
    kills: a sweep that writes `--out` only when every batch answered, so the five stopped rows read `[]`
    bite: scratch probe, fake flagging, `--out ../out.json`: SIGINT on `b.md:1` and on `c.md:1` -> `exit=130` each, stderr ends `KeyboardInterrupt`, no `out.json`; SIGTERM on `b.md:1` and on `c.md:1` -> `exit=143` each, "Terminated", no `out.json`; bare `[]` on `c.md:1` -> `exit=1`, stderr ends `AttributeError: 'list' object has no attribute 'get'`, no `out.json`; every call answered -> `exit=0`, `out.json` flags `a.md:1`, `b.md:1`, `c.md:1`
    existing: none, `grep -rn "SIGKILL\|SIGTERM\|SIGINT\|KeyboardInterrupt" tests/` -> no match; tests/test_sweep.py::test_the_out_file_carries_the_flags_the_run_printed covers `--out` on a run every batch finishes
+
+5. The first batch name that `sweep.run_batches(sweep.batched(sweep.MD, "prompt", LINES, 2), "a-model", 4)` yields, where a fake `triviajudge.sweep.verdicts` answers `[]` for every call and holds every call but the free batch's until the caller has received a first result, is `"md#2"` where the free batch is `md#2` and `"md#4"` where the free batch is `md#4`.
+   kills: a concurrent sweep that yields in submission order, so a slow first batch hides every batch that finished behind it and both rows read `"md#1"`; or one that yields in any fixed order, which fails the row whose free batch is not its first
+   bite: base `3ab362a` -> `"md#1"` at both rows, full order `['md#1', 'md#2', 'md#3', 'md#4']` each; probe: fake `verdicts` waits on a `threading.Event`, `wait(timeout=5)`, for every batch but the free one, the loop over `run_batches` sets the event on each result received, run with `.venv/bin/python -` at the main tree. The feature-absent tree reaches `md#1` only after the hold's 5 s bound.
+   existing: tests/test_sweep.py::test_every_batch_is_asked_when_the_calls_run_concurrently
 --- reviewer ---
 READY
-discriminates: sweep on the stop position (`b.md:1` call, `c.md:1` call, none), three distinct expected values on each of the journal, baseline, stdout and `--out` surfaces
-1  ADMITTED
-2  ADMITTED
-3  ADMITTED
-4  ADMITTED
+discriminates: sweep on the stop position (`b.md:1` call, `c.md:1` call, none), three distinct expected values on each of the journal, baseline, stdout and `--out` surfaces; sweep on the free batch (`md#2`, `md#4`) with two distinct exact values on the `run_batches` surface
+1  ADMITTED carried
+2  ADMITTED carried
+3  ADMITTED carried
+4  ADMITTED carried
+5  AMENDED tests/test_sweep.py:298: test_every_batch_is_asked_when_the_calls_run_concurrently gains the two held rows (free `md#2` -> first name `"md#2"`, free `md#4` -> first name `"md#4"`); no new test is written.
 
-null stub: sweep as at HEAD, with no journal, no incremental baseline, stdout left buffered and `--out` written only at a clean end.
-  satisfies: none   fails: 1, 2, 3, 4
-hard-coded stub: persist and flush the first batch's result the moment it answers and hold every later batch until the run ends.
-  satisfies: none   fails: 1, 2, 3, 4 (every `c.md:1` stop row reads the first batch alone)
+return, round 4: finding "5 STRICKEN hard-coded stub" is answered by the named repair (line 5 text replaced with the two-row sweep); withdrawn.
+
+block: four new tests (lines 1-4) and one delta (line 5); the delta does not count toward the cap.
+
+note (line 5): the line pins the first name only. If the amended test drops its ordered four-name assertion at tests/test_sweep.py:303-310, nothing in this block pins that every batch is yielded exactly once, because a `run_batches` that yields the free batch first and then drops one passes both rows. Whether that assertion has to go depends on the implementation. The main agent settles it against the code.
+
+null stub: sweep as at HEAD, with no journal, no incremental baseline, stdout left buffered, `--out` written only at a clean end, and `run_batches` yielding in submission order, so the held `md#1` comes first at both rows.
+  satisfies: none   fails: 1, 2, 3, 4, 5
+hard-coded stub: persist and flush the first batch's result the moment it answers and hold every later batch until the run ends; `run_batches` runs batches one at a time in the fixed order `md#4, md#3, md#2, md#1`.
+  satisfies: none   fails: 1, 2, 3, 4 (every `c.md:1` stop row reads the first batch alone), 5 (free `md#2` row reads `"md#4"`)
 survives: 4
-
-return, round 1:
-repair 1: repaired; lines 1-4 carry the `c.md:1` stop row.
-repair 2: repaired; line 4 pins the `--out` ids alone.
-repair 3: repaired; the bare `[]` row sits on the last call, where a crash and a failed-batch-then-continue give the same `["a.md:1", "b.md:1"]`, so the row no longer pins where the crash ends the run.
-repair 4: withdrawn on citation `gauntlet/plans/approved/sweep-stream.txt:10` and `:56`. The `brief:` is the owner's words verbatim, and "plan 1-4" is the owner's own sentence, not a pointer the writer put in place of them. (m) runs against items 1-4 (stream, journal, per-batch baseline, interrupt), and lines 3, 1, 2 and 4 pin them in that order.
-repair 5: repaired; line 2 states sorted lists with each digest term written out.
-repair 6: repaired; line 5 removed.
-note (line 1): withdrawn on citation `gauntlet/plans/approved/sweep-stream.txt:23`. The journal is listed under "What the owner sees change" in accepted item 2, so the owner can see it and it is contract, not the fix's own mechanism.
