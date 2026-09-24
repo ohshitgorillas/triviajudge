@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **A sweep keeps what it heard when it dies.** Each batch prints as it answers, in completion order, and lands in `.triviajudge/sweep-journal.jsonl` and, under `--baseline`, in `sweep-clean.json` before the next is read. Ctrl-C, SIGTERM or an exception that escapes a batch stops the run with the summary and `--out` written for what landed, the unanswered batches named as not judged, and exit 130 (1 on an exception). `--out` gains `unjudged` and `stopped`.
+
 ### Fixed
 
 - **The markdown screen refuses a round or phase number only when a past-tense verb follows it in the same clause**, so a protocol that numbers its rounds ("round 1 lists every question") reaches the judge instead of failing outright.
