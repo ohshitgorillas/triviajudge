@@ -252,6 +252,7 @@ type = "layers"
 containers = ["triviajudge"]
 layers = [
     "sweep",
+    "sweep_report",
     "md_trivia | comment_trivia | changelog_trivia",
     "changelog_prompts | changelog_screen | md_screen",
     "gate",
