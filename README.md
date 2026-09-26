@@ -1,8 +1,14 @@
 # Trivia Judge
 
-A huge pet peeve of mine is that agents cannot reliably distinguish between "a useful fact for the next agent" and "a useless fact I know". Without specific attention to such, documentation and comments collect a type of rot: dated approvals, hand-back receipts, refactor records, relitigation of rules already in every agent's primary instructions file, round and phase numbers used as positions in history, and prose whose only content is that something did not change.
+A huge pet peeve of mine is that agents cannot reliably distinguish between useful knowledge for the next agent and useless "trivia" on-the-fly. Code comments, docs, and changelog accumulate dated approvals, hand-back receipts, refactor records, linting results, relitigation of rules already in every agent's context, round and phase numbers used as positions in history, and prose whose only content is that something did not change. None of this helps the next agent do its job; all of it eats context regardless. Furthermore, when agents see comments like "`make check` verified green after two passes, ruff errors fixed" in permanent documentation, they mimic that style… the more you let it be, the worse the problem gets.
 
-The Trivia Judge package is four gates designed to prevent this rot by forcing agents to clean up docstrings, comments, and markdown files to state what holds now rather than what happened.
+The Trivia Judge package is the solution: it blocks commits containing useless trivia in comments, docstrings, markdown, and the changelog. It forces agents to clean up their work and state what holds now. It consists of four gates:
+* A mechanical hook that prevents common phrases, e.g. "used to" within certain contexts
+* Three Haiku-level "judges" for code comments, markdown, and the changelog.
+
+The mechanical hook prevents the most easily detectable instances of trivia; the rest is a judgment call, so it goes to the judges. The judges look at each line and are asked one question: is this relevant information or useless trivia? If the latter, the commit is blocked and agents are informed of the violation, forcing them to restate the problematic text in a useless way or cut it.
+
+The package can also be used to sweep an existing codebase for issues.
 
 ## The four gates
 
