@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-26
+
 ### Fixed
 
 - **`used to` is refused only after a pronoun or `got`** (`it used to poll`, `got used to the tabs`), in comments, markdown and commit messages. A purpose — `the method used to fit`, `Used to serialize the store`, `It is used to store` — failed the screen outright; it reaches the judge now.
