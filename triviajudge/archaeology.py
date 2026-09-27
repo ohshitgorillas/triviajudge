@@ -9,7 +9,7 @@ This gate blocks the phrasing that reliably marks such narration:
 
 - ISO dates in prose (``2026-07-28``) — a dated remark describes a moment,
   not an invariant;
-- ``used to``, ``earlier draft/version/design`` and ``as it always was`` —
+- ``used to`` after a pronoun or ``got``, ``earlier draft/version/design`` and ``as it always was`` —
   past-behavior narration;
 - ``extracted``/``split``/``moved``/``pulled``/``lifted``/``carved`` followed by
   ``of`` or ``from``, and ``reorg`` — refactor archaeology. Both prepositions,
@@ -89,9 +89,20 @@ RULE_HOLDERS = frozenset({"archaeology.py", "md_trivia.py", "comment_trivia.py"}
 _LENGTH = r"\d+(?:\.\d+)?(?:px|rem|em|ch|%)"
 _PAST = r"(?:was|were|used|put|added|made|grew|shipped|jumped|sat|stood|became)"
 
+#: ``used to`` as past behavior, told apart from ``used to`` as purpose by what
+#: comes before it: a pronoun subject ("it used to poll") or ``got`` ("got used
+#: to the tabs"). A noun before it ("the method used to fit"), a bare opening
+#: ("Used to serialize the store") and an auxiliary ("is used to") read either
+#: way, so the screen leaves them to the model judge.
+USED_TO = re.compile(
+    r"\b(?:i|we|you|he|she|it|they|this|that|which|who|get|gets|got|getting)"
+    r"\s+used to\b",
+    re.IGNORECASE,
+)
+
 PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b20[0-9]{2}-[01][0-9]-[0-3][0-9]\b"), "dated narration"),
-    (re.compile(r"\bused to\b", re.IGNORECASE), "past-behavior narration"),
+    (USED_TO, "past-behavior narration"),
     (
         re.compile(r"\bearlier (?:draft|version|design)\b", re.IGNORECASE),
         "prior-iteration narration",

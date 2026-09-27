@@ -36,7 +36,8 @@ PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b20[0-9]{2}-[01][0-9]-[0-3][0-9]\b"), "dated narration"),
     (
         re.compile(
-            r"\b(?:used to|originally|at first|earlier (?:draft|version|design|attempt)"
+            r"\b(?:(?:i|we|you|he|she|it|they|this|that|which|who|get|gets|got|getting)"
+            r"\s+used to|originally|at first|earlier (?:draft|version|design|attempt)"
             r"|previous attempt|first (?:attempt|try|pass)|second (?:attempt|pass|round)"
             r"|round (?:two|three)|iterations?)\b",
             re.IGNORECASE,

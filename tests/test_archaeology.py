@@ -130,8 +130,21 @@ def test_a_javascript_block_comment_narrating_the_past_is_refused(
     assert refuses(
         tmp_path,
         "sample.js",
-        js_block_comment("the store used to poll on its own timer"),
+        js_block_comment("it used to poll on its own timer"),
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "It is used to store the baseline method.",
+        "Method used to correct baselines.",
+        "Used to serialize and deserialize the store.",
+    ],
+    ids=["after an auxiliary", "after a noun", "opening a docstring"],
+)
+def test_used_to_naming_a_purpose_is_allowed(tmp_path: Path, text: str) -> None:
+    assert not refuses(tmp_path, "sample.py", py_docstring(text))
 
 
 # --- existing behavior: the pragma --------------------------------------------

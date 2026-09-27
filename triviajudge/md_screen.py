@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from triviajudge.archaeology import BARE_PRAGMA, EXEMPT, PRAGMA
+from triviajudge.archaeology import BARE_PRAGMA, EXEMPT, PRAGMA, USED_TO
 
 if TYPE_CHECKING:
     from triviajudge.core import Line
@@ -72,15 +72,6 @@ _POSITION = re.compile(
     rf"\b(?:round[\s-]|phase\s+)\d+\b[^.;:|]{{0,40}}?{_PAST}", re.IGNORECASE
 )
 
-#: Past behavior, not the passive voice of a present-tense verb phrase: the
-#: auxiliaries it follows are excluded, each by its own fixed-width lookbehind,
-#: since a variable-width one is not allowed.
-_USED_TO = re.compile(
-    r"(?<!\bbe )(?<!\bis )(?<!\bare )(?<!\bwas )(?<!\bwere )(?<!\bbeen )"
-    r"\bused to\b",
-    re.IGNORECASE,
-)
-
 #: ``(pattern, label)``, same shape as ``triviajudge.archaeology.PATTERNS``. Every
 #: pattern is case-insensitive; each is tried against the line with its inline code
 #: spans already stripped.
@@ -124,7 +115,7 @@ PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         "process record",
     ),
     (re.compile(r"\bran twice\b", re.IGNORECASE), "process record"),
-    (_USED_TO, "past behavior"),
+    (USED_TO, "past behavior"),
     (re.compile(r"\bnot trivia\b", re.IGNORECASE), "addressed to the judge"),
     (re.compile(r"\bkeep this line\b", re.IGNORECASE), "addressed to the judge"),
     (
