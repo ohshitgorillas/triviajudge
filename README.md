@@ -6,7 +6,7 @@ The Trivia Judge package is the solution: it blocks commits containing useless t
 * A mechanical hook that prevents common phrases, e.g. "used to" within certain contexts
 * Three Haiku-level "judges" for code comments, markdown, and the changelog.
 
-The mechanical hook prevents the most easily detectable instances of trivia; the rest is a judgment call, so it goes to the judges. The judges look at each line and are asked one question: is this relevant information or useless trivia? If the latter, the commit is blocked and agents are informed of the violation, forcing them to restate the problematic text in a useless way or cut it.
+The mechanical hook prevents the most easily detectable instances of trivia; the rest is a judgment call, so it goes to the judges. The judges look at each line and are asked one question: is this relevant information or useless trivia? If the latter, the commit is blocked and agents are informed of the violation, forcing them to restate the problematic text in a useful way or cut it.
 
 The package can also be used to sweep an existing codebase for issues.
 
